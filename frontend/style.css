@@ -1,0 +1,615 @@
+/* =============================================================
+   Eva AI — style.css
+   Premium dark theme, glassmorphism, smooth animasyonlar
+   ============================================================= */
+
+/* ── TEMEL RESET & DEĞİŞKENLER ─────────────────────────────── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Renkler */
+  --color-bg:          #0a0a0f;
+  --color-surface:     rgba(255, 255, 255, 0.04);
+  --color-surface-2:   rgba(255, 255, 255, 0.08);
+  --color-border:      rgba(255, 255, 255, 0.08);
+  --color-border-2:    rgba(255, 255, 255, 0.14);
+
+  --color-primary:     #7c3aed;      /* Mor — Eva'nın rengi */
+  --color-primary-2:   #a855f7;
+  --color-primary-glow:rgba(124, 58, 237, 0.3);
+
+  --color-user-bubble: linear-gradient(135deg, #7c3aed, #a855f7);
+  --color-eva-bubble:  rgba(255, 255, 255, 0.06);
+
+  --color-text:        #f1f0f5;
+  --color-text-muted:  #8b8a94;
+  --color-text-dim:    #555462;
+
+  --color-error:       rgba(239, 68, 68, 0.15);
+  --color-error-border:rgba(239, 68, 68, 0.4);
+
+  --color-online:      #22c55e;
+  --color-thinking:    #f59e0b;
+
+  /* Ölçüler */
+  --radius-sm:  8px;
+  --radius-md:  14px;
+  --radius-lg:  20px;
+  --radius-xl:  28px;
+
+  /* Geçişler */
+  --transition: 0.2s ease;
+}
+
+/* ── GENEL BODY ─────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100dvh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── ARKA PLAN EFEKT TOPLARI ────────────────────────────────── */
+.bg-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: 0;
+  animation: float 8s ease-in-out infinite;
+}
+
+.bg-orb-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.15), transparent 70%);
+  top: -200px;
+  left: -100px;
+}
+
+.bg-orb-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.1), transparent 70%);
+  bottom: -150px;
+  right: -100px;
+  animation-delay: -3s;
+}
+
+.bg-orb-3 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.08), transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation-delay: -6s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-20px); }
+}
+
+/* ── ANA UYGULAMA ───────────────────────────────────────────── */
+.app {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ── HEADER ─────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  animation: slideDown 0.5s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Avatar */
+.avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-2));
+  padding: 2px;
+  animation: pulse-ring 3s ease-in-out infinite;
+}
+
+.avatar-ring::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: var(--color-bg);
+}
+
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-primary-glow); }
+  50%       { box-shadow: 0 0 0 8px transparent; }
+}
+
+.avatar-emoji {
+  font-size: 22px;
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+}
+
+/* Avatar düşünme animasyonu */
+.avatar-thinking {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  background: var(--color-thinking);
+  border-radius: 10px;
+  padding: 3px 5px;
+  display: none;
+  gap: 2px;
+  align-items: center;
+  z-index: 2;
+}
+
+.avatar-thinking.active {
+  display: flex;
+}
+
+.avatar-thinking span {
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  animation: dot-bounce 1.2s ease-in-out infinite;
+}
+
+.avatar-thinking span:nth-child(2) { animation-delay: 0.2s; }
+.avatar-thinking span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1);   opacity: 1; }
+}
+
+/* Header bilgi */
+.header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.header-title {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #e2e0f0, var(--color-primary-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.header-status {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-online);
+  transition: color var(--transition);
+}
+
+.header-status.thinking {
+  color: var(--color-thinking);
+}
+
+/* Header sağ taraf */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.memory-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 6px 12px;
+  transition: all var(--transition);
+}
+
+.memory-badge:hover {
+  background: var(--color-surface-2);
+  color: var(--color-primary-2);
+  border-color: var(--color-primary);
+}
+
+.btn-clear {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.btn-clear:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.btn-clear:active {
+  transform: scale(0.95);
+}
+
+/* ── SOHBET PENCERESI ───────────────────────────────────────── */
+.chat-window {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scroll-behavior: smooth;
+}
+
+/* Scrollbar özelleştirme */
+.chat-window::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-window::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-window::-webkit-scrollbar-thumb {
+  background: var(--color-border-2);
+  border-radius: 4px;
+}
+.chat-window::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* ── MESAJ SATIRI ───────────────────────────────────────────── */
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: 100%;
+  animation: messageIn 0.3s ease;
+}
+
+@keyframes messageIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Kullanıcı mesajları sağa hizala */
+.message-row.user {
+  flex-direction: row-reverse;
+}
+
+/* ── AVATAR (küçük) ─────────────────────────────────────────── */
+.msg-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-2));
+  margin-bottom: 4px;
+}
+
+.msg-avatar.user-avatar {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-2);
+}
+
+/* ── MESAJ İÇERİĞİ ──────────────────────────────────────────── */
+.message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 75%;
+}
+
+.message-row.user .message-content {
+  align-items: flex-end;
+}
+
+/* Meta bilgi (isim + zaman) */
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.message-sender {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.message-time {
+  font-size: 11px;
+  color: var(--color-text-dim);
+}
+
+/* Balon */
+.message-bubble {
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  line-height: 1.65;
+  font-size: 14.5px;
+  word-break: break-word;
+  transition: box-shadow var(--transition);
+}
+
+/* Eva'nın balonu */
+.message-bubble.eva {
+  background: var(--color-eva-bubble);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm);
+  backdrop-filter: blur(10px);
+}
+
+.message-bubble.eva:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Kullanıcının balonu */
+.message-bubble.user {
+  background: var(--color-user-bubble);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
+  box-shadow: 0 4px 15px var(--color-primary-glow);
+  color: #fff;
+}
+
+/* Hata balonu */
+.message-bubble.error {
+  background: var(--color-error);
+  border: 1px solid var(--color-error-border);
+}
+
+/* Markdown stilleri (Eva cevaplarında) */
+.message-bubble.eva h1,
+.message-bubble.eva h2,
+.message-bubble.eva h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.message-bubble.eva p {
+  margin-bottom: 6px;
+}
+
+.message-bubble.eva p:last-child {
+  margin-bottom: 0;
+}
+
+.message-bubble.eva ul,
+.message-bubble.eva ol {
+  padding-left: 18px;
+  margin: 6px 0;
+}
+
+.message-bubble.eva li {
+  margin-bottom: 3px;
+}
+
+.message-bubble.eva strong {
+  font-weight: 600;
+  color: var(--color-primary-2);
+}
+
+.message-bubble.eva code {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+.message-bubble.eva pre {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.message-bubble.eva a {
+  color: var(--color-primary-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── YAZMA GÖSTERGESİ (Eva yazıyor...) ─────────────────────── */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 18px;
+  background: var(--color-eva-bubble);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm);
+  width: fit-content;
+}
+
+.typing-indicator span {
+  width: 7px;
+  height: 7px;
+  background: var(--color-primary-2);
+  border-radius: 50%;
+  animation: dot-bounce 1.2s ease-in-out infinite;
+}
+
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── GİRİŞ ALANI ────────────────────────────────────────────── */
+.input-area {
+  padding: 16px 0 20px;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 10px 10px 10px 18px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+.input-textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  font-size: 14.5px;
+  color: var(--color-text);
+  line-height: 1.6;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.input-textarea::placeholder {
+  color: var(--color-text-dim);
+}
+
+.input-textarea::-webkit-scrollbar {
+  width: 4px;
+}
+
+.btn-send {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-surface-2);
+  color: var(--color-text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition);
+  font-size: 0;
+}
+
+.btn-send:not(:disabled):hover {
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 4px 14px var(--color-primary-glow);
+  transform: scale(1.05);
+}
+
+.btn-send:not(:disabled):active {
+  transform: scale(0.93);
+}
+
+.btn-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-send.loading {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-send.loading #icon-loading {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.input-hint {
+  font-size: 11.5px;
+  color: var(--color-text-dim);
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* ── DUYARLI TASARIM (Mobil) ────────────────────────────────── */
+@media (max-width: 600px) {
+  .app {
+    padding: 0 12px;
+  }
+
+  .memory-badge {
+    display: none; /* Mobilde gizle */
+  }
+
+  .message-content {
+    max-width: 85%;
+  }
+
+  .header-title {
+    font-size: 18px;
+  }
+}
