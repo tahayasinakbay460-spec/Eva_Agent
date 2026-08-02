@@ -2,6 +2,7 @@
 backend/.env
 backend/chroma_db/
 backend/eva_users.db
+backend/instance/
 backend/__pycache__/
 backend/app/__pycache__/
 backend/app/core/__pycache__/
