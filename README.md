@@ -175,11 +175,12 @@ Content-Type: application/json
 ## 🗺️ Proje Yol Haritası
 
 - [x] **Faz 1 — MVP**: Temel sohbet, Gemini entegrasyonu, RAG hafıza sistemi (ChromaDB), FastAPI backend, vanilla JS frontend
-- [ ] **Faz 2 — Auth & Çok Kullanıcı**: JWT tabanlı kayıt/giriş, şifrelenmiş parola, kullanıcıya özel izole hafıza, korumalı endpoint'ler
-- [ ] **Faz 3 — Ses**: STT (konuşmayı metne) ve TTS (metni sese) entegrasyonu
-- [ ] **Faz 4 — Görsel**: Kamera erişimi ve duygu analizi
-- [ ] **Faz 5 — Proaktiflik**: Zamanlanmış bildirimler ve hatırlatıcılar
-- [ ] **Faz 6 — Monetizasyon**: Mini oyunlar & reklam entegrasyonu
+- [x] **Faz 2 — Auth & Çok Kullanıcı**: JWT tabanlı kayıt/giriş, şifrelenmiş parola, kullanıcıya özel izole hafıza, korumalı endpoint'ler
+- [ ] **Faz 3 — Kullanıcı Mesajları**: Kullanıcın eski mesajlarını liste sol panelde gemini gibi gostereme ve veritabanını mysqle cevirme
+- [ ] **Faz 4 — Ses**: STT (konuşmayı metne) ve TTS (metni sese) entegrasyonu
+- [ ] **Faz 5 — Görsel**: Kamera erişimi ve duygu analizi
+- [ ] **Faz 6 — Proaktiflik**: Zamanlanmış bildirimler ve hatırlatıcılar
+- [ ] **Faz 7 — Monetizasyon**: Mini oyunlar & reklam entegrasyonu
 
 ---
 

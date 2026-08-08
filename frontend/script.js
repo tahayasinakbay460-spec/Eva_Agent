@@ -17,14 +17,18 @@
    ================================================================ */
 
 // Backend API adresi
-// FastAPI localhost:8000'de çalışıyor
 const API_BASE = 'http://localhost:8000/api';
 
-// Kullanıcı kimliği (ileride giriş sistemiyle dinamik olacak)
-const USER_ID = 'default_user';
+// Oturum yönetimi
+function getToken() { return localStorage.getItem('eva_token'); }
+function getUsername() { return localStorage.getItem('eva_username'); }
+function clearSession() {
+  localStorage.removeItem('eva_token');
+  localStorage.removeItem('eva_user_id');
+  localStorage.removeItem('eva_username');
+}
 
 // Oturum içi konuşma geçmişi
-// Format: [{ role: "user", content: "..." }, { role: "assistant", content: "..." }]
 let conversationHistory = [];
 
 // Eva şu an cevap üretiyor mu?
@@ -35,10 +39,12 @@ const chatWindow = document.getElementById('chat-window');
 const userInput = document.getElementById('user-input');
 const btnSend = document.getElementById('btn-send');
 const btnClear = document.getElementById('btn-clear');
+const btnLogout = document.getElementById('btn-logout');
 const statusText = document.getElementById('status-text');
 const avatarThinking = document.getElementById('avatar-thinking');
 const iconSend = document.getElementById('icon-send');
 const iconLoading = document.getElementById('icon-loading');
+const headerUsername = document.getElementById('header-username');
 
 
 /* ================================================================
@@ -57,29 +63,42 @@ const iconLoading = document.getElementById('icon-loading');
  *   async/await ile kullanmak çok okunabilir.
  */
 async function sendMessageToEva(message) {
-  // İstek body'si — FastAPI'deki ChatRequest şemasıyla eşleşmeli
-  const requestBody = {
+  const token = getToken();
+  if (!token) { logout(); return ''; }
+
+  const requestBody = { // burda token kullanamamızın sebebi eger fetch ile user id gonderseydik 
+    // hackerlar ele gecirebilir. Ama JWT token ile bu token'ın içindeki user id'yi alıyoruz
+    // token hash'li olduğu için değiştirilmesi zor.
     message: message,
-    user_id: USER_ID,
-    history: conversationHistory  // Oturum geçmişini gönder
+    history: conversationHistory
+    // user_id gönderilmiyor — backend token'dan alıyor
   };
 
   const response = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'  // JSON gönderdiğimizi söyle
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`   // ← JWT TOKEN
     },
-    body: JSON.stringify(requestBody)     // JS objesini JSON string'e çevir
+    body: JSON.stringify(requestBody)
   });
 
-  // 📚 response.ok: HTTP status 200-299 arası ise true
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || 'Sunucu hatası');
+  if (response.status === 401 || response.status === 403) {
+    // Token süresi dolmuş
+    clearSession();
+    window.location.href = '/';
+    return '';
   }
 
-  const data = await response.json();   // JSON yanıtı JS objesine çevir
-  return data.response;                 // Eva'nın cevap metni
+  const data = await response.json();
+
+  if (!response.ok) {
+    // Hata detayını F12 konsoluna yazdır
+    console.error("Backend Hatası:", data.detail || data);
+    throw new Error(data.detail || 'Sunucu hatası');
+  }
+
+  return data.response;
 }
 
 /**
@@ -331,9 +350,10 @@ async function handleSend() {
     }
 
   } catch (error) {
-    console.error('Hata:', error);
+    console.error('Frontend/Backend Hatası:', error);
     removeTypingIndicator();
-    addMessage(`⚠️ ${error.message || 'Bağlantı hatası. Backend çalışıyor mu?'}`, 'eva', true);
+    // Kullanıcıya karmaşık backend detayları yerine jenerik bir mesaj ver, hata detayını gizle
+    addMessage(`⚠️ Bağlantı veya sunucu hatası oluştu. (Detaylar için F12 Konsoluna bakınız)`, 'eva', true);
   } finally {
     setLoading(false);
   }
@@ -372,31 +392,56 @@ btnClear.addEventListener('click', () => {
 
 
 /* ================================================================
-   7. BAŞLANGIÇ
+   7. BAŞL ANGIÇ
    ================================================================ */
 
 /**
- * Sayfa ilk yüklendiğinde çalışır.
+ * Giriş yoksa login sayfasına at.
+ * Varsa kullanıcı adını göster ve Eva'yı başlat.
  */
 async function init() {
+  const token = getToken();
+  const username = getUsername();
+
+  // Token yoksa login'e yönlendir
+  if (!token) {
+    window.location.href = '/';
+    return;
+  }
+
+  // Kullanıcı adını header'a yaz
+  if (headerUsername) headerUsername.textContent = username || 'Kullanıcı';
+
   // Hoşgeldin mesajı
   addMessage(
-    'Merhaba! Ben Eva. Sana karşı dürüst, bazen sert ama her zaman gerçekçi bir dostun olmaya çalışacağım. Ne konuşmak istersin?',
+    `Merhaba ${username}! Ben Eva. Sana karşı dürüst, bazen sert ama her zaman gerçekçi bir dostun olmaya çalışacağım. Ne konuşmak istersin?`,
     'eva'
   );
 
-  // Backend çalışıyor mu kontrol et
+  // Backend sağlık kontrolü
   const isHealthy = await checkBackendHealth();
   if (!isHealthy) {
     addMessage(
-      '⚠️ Backend\'e bağlanamıyorum. `python run.py` komutuyla backend\'i başlattığından emin ol.',
+      '⚠️ Backend\'e bağlamamıyorum. Backend\'in çalıştığından emin ol.',
       'eva',
       true
     );
   }
 
-  // Input'a odaklan
   userInput.focus();
+}
+
+// Çıkış fonksiyonu
+function logout() {
+  clearSession();
+  window.location.href = '/';
+}
+
+// Çıkış butonu
+if (btnLogout) {
+  btnLogout.addEventListener('click', () => {
+    if (confirm('Oturumu kapatıp çıkmak istiyor musun?')) logout();
+  });
 }
 
 // Sayfa yüklenince başlat

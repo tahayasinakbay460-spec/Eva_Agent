@@ -24,6 +24,7 @@ import os
 
 from app.database import create_tables
 from app.routes.chat import router as chat_router
+from app.routes.auth import router as auth_router
 
 
 # ─── Lifespan (Startup / Shutdown) ─────────────────────────────────────────
@@ -68,8 +69,8 @@ app.add_middleware(
 
 
 # ─── API Route'ları ─────────────────────────────────────────────────────────
-# Tüm chat endpoint'leri /api prefix'i ile erişilebilir
 app.include_router(chat_router, prefix="/api")
+app.include_router(auth_router, prefix="/api/auth")   # /api/auth/register, /login, /me
 
 
 # ─── Sağlık Kontrolü ────────────────────────────────────────────────────────
@@ -80,16 +81,18 @@ def health_check():
 
 
 # ─── Frontend Statik Dosyaları ───────────────────────────────────────────────
-# 📚 FastAPI hem API hem de HTML/CSS/JS dosyalarını serve edebilir!
-#    Böylece sadece bir sunucu çalıştırmak yeterli.
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend")
 FRONTEND_DIR = os.path.abspath(FRONTEND_DIR)
 
 if os.path.exists(FRONTEND_DIR):
-    # /static altında frontend dosyalarını sun
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
     @app.get("/")
-    def serve_frontend():
-        """Ana sayfa — index.html döndür"""
+    def serve_login():
+        """Ana sayfa → login.html (giriş yapılmamışsa)"""
+        return FileResponse(os.path.join(FRONTEND_DIR, "login.html"))
+
+    @app.get("/chat")
+    def serve_chat():
+        """Chat sayfası → index.html (giriş yapılmış kullanıcılar için)"""
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))

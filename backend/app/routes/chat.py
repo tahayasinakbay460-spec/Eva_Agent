@@ -1,42 +1,40 @@
 """
 routes/chat.py - Sohbet API Endpoint'leri (FastAPI)
 =====================================================
-POST /api/chat          → Eva ile konuşma
-GET  /api/chat/memory-stats → Hafıza istatistikleri
+POST /api/chat          → Eva ile konuşma (JWT korumalı)
+GET  /api/chat/memory-stats → Hafıza istatistikleri (JWT korumalı)
 
-📚 Flask'taki değişiklikler:
-    Blueprint → APIRouter
-    request.get_json() → Pydantic modeli (otomatik)
-    jsonify() → direkt dict veya Pydantic modeli döndür
-    Hata yönetimi → HTTPException
+Faz 2: Tüm endpoint'ler artık JWT token gerektiriyor.
+user_id artık request body'den değil, doğrulanmış token'dan geliyor.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+
 from app.schemas.chat import ChatRequest, ChatResponse, MemoryStatsResponse
 from app.core.eva_agent import chat_with_eva
 from app.core.memory import get_memory
+from app.core.dependencies import get_current_user
+from app.models.user import User
+from app.database import get_db
 
-# APIRouter = Flask'taki Blueprint'in karşılığı
 router = APIRouter()
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
+def chat(
+    request: ChatRequest,
+    current_user: User = Depends(get_current_user)   # JWT zorunlu
+):
     """
-    Ana sohbet endpoint'i.
-    
-    FastAPI, ChatRequest modelini otomatik olarak doğrular:
-    - message boşsa 422 hatası döner (otomatik)
-    - user_id yoksa "default_user" kullanılır (otomatik)
-    
-    📚 response_model=ChatResponse:
-        FastAPI cevabı otomatik ChatResponse formatına göre doğrular ve döker.
-        /docs sayfasında ne döneceği de otomatik belgelenir.
+    Ana sohbet endpoint'i — JWT korumalı.
+
+    user_id artık request body'den gelmiyor.
+    Doğrulanmış token'dan çekiliyor → manipüle edilemez.
     """
-    print(f"\n[{request.user_id}]: {request.message}")
+    print(f"\n[{current_user.username}#{current_user.id}]: {request.message}")
 
     try:
-        # history listesini dict listesine çevir (eva_agent beklediği format)
         history_dicts = [
             {"role": msg.role, "content": msg.content}
             for msg in request.history
@@ -44,20 +42,19 @@ def chat(request: ChatRequest):
 
         eva_response = chat_with_eva(
             user_message=request.message,
-            user_id=request.user_id,
+            user_id=str(current_user.id),   # Güvenilir ID — token'dan geliyor
             conversation_history=history_dicts
         )
 
-        print(f"Eva: {eva_response[:100]}...")
+        print(f"Eva -> {current_user.username}: {eva_response[:80].encode('ascii', errors='ignore').decode('ascii')}...")
 
         return ChatResponse(
             response=eva_response,
-            user_id=request.user_id
+            user_id=str(current_user.id)
         )
 
     except Exception as e:
         print(f"Hata: {str(e)}")
-        # 📚 HTTPException: FastAPI'de hata döndürmenin standart yolu
         raise HTTPException(
             status_code=500,
             detail=f"Eva şu an düşünemedi: {str(e)}"
@@ -65,21 +62,18 @@ def chat(request: ChatRequest):
 
 
 @router.get("/chat/memory-stats", response_model=MemoryStatsResponse)
-def memory_stats(user_id: str = "default_user"):
+def memory_stats(
+    current_user: User = Depends(get_current_user)   # JWT zorunlu
+):
     """
-    Hafıza istatistiklerini döner.
-    
-    📚 Query parametresi (URL'deki ?user_id=...):
-        Flask'ta: request.args.get("user_id")
-        FastAPI'de: fonksiyon parametresi olarak yaz, otomatik alır!
-    
-    GET /api/chat/memory-stats?user_id=default_user
+    Mevcut kullanıcının hafıza istatistikleri.
+    user_id token'dan alınıyor — URL parametresi artık gerekmiyor.
     """
     memory = get_memory()
-    count = memory.get_memory_count(user_id)
+    count = memory.get_memory_count(str(current_user.id))
 
     return MemoryStatsResponse(
-        user_id=user_id,
+        user_id=str(current_user.id),
         memory_count=count,
-        message=f"Eva'nın hafızasında {count} konuşma kaydı var."
+        message=f"Eva'nın {current_user.username} için {count} konuşma kaydı var."
     )

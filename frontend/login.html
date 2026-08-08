@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Eva — Sanal yapay zeka arkadaşınıza hoş geldiniz" />
+  <title>Eva AI — Giriş</title>
+  <link rel="stylesheet" href="/static/auth.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+
+  <!-- ── ARKAPLAN PARÇACIKLARI ──────────────────────────────── -->
+  <canvas id="particles-canvas"></canvas>
+
+  <!-- ── YÜZEN ORB'LAR ──────────────────────────────────────── -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="bg-orb orb-4"></div>
+
+  <!-- ── ANA WRAPPER ────────────────────────────────────────── -->
+  <div class="auth-wrapper">
+
+    <!-- ── SOL PANEL: TANITIM ─────────────────────────────── -->
+    <div class="brand-panel">
+      <div class="brand-content">
+        <!-- Eva avatarı -->
+        <div class="brand-avatar">
+          <div class="avatar-pulse"></div>
+          <div class="avatar-pulse delay-1"></div>
+          <div class="avatar-pulse delay-2"></div>
+          <div class="avatar-core">
+            <span class="avatar-emoji">🤖</span>
+          </div>
+        </div>
+
+        <!-- İsim ve slogan -->
+        <h1 class="brand-name">Eva</h1>
+        <p class="brand-tagline">Sanal <span class="highlight">Arkadaşınız</span></p>
+        <p class="brand-desc">
+          Dürüst, eleştirel ve uzun süreli hafızaya sahip<br />
+          yapay zeka dostunuz — her zaman yanınızda.
+        </p>
+
+        <!-- Özellik listesi -->
+        <ul class="brand-features">
+          <li>
+            <span class="feature-icon">🧠</span>
+            <span>Uzun süreli hafıza ile sizi tanır</span>
+          </li>
+          <li>
+            <span class="feature-icon">💬</span>
+            <span>Dürüst ve yapıcı geri bildirim</span>
+          </li>
+          <li>
+            <span class="feature-icon">🔒</span>
+            <span>Tamamen özel — sadece sizin Eva'nız</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── SAĞ PANEL: FORM ─────────────────────────────────── -->
+    <div class="form-panel">
+      <div class="auth-card" id="auth-card">
+
+        <!-- Sekme başlıkları -->
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">
+            Giriş Yap
+          </button>
+          <button class="auth-tab" id="tab-register" onclick="switchTab('register')">
+            Hesap Oluştur
+          </button>
+        </div>
+
+        <!-- ── GİRİŞ FORMU ──────────────────────────────────── -->
+        <div id="form-login-wrapper" class="form-wrapper active">
+          <div class="form-header">
+            <h2>Tekrar hoş geldiniz!</h2>
+            <p>Eva sizi özledi.</p>
+          </div>
+
+          <form id="form-login" onsubmit="handleLogin(event)">
+            <div class="input-group">
+              <label for="login-email">E-posta</label>
+              <div class="input-wrapper">
+                <span class="input-icon">✉️</span>
+                <input
+                  type="email"
+                  id="login-email"
+                  class="auth-input"
+                  placeholder="ornek@email.com"
+                  required
+                  autocomplete="email"
+                />
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="login-password">Şifre</label>
+              <div class="input-wrapper">
+                <span class="input-icon">🔑</span>
+                <input
+                  type="password"
+                  id="login-password"
+                  class="auth-input"
+                  placeholder="••••••••"
+                  required
+                  autocomplete="current-password"
+                />
+                <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)">👁</button>
+              </div>
+            </div>
+
+            <div id="login-error" class="auth-error" style="display:none"></div>
+
+            <button type="submit" class="btn-auth" id="btn-login">
+              <span class="btn-text">Giriş Yap</span>
+              <span class="btn-spinner" style="display:none">⟳</span>
+            </button>
+          </form>
+
+          <p class="auth-switch">
+            Hesabın yok mu?
+            <button class="link-btn" onclick="switchTab('register')">Hemen oluştur →</button>
+          </p>
+        </div>
+
+        <!-- ── KAYIT FORMU ──────────────────────────────────── -->
+        <div id="form-register-wrapper" class="form-wrapper">
+          <div class="form-header">
+            <h2>Eva ile tanışın</h2>
+            <p>Ücretsiz hesabınızı oluşturun.</p>
+          </div>
+
+          <form id="form-register" onsubmit="handleRegister(event)">
+            <div class="input-group">
+              <label for="reg-username">Kullanıcı Adı</label>
+              <div class="input-wrapper">
+                <span class="input-icon">👤</span>
+                <input
+                  type="text"
+                  id="reg-username"
+                  class="auth-input"
+                  placeholder="kullanici_adi"
+                  required
+                  minlength="3"
+                  maxlength="30"
+                  autocomplete="username"
+                />
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="reg-email">E-posta</label>
+              <div class="input-wrapper">
+                <span class="input-icon">✉️</span>
+                <input
+                  type="email"
+                  id="reg-email"
+                  class="auth-input"
+                  placeholder="ornek@email.com"
+                  required
+                  autocomplete="email"
+                />
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="reg-password">
+                Şifre
+                <span class="label-hint">en az 8 karakter</span>
+              </label>
+              <div class="input-wrapper">
+                <span class="input-icon">🔑</span>
+                <input
+                  type="password"
+                  id="reg-password"
+                  class="auth-input"
+                  placeholder="••••••••"
+                  required
+                  minlength="8"
+                  autocomplete="new-password"
+                  oninput="updatePasswordStrength(this.value)"
+                />
+                <button type="button" class="toggle-password" onclick="togglePassword('reg-password', this)">👁</button>
+              </div>
+              <!-- Şifre güç göstergesi -->
+              <div class="password-strength" id="password-strength">
+                <div class="strength-bar">
+                  <div class="strength-fill" id="strength-fill"></div>
+                </div>
+                <span class="strength-label" id="strength-label">Şifre gücü</span>
+              </div>
+            </div>
+
+            <div id="register-error" class="auth-error" style="display:none"></div>
+
+            <button type="submit" class="btn-auth" id="btn-register">
+              <span class="btn-text">Hesap Oluştur</span>
+              <span class="btn-spinner" style="display:none">⟳</span>
+            </button>
+          </form>
+
+          <p class="auth-switch">
+            Zaten hesabın var mı?
+            <button class="link-btn" onclick="switchTab('login')">Giriş yap →</button>
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/static/auth.js"></script>
+</body>
+
+</html>

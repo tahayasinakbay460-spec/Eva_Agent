@@ -30,7 +30,7 @@ class ChatRequest(BaseModel):
         "history": [...]
     }
     """
-    message: str = Field(..., min_length=1, description="Kullanıcının mesajı")
+    message: str = Field(..., min_length=1, description="Kullanıcının mesajı")# ... doldurulması zorunlu alan 
     user_id: str = Field(default="default_user", description="Kullanıcı kimliği")
     history: List[HistoryMessage] = Field(default=[], description="Oturum geçmişi")
 

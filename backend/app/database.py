@@ -11,7 +11,7 @@ from app.config import Config
 # Veritabanı motoru
 engine = create_engine(
     Config.DATABASE_URL,
-    connect_args={"check_same_thread": False}  # SQLite için gerekli
+    connect_args={"check_same_thread": False}  # Yani Sql lite birden fazla aynı anda baglantı kurmasına ızın veriyor. 
 )
 
 # Session factory

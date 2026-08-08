@@ -7,7 +7,7 @@ Sadece Groq referansları kaldırıldı, yalnızca Gemini kaldı.
 """
 
 from google import genai
-from google.genai import types
+from google.genai import types # google ' a istek gonderirken onun kutuphanesini kurallarıyla donatıp gondermemiz gerekiyor 
 from app.config import Config
 from app.core.prompts import EVA_SYSTEM_PROMPT, MEMORY_INJECTION_TEMPLATE
 from app.core.memory import get_memory
@@ -37,16 +37,12 @@ def get_client():
     return _client
 
 
-def chat_with_eva(
-    user_message: str,
-    user_id: str = "default_user",
-    conversation_history: list = None
-) -> str:
+def chat_with_eva(user_message: str,user_id: str = "default_user",conversation_history: list = None) -> str:
     """
     Eva ile bir konuşma turu gerçekleştirir (Yeni google-genai SDK).
     """
-    memory = get_memory()
-    client = get_client()
+    memory = get_memory()  #hafıza nesnesi olusturuyor 
+    client = get_client() # LLM ile olan baglantı motorunu calıştırıyor.
 
     # ─── ADIM 1: Uzun Süreli Hafızayı Sorgula ───────────────────────────────
     relevant_memories = memory.retrieve_relevant_memories(
@@ -58,15 +54,15 @@ def chat_with_eva(
     # ─── ADIM 2: Sistem Promptunu Oluştur ───────────────────────────────────
     system_content = EVA_SYSTEM_PROMPT
     if relevant_memories:
-        memory_block = MEMORY_INJECTION_TEMPLATE.format(
+        memory_block = MEMORY_INJECTION_TEMPLATE.format( # format {} blokları varsa onları dolduruyor.
             memory_context=relevant_memories
         )
         system_content = system_content + "\n\n" + memory_block
 
     config = types.GenerateContentConfig(
         system_instruction=system_content,
-        temperature=0.7,
-        max_output_tokens=1024,
+        temperature=0.7,   # Yaratıcılık katsayısı 0 ila 1 arası degişir . 0 da robot 1 de ise hallusinasyon gorur. 
+        max_output_tokens=1024, # En fazla 1024 token ver diyoruz,Token = 4 harf, Maaliyet hesabı burda yapılır.
     )
 
     # ─── ADIM 3: Mesaj Listesini Oluştur ────────────────────────────────────
@@ -77,8 +73,8 @@ def chat_with_eva(
         for msg in conversation_history[-10:]:
             role = 'user' if msg["role"] == "user" else 'model'
             contents.append(
-                types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])])
-            )
+                types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])]) 
+            )# Googleın istedigi sekilde mesaj yapısını kuruyoruz. Bu yüzden parantezler çok önemlidir.
 
     # Yeni kullanıcı mesajını ekle
     contents.append(
@@ -87,12 +83,12 @@ def chat_with_eva(
 
     # ─── ADIM 4: LLM'e Gönder ───────────────────────────────────────────────
     print(f"Gemini'ye gonderiliyor... (Hafiza: {'Var' if relevant_memories else 'Yok'})")
-    response = client.models.generate_content(
+    response = client.models.generate_content( #Bu fonksiyon asıl zekayı burada çağırıyor. Asıl aksiyon burda kral! 
         model=Config.GEMINI_MODEL,
         contents=contents,
         config=config
     )
-    eva_response = response.text
+    eva_response = response.text # LLM'den gelen ham cevabı alıyoruz.
 
     # ─── ADIM 5: Bu Konuşmayı Hafızaya Kaydet ───────────────────────────────
     memory.save_conversation(

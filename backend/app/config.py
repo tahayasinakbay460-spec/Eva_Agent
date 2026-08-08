@@ -7,7 +7,7 @@ Böylece kod içine asla API anahtarı yazmamış oluruz.
 import os
 from dotenv import load_dotenv
 
-# .env dosyasını yükle
+# .env dosyasını yükle   // otomatik yuklenir
 load_dotenv()
 
 class Config:

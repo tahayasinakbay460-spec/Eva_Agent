@@ -71,9 +71,7 @@ class EvaMemory:
             ids=[doc_id]
         )
 
-    def retrieve_relevant_memories(
-        self, user_id: str, query: str, n_results: int = 4
-    ) -> str:
+    def retrieve_relevant_memories(self, user_id: str, query: str, n_results: int = 4 ) -> str:
         """
         Yeni bir mesajla alakalı geçmiş konuşmaları bul.
         """
@@ -93,7 +91,7 @@ class EvaMemory:
             return ""
 
         memories = []
-        for i, doc in enumerate(results["documents"][0]):
+        for i, doc in enumerate(results["documents"][0]): #i yani ilk eleman her zaman sıra numarası digeri eleman da her zaman ilgili elemandır 
             memories.append(f"[Geçmiş Konuşma {i+1}]:\n{doc}")
 
         return "\n\n".join(memories)
