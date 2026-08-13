@@ -26,6 +26,7 @@ from app.database import create_tables
 from app.routes.chat import router as chat_router
 from app.routes.auth import router as auth_router
 from app.routes.history import router as history_router
+from app.routes.emotion import router as emotion_router
 
 
 # ─── Lifespan (Startup / Shutdown) ─────────────────────────────────────────
@@ -73,6 +74,7 @@ app.add_middleware(
 app.include_router(chat_router,    prefix="/api")
 app.include_router(auth_router,    prefix="/api/auth")     # /api/auth/register, /login, /me
 app.include_router(history_router, prefix="/api/history")  # /api/history/conversations
+app.include_router(emotion_router)                         # /ws/emotion (WebSocket, prefix yok)
 
 
 # ─── Sağlık Kontrolü ────────────────────────────────────────────────────────

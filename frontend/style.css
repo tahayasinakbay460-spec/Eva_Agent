@@ -906,6 +906,63 @@ body {
 }
 
 
+/* ── KAMERA MODU BUTONU (Faz 5) ─────────────────────────────── */
+.btn-camera-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn-camera-toggle:hover {
+  background: var(--color-surface-2);
+  color: var(--color-primary-2);
+  border-color: var(--color-primary);
+}
+
+/* Kamera aktifken — yeşil glow */
+.btn-camera-toggle.active {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.15);
+  animation: camera-pulse 2s ease-in-out infinite;
+}
+
+.btn-camera-toggle.active:hover {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.6);
+}
+
+@keyframes camera-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(34, 197, 94, 0.15); }
+  50%      { box-shadow: 0 0 16px rgba(34, 197, 94, 0.3); }
+}
+
+/* İzin reddedildiğinde — kırmızımsı flash */
+.btn-camera-toggle.error {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+  animation: camera-error 0.5s ease;
+}
+
+@keyframes camera-error {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-3px); }
+  75%      { transform: translateX(3px); }
+}
+
+
 /* ── ANİMASYONLAR ───────────────────────────────────────────── */
 @keyframes dot-bounce {
   0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }

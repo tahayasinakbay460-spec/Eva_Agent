@@ -113,6 +113,8 @@
         </div>
 
         <div class="header-right">
+          <!-- Kamera Modu Toggle (Faz 5) -->
+          <button class="btn-camera-toggle" id="btn-camera-toggle" title="Kamera modunu aç/kapat">📷 Kamera</button>
           <!-- Ses Toggle -->
           <button class="btn-tts-toggle" id="btn-tts-toggle" title="Eva'nın sesini aç/kapat">🔊 Ses</button>
           <!-- Hafıza rozeti -->
@@ -163,6 +165,10 @@
 
     </div><!-- /chat-area -->
   </div><!-- /layout -->
+
+  <!-- Kamera Stream — gizli, sadece frame yakalama için (Faz 5) -->
+  <video id="camera-video" autoplay playsinline style="display:none;"></video>
+  <canvas id="camera-canvas" style="display:none;"></canvas>
 
   <script src="/static/script.js"></script>
 </body>

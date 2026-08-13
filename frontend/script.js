@@ -608,6 +608,332 @@ function stopRecording() {
 
 
 /* ================================================================
+   FAZ 5: KAMERA & DUYGU ALGILAMA SİSTEMİ
+   ================================================================
+   📚 Öğretici Not — Genel Akış:
+       1. Kullanıcı "📷 Kamera" butonuna tıklar
+       2. Tarayıcıdan kamera izni istenir (getUserMedia)
+       3. İzin verilirse: WebSocket bağlantısı kurulur (JWT doğrulamalı)
+       4. Her 3 saniyede bir video frame'i canvas'a çizilir → base64 JPEG
+       5. Frame WebSocket üzerinden backend'e gönderilir
+       6. Backend duygu analizi yapıp etiketi geri gönderir
+       7. currentEmotion değişkeni güncellenir (Faz 5.4'te LLM'e gidecek)
+   ================================================================ */
+
+// HTML elementleri (Faz 5)
+const btnCameraToggle = document.getElementById('btn-camera-toggle');
+const cameraVideo     = document.getElementById('camera-video');
+const cameraCanvas    = document.getElementById('camera-canvas');
+
+// Durum değişkenleri
+let cameraActive   = false;     // Kamera modu açık/kapalı
+let cameraStream   = null;      // MediaStream referansı (kamera akışı)
+let emotionSocket  = null;      // WebSocket bağlantısı
+let frameInterval  = null;      // setInterval referansı (3 sn'de bir frame)
+let currentEmotion = 'neutral'; // Backend'den gelen son duygu etiketi
+let wsReconnectAttempts = 0;    // Yeniden bağlanma deneme sayısı
+const WS_MAX_RECONNECTS = 3;   // Maksimum yeniden bağlanma denemesi
+const FRAME_INTERVAL_MS = 3000; // Frame gönderim aralığı (3 saniye)
+const FRAME_QUALITY     = 0.5;  // JPEG sıkıştırma kalitesi (0-1)
+const FRAME_WIDTH        = 320; // Yakalanan frame genişliği
+const FRAME_HEIGHT       = 240; // Yakalanan frame yüksekliği
+
+
+/**
+ * Kamera modunu açar/kapatır.
+ * Buton her tıklandığında çağrılır.
+ */
+function toggleCamera() {
+  if (cameraActive) {
+    stopCamera();
+  } else {
+    startCamera();
+  }
+}
+
+
+/**
+ * Kamera modunu başlatır.
+ *
+ * 📚 navigator.mediaDevices.getUserMedia():
+ *     Tarayıcıdan kamera/mikrofon izni ister.
+ *     İzin verilirse MediaStream döner (video akışı).
+ *     İzin reddedilirse DOMException fırlatır.
+ *
+ *     facingMode: 'user' → Ön kamerayı seç (selfie modu)
+ *     width/height → Düşük çözünürlük (CV analizi için yeterli, bandwidth dostu)
+ */
+async function startCamera() {
+  // Tarayıcı desteği kontrolü
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    addMessage('⚠️ Tarayıcın kamera erişimini desteklemiyor. Chrome veya Edge kullan.', 'eva', true);
+    flashCameraError();
+    return;
+  }
+
+  try {
+    // Kamera izni iste
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width:  { ideal: FRAME_WIDTH },
+        height: { ideal: FRAME_HEIGHT },
+        facingMode: 'user'   // Ön kamera
+      },
+      audio: false  // Ses gerekmez
+    });
+
+    // İzin verildi — stream'i sakla ve video'ya bağla
+    cameraStream = stream;
+    cameraVideo.srcObject = stream;
+
+    // Canvas boyutlarını ayarla
+    cameraCanvas.width  = FRAME_WIDTH;
+    cameraCanvas.height = FRAME_HEIGHT;
+
+    // UI güncelle
+    cameraActive = true;
+    btnCameraToggle.classList.add('active');
+    btnCameraToggle.classList.remove('error');
+    btnCameraToggle.textContent = '🟢 Kamera';
+    btnCameraToggle.title = 'Kamera modunu kapat';
+
+    console.log('📷 Kamera açıldı — WebSocket bağlantısı kuruluyor...');
+
+    // WebSocket bağlantısını kur
+    wsReconnectAttempts = 0;
+    connectEmotionSocket();
+
+  } catch (error) {
+    // İzin reddedildi veya başka bir hata
+    console.error('Kamera hatası:', error);
+    flashCameraError();
+
+    if (error.name === 'NotAllowedError') {
+      addMessage(
+        '⚠️ Kamera izni reddedildi. Duygu algılama olmadan standart sohbet modunda devam ediliyor.',
+        'eva', true
+      );
+    } else if (error.name === 'NotFoundError') {
+      addMessage('⚠️ Kamera bulunamadı. Bilgisayarına bir kamera bağlı olduğundan emin ol.', 'eva', true);
+    } else {
+      addMessage(`⚠️ Kamera açılamadı: ${error.message}`, 'eva', true);
+    }
+  }
+}
+
+
+/**
+ * Kamera modunu kapatır.
+ * Stream'i durdurur, WebSocket'i kapatır, interval'i temizler.
+ *
+ * 📚 MediaStream.getTracks():
+ *     Stream'deki tüm medya kanallarını (video, audio) döndürür.
+ *     Her birini stop() ile durdurmak → kamera LED'ini söndürür.
+ */
+function stopCamera() {
+  // 1. Frame gönderimini durdur
+  if (frameInterval) {
+    clearInterval(frameInterval);
+    frameInterval = null;
+  }
+
+  // 2. WebSocket'i kapat
+  if (emotionSocket) {
+    emotionSocket.close(1000, 'Kullanıcı kamerayı kapattı');
+    emotionSocket = null;
+  }
+
+  // 3. Kamera stream'ini durdur (LED söner)
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+
+  // 4. Video elementini temizle
+  cameraVideo.srcObject = null;
+
+  // 5. UI güncelle
+  cameraActive = false;
+  currentEmotion = 'neutral';
+  btnCameraToggle.classList.remove('active');
+  btnCameraToggle.textContent = '📷 Kamera';
+  btnCameraToggle.title = 'Kamera modunu aç';
+
+  console.log('📷 Kamera kapatıldı');
+}
+
+
+/**
+ * Duygu algılama WebSocket bağlantısı kurar.
+ *
+ * 📚 WebSocket URL'inde JWT:
+ *     Normal HTTP: Authorization header ile gönderilir
+ *     WebSocket:   Header gönderilmez, token query param olarak eklenir
+ *     Güvenlik:    wss:// (TLS) production'da şart, localhost'ta ws:// yeterli
+ *
+ * Otomatik Yeniden Bağlanma:
+ *     Bağlantı düşerse 3 kez dener (2, 4, 6 saniye aralarla)
+ *     3 başarısız denemeden sonra kamerayı tamamen kapatır
+ */
+function connectEmotionSocket() {
+  const token = getToken();
+  if (!token) {
+    console.error('Token bulunamadı — WS bağlantısı kurulamıyor');
+    stopCamera();
+    return;
+  }
+
+  // WebSocket URL'ini oluştur (localhost'ta ws://, production'da wss://)
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/emotion?token=${token}`;
+
+  console.log('🔌 Emotion WebSocket bağlanıyor...');
+
+  emotionSocket = new WebSocket(wsUrl);
+
+  // ── Bağlantı Kuruldu ──────────────────────────────────────
+  emotionSocket.onopen = () => {
+    console.log('✅ Emotion WebSocket bağlantısı kuruldu');
+    wsReconnectAttempts = 0;  // Başarılı bağlantı — sayacı sıfırla
+
+    // Frame gönderimini başlat
+    startFrameCapture();
+  };
+
+  // ── Mesaj Alındı ──────────────────────────────────────────
+  emotionSocket.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'emotion') {
+        // Duygu etiketini güncelle
+        currentEmotion = data.emotion || 'neutral';
+        console.log(`🎭 Duygu: ${currentEmotion} (güven: ${(data.confidence * 100).toFixed(0)}%)`);
+
+      } else if (data.type === 'error') {
+        console.warn('Emotion WS hatası:', data.message);
+
+      } else if (data.type === 'pong') {
+        // Canlılık kontrolü yanıtı — loglama gerekli değil
+      }
+
+    } catch (err) {
+      console.error('WS mesaj parse hatası:', err);
+    }
+  };
+
+  // ── Bağlantı Kapandı ──────────────────────────────────────
+  emotionSocket.onclose = (event) => {
+    console.log(`🔌 Emotion WS kapandı (code: ${event.code}, reason: ${event.reason})`);
+
+    // 4001 = Yetkisiz — yeniden bağlanma deneme
+    if (event.code === 4001) {
+      console.error('JWT doğrulaması başarısız — kamera kapatılıyor');
+      addMessage('⚠️ Oturum doğrulaması başarısız. Kamera modu kapatıldı.', 'eva', true);
+      stopCamera();
+      return;
+    }
+
+    // Normal kapanış (kullanıcı kapattı) — yeniden bağlanma
+    if (event.code === 1000) return;
+
+    // Beklenmeyen kapanış — yeniden bağlan
+    if (cameraActive && wsReconnectAttempts < WS_MAX_RECONNECTS) {
+      wsReconnectAttempts++;
+      const delay = wsReconnectAttempts * 2000;  // 2s, 4s, 6s
+      console.log(`🔄 Yeniden bağlanma denemesi ${wsReconnectAttempts}/${WS_MAX_RECONNECTS} (${delay}ms sonra)`);
+      setTimeout(() => {
+        if (cameraActive) connectEmotionSocket();
+      }, delay);
+    } else if (wsReconnectAttempts >= WS_MAX_RECONNECTS) {
+      console.error('Maksimum yeniden bağlanma denemesi aşıldı — kamera kapatılıyor');
+      addMessage('⚠️ Sunucu bağlantısı kurulamadı. Kamera modu kapatıldı.', 'eva', true);
+      stopCamera();
+    }
+  };
+
+  // ── Bağlantı Hatası ───────────────────────────────────────
+  emotionSocket.onerror = (error) => {
+    console.error('Emotion WS hatası:', error);
+    // onclose zaten tetiklenecek, burada ekstra işlem yok
+  };
+}
+
+
+/**
+ * Periyodik frame yakalama ve gönderimini başlatır.
+ * Her FRAME_INTERVAL_MS (3 saniye) bir çalışır.
+ *
+ * 📚 Neden setInterval?
+ *     requestAnimationFrame saniyede 60 kez çalışır — çok fazla
+ *     Biz 3 saniyede 1 frame istiyoruz — setInterval daha uygun
+ */
+function startFrameCapture() {
+  // Mevcut interval varsa temizle (çifte başlatma engeli)
+  if (frameInterval) clearInterval(frameInterval);
+
+  frameInterval = setInterval(() => {
+    if (!cameraActive || !emotionSocket || emotionSocket.readyState !== WebSocket.OPEN) {
+      return;  // Kamera kapalı veya WS bağlı değilse atla
+    }
+
+    const frameData = captureFrame();
+    if (frameData) {
+      emotionSocket.send(JSON.stringify({
+        type: 'frame',
+        data: frameData
+      }));
+    }
+  }, FRAME_INTERVAL_MS);
+}
+
+
+/**
+ * Tek bir video frame'i yakalar ve base64 JPEG olarak döndürür.
+ *
+ * 📚 Canvas Frame Yakalama:
+ *     1. Canvas 2D context al
+ *     2. Video'nun mevcut frame'ini canvas'a çiz (drawImage)
+ *     3. Canvas'ı JPEG formatında base64 string'e çevir (toDataURL)
+ *
+ *     Neden JPEG?
+ *     - PNG'den çok daha küçük dosya boyutu
+ *     - quality: 0.5 → ~15-25KB/frame (bandwidth dostu)
+ *     - Yüz ifadesi analizi için yeterli kalite
+ */
+function captureFrame() {
+  if (!cameraVideo || !cameraVideo.srcObject) return null;
+
+  // Video henüz yüklenmedi kontrolü
+  if (cameraVideo.readyState < 2) return null;  // HAVE_CURRENT_DATA
+
+  const ctx = cameraCanvas.getContext('2d');
+  ctx.drawImage(cameraVideo, 0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+
+  // Canvas'ı base64 JPEG'e çevir
+  return cameraCanvas.toDataURL('image/jpeg', FRAME_QUALITY);
+}
+
+
+/**
+ * Kamera butonunda kırmızı hata animasyonu gösterir.
+ * İzin reddedildiğinde veya hata oluştuğunda çağrılır.
+ */
+function flashCameraError() {
+  btnCameraToggle.classList.add('error');
+  setTimeout(() => {
+    btnCameraToggle.classList.remove('error');
+  }, 1500);
+}
+
+
+// ── Kamera Butonu Event Listener ─────────────────────────────
+if (btnCameraToggle) {
+  btnCameraToggle.addEventListener('click', toggleCamera);
+}
+
+
+/* ================================================================
    8. BAŞLANGIÇ
    ================================================================ */
 
