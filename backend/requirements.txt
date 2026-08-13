@@ -34,3 +34,6 @@ python-multipart==0.0.9
 # Kimlik Doğrulama (Auth)
 passlib[bcrypt]==1.7.4       # Şifre hashleme (bcrypt)
 python-jose[cryptography]==3.3.0  # JWT token oluşturma/doğrulama
+
+# MySQL Veritabanı Sürücüsü (Faz 3)
+pymysql==1.1.1

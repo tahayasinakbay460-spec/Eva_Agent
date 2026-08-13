@@ -1,18 +1,15 @@
 """
 database.py - Veritabanı Bağlantısı
 ======================================
-SQLAlchemy ile SQLite bağlantısı.
-Flask-SQLAlchemy olmadan, saf SQLAlchemy kullanıyoruz.
+SQLAlchemy ile MySQL bağlantısı (Faz 3).
+Sürücü: PyMySQL — bağlantı dizesi .env'den okunur.
 """
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import Config
 
 # Veritabanı motoru
-engine = create_engine(
-    Config.DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Yani Sql lite birden fazla aynı anda baglantı kurmasına ızın veriyor. 
-)
+engine = create_engine(Config.DATABASE_URL)
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -35,6 +32,7 @@ def get_db():
 
 def create_tables():
     """Uygulama başlarken tabloları oluşturur."""
-    from app.models import user  # modeli import et ki Base.metadata görsün
+    from app.models import user   # User tablosu
+    from app.models import chat   # Conversation + Message tabloları
     Base.metadata.create_all(bind=engine)
     print("Veritabani tablolari hazir.")

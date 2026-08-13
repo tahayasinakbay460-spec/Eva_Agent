@@ -30,9 +30,9 @@ class ChatRequest(BaseModel):
         "history": [...]
     }
     """
-    message: str = Field(..., min_length=1, description="Kullanıcının mesajı")# ... doldurulması zorunlu alan 
-    user_id: str = Field(default="default_user", description="Kullanıcı kimliği")
+    message: str = Field(..., min_length=1, description="Kullanıcının mesajı")
     history: List[HistoryMessage] = Field(default=[], description="Oturum geçmişi")
+    conversation_id: Optional[int] = Field(default=None, description="Aktif sohbet ID'si (yoksa yeni oluşturulur)")
 
 
 class ChatResponse(BaseModel):
@@ -47,6 +47,7 @@ class ChatResponse(BaseModel):
     """
     response: str
     user_id: str
+    conversation_id: int
 
 
 class MemoryStatsResponse(BaseModel):

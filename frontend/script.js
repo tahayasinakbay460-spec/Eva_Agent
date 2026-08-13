@@ -1,14 +1,8 @@
 /**
- * script.js — Eva AI Frontend Mantığı
- * ======================================
- * Tüm JavaScript kodu burada.
- * Bölümler:
- *   1. Ayarlar & Global Değişkenler
- *   2. API İletişimi (fetch ile backend'e istek)
- *   3. Mesaj Ekleme (DOM'a yeni mesaj ekle)
- *   4. UI Durum Güncellemeleri (loading, status)
- *   5. Olay Dinleyicileri (buton click, enter tuşu vb.)
- *   6. Başlangıç
+ * script.js — Eva AI Frontend Mantığı (Faz 4)
+ * ===============================================
+ * Faz 3: Sol panel (sidebar) sohbet geçmişi
+ * Faz 4: STT (Sesli yazıma) + TTS (Eva sesli konuşur)
  */
 
 
@@ -16,11 +10,10 @@
    1. AYARLAR & GLOBAL DEĞİŞKENLER
    ================================================================ */
 
-// Backend API adresi
 const API_BASE = 'http://localhost:8000/api';
 
 // Oturum yönetimi
-function getToken() { return localStorage.getItem('eva_token'); }
+function getToken()    { return localStorage.getItem('eva_token'); }
 function getUsername() { return localStorage.getItem('eva_username'); }
 function clearSession() {
   localStorage.removeItem('eva_token');
@@ -28,63 +21,57 @@ function clearSession() {
   localStorage.removeItem('eva_username');
 }
 
-// Oturum içi konuşma geçmişi
-let conversationHistory = [];
-
-// Eva şu an cevap üretiyor mu?
+// Oturum içi durum
+let conversationHistory = [];   // Aktif sohbetin mesaj dizisi (LLM context için)
+let activeConversationId = null; // Şu an açık olan sohbetin MySQL ID'si
 let isLoading = false;
 
-// HTML elementleri — sayfa yüklenince bunlara erişeceğiz
-const chatWindow = document.getElementById('chat-window');
-const userInput = document.getElementById('user-input');
-const btnSend = document.getElementById('btn-send');
-const btnClear = document.getElementById('btn-clear');
-const btnLogout = document.getElementById('btn-logout');
-const statusText = document.getElementById('status-text');
+// HTML elementleri
+const chatWindow     = document.getElementById('chat-window');
+const userInput      = document.getElementById('user-input');
+const btnSend        = document.getElementById('btn-send');
+const btnClear       = document.getElementById('btn-clear');
+const btnNewChat     = document.getElementById('btn-new-chat');
+const btnLogout      = document.getElementById('btn-logout');
+const btnHamburger   = document.getElementById('btn-hamburger');
+const btnMic         = document.getElementById('btn-mic');         // Faz 4
+const btnTtsToggle   = document.getElementById('btn-tts-toggle');  // Faz 4
+const statusText     = document.getElementById('status-text');
 const avatarThinking = document.getElementById('avatar-thinking');
-const iconSend = document.getElementById('icon-send');
-const iconLoading = document.getElementById('icon-loading');
-const headerUsername = document.getElementById('header-username');
+const iconSend       = document.getElementById('icon-send');
+const iconLoading    = document.getElementById('icon-loading');
+const sidebarEl      = document.getElementById('sidebar');
+const overlayEl      = document.getElementById('sidebar-overlay');
+const convListEl     = document.getElementById('conversation-list');
+const convLoadingEl  = document.getElementById('conv-loading');
+const sidebarUsernameEl = document.getElementById('sidebar-username');
 
 
 /* ================================================================
    2. API İLETİŞİMİ
    ================================================================ */
 
-/**
- * Eva'ya mesaj gönderir ve cevabı döndürür.
- *
- * @param {string} message - Kullanıcının yazdığı mesaj
- * @returns {Promise<string>} - Eva'nın cevabı
- *
- * 📚 fetch() nedir?
- *   Tarayıcının yerleşik HTTP istek fonksiyonu.
- *   axios'un yaptığını yapar ama ekstra kütüphane gerekmez.
- *   async/await ile kullanmak çok okunabilir.
- */
+/** Eva'ya mesaj gönderir ve cevabı döndürür. */
 async function sendMessageToEva(message) {
   const token = getToken();
   if (!token) { logout(); return ''; }
 
-  const requestBody = { // burda token kullanamamızın sebebi eger fetch ile user id gonderseydik 
-    // hackerlar ele gecirebilir. Ama JWT token ile bu token'ın içindeki user id'yi alıyoruz
-    // token hash'li olduğu için değiştirilmesi zor.
+  const requestBody = {
     message: message,
-    history: conversationHistory
-    // user_id gönderilmiyor — backend token'dan alıyor
+    history: conversationHistory,
+    conversation_id: activeConversationId   // Hangi sohbete ait olduğu (null ise yeni açılır)
   };
 
   const response = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`   // ← JWT TOKEN
+      'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify(requestBody)
   });
 
   if (response.status === 401 || response.status === 403) {
-    // Token süresi dolmuş
     clearSession();
     window.location.href = '/';
     return '';
@@ -93,17 +80,112 @@ async function sendMessageToEva(message) {
   const data = await response.json();
 
   if (!response.ok) {
-    // Hata detayını F12 konsoluna yazdır
-    console.error("Backend Hatası:", data.detail || data);
+    console.error('Backend Hatası:', data.detail || data);
     throw new Error(data.detail || 'Sunucu hatası');
+  }
+
+  // Backend yeni bir sohbet açtıysa ID'yi kaydet ve paneli güncelle
+  if (data.conversation_id && data.conversation_id !== activeConversationId) {
+    activeConversationId = data.conversation_id;
+    await fetchConversations();   // Yeni sohbet başlığını sol panele ekle
   }
 
   return data.response;
 }
 
-/**
- * Backend sağlık kontrolü
- */
+/** Kullanıcının tüm eski sohbetlerini çeker ve sol paneli doldurur. */
+async function fetchConversations() {
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/history/conversations`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) return;
+
+    const conversations = await response.json();
+    renderConversationList(conversations);
+
+  } catch (err) {
+    console.error('Sohbet geçmişi yüklenemedi:', err);
+  }
+}
+
+/** Tıklanan eski sohbetin mesajlarını yükler ve ekrana basar. */
+async function loadConversation(convId) {
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/history/conversations/${convId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) return;
+
+    const conv = await response.json();
+
+    // Ekranı temizle ve eski mesajları bas
+    chatWindow.innerHTML = '';
+    conversationHistory = [];
+    activeConversationId = convId;
+
+    if (conv.messages.length === 0) {
+      addMessage('Bu sohbet boş.', 'eva');
+      return;
+    }
+
+    for (const msg of conv.messages) {
+      addMessage(msg.content, msg.role === 'assistant' ? 'eva' : 'user');
+      conversationHistory.push({ role: msg.role, content: msg.content });
+    }
+
+    // Geçmiş 20 mesajla sınırla (LLM context optimizasyonu)
+    if (conversationHistory.length > 20) {
+      conversationHistory = conversationHistory.slice(-20);
+    }
+
+    // Aktif sohbeti panelde işaretle
+    updateActiveConvInList(convId);
+
+    // Mobilde paneli kapat
+    closeSidebar();
+
+  } catch (err) {
+    console.error('Sohbet yüklenemedi:', err);
+  }
+}
+
+/** Bir sohbeti siler. */
+async function deleteConversation(convId, event) {
+  event.stopPropagation();  // Satıra tıklamayı engelle
+
+  if (!confirm('Bu sohbeti silmek istediğine emin misin?')) return;
+
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    await fetch(`${API_BASE}/history/conversations/${convId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    // Silinen sohbet aktifse ekranı sıfırla
+    if (activeConversationId === convId) {
+      startNewChat();
+    }
+
+    await fetchConversations();
+
+  } catch (err) {
+    console.error('Sohbet silinemedi:', err);
+  }
+}
+
+/** Backend sağlık kontrolü */
 async function checkBackendHealth() {
   try {
     const response = await fetch(`${API_BASE}/health`);
@@ -115,49 +197,108 @@ async function checkBackendHealth() {
 
 
 /* ================================================================
-   3. MESAJ EKLEME (DOM İşlemleri)
+   3. SIDEBAR UI İŞLEMLERİ
    ================================================================ */
 
-/**
- * Saati "HH:MM" formatında döndürür.
- */
-function getCurrentTime() {
-  return new Date().toLocaleTimeString('tr-TR', {
-    hour: '2-digit',
-    minute: '2-digit'
+/** Sohbet listesini sol panele render eder. */
+function renderConversationList(conversations) {
+  convListEl.innerHTML = '';
+
+  if (conversations.length === 0) {
+    convListEl.innerHTML = `
+      <div class="conv-empty">
+        Henüz hiç sohbet yok.<br/>
+        Yukarıdaki butona tıklayarak<br/>yeni bir sohbet başlat!
+      </div>`;
+    return;
+  }
+
+  for (const conv of conversations) {
+    const item = document.createElement('div');
+    item.className = `conv-item${conv.id === activeConversationId ? ' active' : ''}`;
+    item.dataset.id = conv.id;
+    item.innerHTML = `
+      <span class="conv-icon">💬</span>
+      <span class="conv-title" title="${escapeHtml(conv.title)}">${escapeHtml(conv.title)}</span>
+      <button class="conv-delete" title="Sil">✕</button>
+    `;
+
+    item.addEventListener('click', () => loadConversation(conv.id));
+    item.querySelector('.conv-delete').addEventListener('click', (e) => deleteConversation(conv.id, e));
+
+    convListEl.appendChild(item);
+  }
+}
+
+/** Paneldeki aktif sohbet stilini günceller. */
+function updateActiveConvInList(convId) {
+  document.querySelectorAll('.conv-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.id) === convId);
   });
+}
+
+/** Yeni sohbet başlatır — ekranı temizler, ID sıfırlar. */
+function startNewChat() {
+  chatWindow.innerHTML = '';
+  conversationHistory = [];
+  activeConversationId = null;
+
+  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+
+  const username = getUsername();
+  addMessage(
+    `Merhaba ${username}! Ben Eva. Yeni bir sohbet başlatalım, ne konuşmak istersin?`,
+    'eva'
+  );
+
+  closeSidebar();
+  userInput.focus();
+}
+
+/** Mobil sidebar açma/kapama */
+function openSidebar() {
+  sidebarEl.classList.add('open');
+  overlayEl.classList.add('active');
+}
+
+function closeSidebar() {
+  sidebarEl.classList.remove('open');
+  overlayEl.classList.remove('active');
+}
+
+/** HTML escape (XSS koruması) */
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
+}
+
+
+/* ================================================================
+   4. MESAJ EKLEME (DOM İşlemleri)
+   ================================================================ */
+
+function getCurrentTime() {
+  return new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 
 /**
  * Sohbet penceresine yeni bir mesaj ekler.
- *
- * @param {string} content  - Mesajın metni
- * @param {'user'|'eva'} role - Kim yazdı?
- * @param {boolean} isError - Hata mesajı mı?
- * @returns {HTMLElement} - Oluşturulan mesaj elementi (güncelleme için)
- *
- * 📚 DOM nedir?
- *   Document Object Model — HTML belgesi bir ağaç yapısı.
- *   document.createElement() ile yeni element oluşturulur.
- *   element.appendChild() ile ağaca eklenir.
+ * role: 'user' | 'eva'
  */
 function addMessage(content, role, isError = false) {
   const isUser = role === 'user';
 
-  // ── Mesaj satırı (tüm satır) ──────────────────────────────
   const row = document.createElement('div');
   row.className = `message-row ${isUser ? 'user' : 'eva'}`;
 
-  // ── Avatar ────────────────────────────────────────────────
   const avatar = document.createElement('div');
   avatar.className = `msg-avatar ${isUser ? 'user-avatar' : ''}`;
   avatar.textContent = isUser ? '👤' : '🤖';
 
-  // ── Mesaj içeriği kapsayıcısı ─────────────────────────────
-  const content_wrapper = document.createElement('div');
-  content_wrapper.className = 'message-content';
+  const contentWrapper = document.createElement('div');
+  contentWrapper.className = 'message-content';
 
-  // Meta (isim + saat)
   const meta = document.createElement('div');
   meta.className = 'message-meta';
   meta.innerHTML = `
@@ -165,44 +306,29 @@ function addMessage(content, role, isError = false) {
     <span class="message-time">${getCurrentTime()}</span>
   `;
 
-  // Balon
   const bubble = document.createElement('div');
   bubble.className = `message-bubble ${isUser ? 'user' : 'eva'} ${isError ? 'error' : ''}`;
 
   if (isUser) {
-    // Kullanıcı mesajı: düz metin (güvenlik için HTML encode edilmez ama escape edilmeli)
     bubble.textContent = content;
   } else {
-    // Eva'nın mesajı: Markdown → HTML dönüşümü
-    // marked.parse() markdown'ı HTML'e çevirir
     bubble.innerHTML = marked.parse(content);
-    // Link'leri yeni sekmede aç
     bubble.querySelectorAll('a').forEach(a => {
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
     });
   }
 
-  // Hepsini birleştir
-  content_wrapper.appendChild(meta);
-  content_wrapper.appendChild(bubble);
-
+  contentWrapper.appendChild(meta);
+  contentWrapper.appendChild(bubble);
   row.appendChild(avatar);
-  row.appendChild(content_wrapper);
-
-  // Sohbet penceresine ekle
+  row.appendChild(contentWrapper);
   chatWindow.appendChild(row);
-
-  // En alta kaydır
   scrollToBottom();
 
-  return bubble;  // Güncellemek için dönder
+  return bubble;
 }
 
-/**
- * "Eva yazıyor..." göstergesini ekler.
- * @returns {HTMLElement} - Gösterge elementi (kaldırmak için)
- */
 function addTypingIndicator() {
   const row = document.createElement('div');
   row.className = 'message-row eva';
@@ -220,140 +346,94 @@ function addTypingIndicator() {
   row.appendChild(indicator);
   chatWindow.appendChild(row);
   scrollToBottom();
-
   return row;
 }
 
-/**
- * Yazma göstergesini kaldırır.
- */
 function removeTypingIndicator() {
-  const indicator = document.getElementById('typing-indicator');
-  if (indicator) indicator.remove();
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
 }
 
-/**
- * Sohbet penceresini en alta kaydırır.
- */
 function scrollToBottom() {
-  // setTimeout ile DOM güncellemesinin bitmesini bekle
-  setTimeout(() => {
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-  }, 50);
+  setTimeout(() => { chatWindow.scrollTop = chatWindow.scrollHeight; }, 50);
 }
 
 
 /* ================================================================
-   4. UI DURUM GÜNCELLEMELERİ
+   5. UI DURUM GÜNCELLEMELERİ
    ================================================================ */
 
-/**
- * Yükleme durumunu açar/kapatır.
- * @param {boolean} loading - true = yükleniyor, false = hazır
- */
 function setLoading(loading) {
   isLoading = loading;
 
   if (loading) {
-    // Gönder butonunu yükleme moduna al
     btnSend.disabled = true;
     btnSend.classList.add('loading');
     iconSend.style.display = 'none';
     iconLoading.style.display = 'block';
-
-    // Textarea devre dışı bırak
     userInput.disabled = true;
-
-    // Status "Düşünüyor..." yap
     statusText.textContent = '● Düşünüyor...';
     statusText.classList.add('thinking');
-
-    // Avatar düşünme animasyonu
     avatarThinking.classList.add('active');
-
   } else {
-    // Gönder butonunu normal hale getir
     btnSend.disabled = userInput.value.trim().length === 0;
     btnSend.classList.remove('loading');
     iconSend.style.display = 'block';
     iconLoading.style.display = 'none';
-
-    // Textarea'yı aktif et
     userInput.disabled = false;
     userInput.focus();
-
-    // Status "Çevrimiçi" yap
     statusText.textContent = '● Çevrimiçi';
     statusText.classList.remove('thinking');
-
-    // Avatar animasyonu kapat
     avatarThinking.classList.remove('active');
   }
 }
 
-/**
- * Textarea yüksekliğini içeriğe göre otomatik ayarlar.
- */
 function autoResizeTextarea() {
   userInput.style.height = 'auto';
   userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
-
-  // Gönder butonunu aktif/pasif yap
   btnSend.disabled = userInput.value.trim().length === 0 || isLoading;
 }
 
 
 /* ================================================================
-   5. ANA İŞLEV: Mesaj Gönder
+   6. ANA İŞLEV: Mesaj Gönder
    ================================================================ */
 
-/**
- * Kullanıcının mesajını gönderir ve Eva'nın cevabını alır.
- * Bu fonksiyon tüm süreci yönetir:
- *   1. Input'u al ve temizle
- *   2. Kullanıcı mesajını ekle
- *   3. Yazma göstergesi göster
- *   4. API'ye gönder
- *   5. Eva'nın cevabını göster
- *   6. Geçmişi güncelle
- */
 async function handleSend() {
   const text = userInput.value.trim();
   if (!text || isLoading) return;
 
-  // Input'u temizle
   userInput.value = '';
   autoResizeTextarea();
-
-  // 1. Kullanıcı mesajını ekle
   addMessage(text, 'user');
-
-  // 3. Yükleme başlat + yazma göstergesi
   setLoading(true);
   addTypingIndicator();
 
   try {
-    // 4. Eva'ya gönder
     const evaResponse = await sendMessageToEva(text);
-
-    // 5. Yazma göstergesi kaldır, cevabı ekle
     removeTypingIndicator();
     addMessage(evaResponse, 'eva');
 
-    // 6. Geçmişe ekle (Kullanıcı mesajını ve Eva'nın cevabını aynı anda ekle ki API'ye çift gitmesin)
+    // Geçmişe ekle
     conversationHistory.push({ role: 'user', content: text });
     conversationHistory.push({ role: 'assistant', content: evaResponse });
 
-    // Geçmişi 20 mesajla sınırla (bellek tasarrufu)
+    // 20 mesaj sınırı
     if (conversationHistory.length > 20) {
       conversationHistory = conversationHistory.slice(-20);
     }
 
+    // Sol paneldeki sohbet başlığını yenile
+    await fetchConversations();
+    if (activeConversationId) updateActiveConvInList(activeConversationId);
+
+    // Faz 4: Eva cevabını sesli oku
+    speakText(evaResponse);
+
   } catch (error) {
-    console.error('Frontend/Backend Hatası:', error);
+    console.error('Hata:', error);
     removeTypingIndicator();
-    // Kullanıcıya karmaşık backend detayları yerine jenerik bir mesaj ver, hata detayını gizle
-    addMessage(`⚠️ Bağlantı veya sunucu hatası oluştu. (Detaylar için F12 Konsoluna bakınız)`, 'eva', true);
+    addMessage('⚠️ Bağlantı veya sunucu hatası oluştu. (F12 Konsoluna bakınız)', 'eva', true);
   } finally {
     setLoading(false);
   }
@@ -361,56 +441,187 @@ async function handleSend() {
 
 
 /* ================================================================
-   6. OLAY DİNLEYİCİLERİ (Event Listeners)
+   7. OLAY DİNLEYİCİLERİ
    ================================================================ */
 
 // Gönder butonu
 btnSend.addEventListener('click', handleSend);
 
 // Enter = gönder, Shift+Enter = yeni satır
-userInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault();  // Varsayılan yeni satır davranışını engelle
+userInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
     handleSend();
   }
 });
 
-// Yazarken otomatik yükseklik + buton durumu
+// Yazarken boyut ayarla
 userInput.addEventListener('input', autoResizeTextarea);
 
-// Sohbeti temizle
+// Yeni sohbet
+btnNewChat.addEventListener('click', startNewChat);
+
+// Sohbeti temizle (sadece ekran, DB'ye dokunmaz)
 btnClear.addEventListener('click', () => {
-  // Sohbet penceresini temizle
   chatWindow.innerHTML = '';
-
-  // Geçmişi sıfırla
   conversationHistory = [];
-
-  // Hoşgeldin mesajı tekrar göster
-  addMessage('Yeni bir konuşmaya başlayalım! Sana nasıl yardımcı olabilirim?', 'eva');
+  addMessage('Ekran temizlendi. Sohbet geçmişin sol panelde duruyor.', 'eva');
 });
+
+// Çıkış
+function logout() {
+  clearSession();
+  window.location.href = '/';
+}
+
+if (btnLogout) {
+  btnLogout.addEventListener('click', () => {
+    if (confirm('Oturumu kapatmak istediğine emin misin?')) logout();
+  });
+}
+
+// Hamburger (mobil)
+btnHamburger.addEventListener('click', openSidebar);
+overlayEl.addEventListener('click', closeSidebar);
 
 
 /* ================================================================
-   7. BAŞL ANGIÇ
+   FAZ 4: SES (STT + TTS)
    ================================================================ */
 
+// ── TTS (Text-to-Speech) — Eva sesle konuşur ──────────────────
+let ttsEnabled = true;   // Başlangıçta ses açık
+
 /**
- * Giriş yoksa login sayfasına at.
- * Varsa kullanıcı adını göster ve Eva'yı başlat.
+ * Eva'nın cevabını sesle okur.
+ * Markdown işaretlerini temizler, düz metin olarak okur.
  */
+function speakText(text) {
+  if (!ttsEnabled) return;
+  if (!window.speechSynthesis) return;  // Tarayıcı desteklemiyor
+
+  // Önce varsa devam eden sesi durdur
+  window.speechSynthesis.cancel();
+
+  // Markdown işaretlerini temizle (* ** # ` vb.)
+  const cleanText = text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/#{1,6}\s/g, '')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/\n+/g, ' ')
+    .trim();
+
+  const utterance = new SpeechSynthesisUtterance(cleanText);
+  utterance.lang  = 'tr-TR';   // Türkçe
+  utterance.rate  = 0.95;      // Biraz yavaş, daha doğal
+  utterance.pitch = 1.05;      // Hafif yüksek, daha canlı
+
+  // Türkçe ses varsa onu seç
+  const voices = window.speechSynthesis.getVoices();
+  const trVoice = voices.find(v => v.lang.startsWith('tr'));
+  if (trVoice) utterance.voice = trVoice;
+
+  window.speechSynthesis.speak(utterance);
+}
+
+// TTS Toggle butonu
+if (btnTtsToggle) {
+  btnTtsToggle.addEventListener('click', () => {
+    ttsEnabled = !ttsEnabled;
+    window.speechSynthesis.cancel();  // Çalan sesi durdur
+
+    if (ttsEnabled) {
+      btnTtsToggle.textContent = '🔊 Ses';
+      btnTtsToggle.classList.remove('muted');
+      btnTtsToggle.title = "Eva'nın sesini kapat";
+    } else {
+      btnTtsToggle.textContent = '🔇 Ses';
+      btnTtsToggle.classList.add('muted');
+      btnTtsToggle.title = "Eva'nın sesini aç";
+    }
+  });
+}
+
+// ── STT (Speech-to-Text) — Kullanıcı sesle yazar ───────────────
+let isRecording = false;
+let recognition = null;
+
+// Web Speech API tarayıcı desteği kontrolü
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (SpeechRecognition && btnMic) {
+  recognition = new SpeechRecognition();
+  recognition.lang = 'tr-TR';         // Türkçe
+  recognition.continuous = false;     // Tek cümle dinle
+  recognition.interimResults = false; // Ara sonuç gösterme
+
+  // Ses tanıma başardığında metin input'a gelir ve direkt gönderilir
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    userInput.value = transcript;
+    autoResizeTextarea();
+    // Kısa bir bekleme sonrası otomatik gönder
+    setTimeout(() => handleSend(), 300);
+  };
+
+  recognition.onerror = (event) => {
+    console.error('Ses tanıma hatası:', event.error);
+    stopRecording();
+    if (event.error === 'not-allowed') {
+      addMessage('⚠️ Mikrofon izni verilmedi. Tarayıcı ayarlarından mikrofon iznini aç.', 'eva', true);
+    }
+  };
+
+  recognition.onend = () => stopRecording();
+
+  // Mikrofon butonu tıklaması
+  btnMic.addEventListener('click', () => {
+    if (isRecording) {
+      recognition.stop();
+    } else {
+      startRecording();
+    }
+  });
+
+} else if (btnMic) {
+  // Tarayıcı desteklemiyor
+  btnMic.disabled = true;
+  btnMic.title = 'Tarayıcınız STT desteklemiyor (Chrome/Edge kullanın)';
+  btnMic.style.opacity = '0.3';
+}
+
+function startRecording() {
+  if (!recognition || isLoading) return;
+  isRecording = true;
+  btnMic.classList.add('recording');
+  userInput.placeholder = 'Dinliyorum... (konuşmayı bitirince otomatik gider)';
+  recognition.start();
+}
+
+function stopRecording() {
+  isRecording = false;
+  if (btnMic) btnMic.classList.remove('recording');
+  userInput.placeholder = "Eva'ya bir şey yaz... (Enter gönder, Shift+Enter yeni satır)";
+}
+
+
+/* ================================================================
+   8. BAŞLANGIÇ
+   ================================================================ */
+
 async function init() {
-  const token = getToken();
+  const token    = getToken();
   const username = getUsername();
 
-  // Token yoksa login'e yönlendir
   if (!token) {
     window.location.href = '/';
     return;
   }
 
-  // Kullanıcı adını header'a yaz
-  if (headerUsername) headerUsername.textContent = username || 'Kullanıcı';
+  // Kullanıcı adlarını doldur
+  if (sidebarUsernameEl) sidebarUsernameEl.textContent = username || 'Kullanıcı';
 
   // Hoşgeldin mesajı
   addMessage(
@@ -418,31 +629,16 @@ async function init() {
     'eva'
   );
 
+  // Sol paneli doldur
+  await fetchConversations();
+
   // Backend sağlık kontrolü
   const isHealthy = await checkBackendHealth();
   if (!isHealthy) {
-    addMessage(
-      '⚠️ Backend\'e bağlamamıyorum. Backend\'in çalıştığından emin ol.',
-      'eva',
-      true
-    );
+    addMessage("⚠️ Backend'e bağlanamıyorum. Backend'in çalıştığından emin ol.", 'eva', true);
   }
 
   userInput.focus();
 }
 
-// Çıkış fonksiyonu
-function logout() {
-  clearSession();
-  window.location.href = '/';
-}
-
-// Çıkış butonu
-if (btnLogout) {
-  btnLogout.addEventListener('click', () => {
-    if (confirm('Oturumu kapatıp çıkmak istiyor musun?')) logout();
-  });
-}
-
-// Sayfa yüklenince başlat
 init();
