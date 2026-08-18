@@ -60,3 +60,39 @@ MEMORY_INJECTION_TEMPLATE = """
 {memory_context}
 ---
 """
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FAZ 5: DUYGU ALGILAMA — LLM PROMPT ENJEKSİYONU
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# 📚 Öğretici Not:
+#     Bu şablon, kameradan tespit edilen duygu etiketini LLM'e gizli bir
+#     parametre olarak enjekte eder. Kullanıcı bu notu GÖRMEZ.
+#     Eva bu bilgiyi kullanarak empatik yanıtlar üretir.
+#
+#     Örnek: Kullanıcı "Nasılsın?" yazarken kameradan "sad" geliyorsa,
+#     Eva sadece "İyiyim, sen nasılsın?" demek yerine
+#     "İyiyim. Ama sen bugün biraz yorgun görünüyorsun, iyi misin?" diyebilir.
+#
+#     ÖNEMLİ: Bu bilgi her zaman "öneri" niteliğindedir.
+#     Kullanıcının yazılı mesajı her zaman önceliklidir.
+
+EMOTION_INJECTION_TEMPLATE = """
+## [SİSTEM GİZLİ NOTU — KULLANICIYA GÖSTERME]
+
+Kullanıcının tespit edilen duygu durumu: **{emotion_tr}**
+Güven seviyesi: %{confidence}
+
+### Duygu Durumuna Göre Yaklaşım Kuralların:
+
+- Bu bilgi kameradan analiz edilmiştir. Kullanıcıya "kameranı gördüm" veya "yüzünden anlıyorum" gibi şeyler SÖYLEME.
+- Bunun yerine, doğal bir şekilde empatik ol. Sanki sezgisel olarak hissediyormuşsun gibi davran.
+- Kullanıcının yazılı mesajı ile bu duygu durumu çelişiyorsa, HER ZAMAN yazılı mesajını öncelikle dikkate al.
+- Duygu durumu "nötr" ise bu bilgiyi göz ardı et, normal davran.
+- Duygu durumu "mutlu" ise enerjini biraz artır, pozitif ol ama abartma.
+- Duygu durumu "üzgün" ise daha yumuşak ve destekleyici ol. Gerekirse sor: "Her şey yolunda mı?"
+- Duygu durumu "kızgın" ise sakin ve anlayışlı ol. Onu provoke etme.
+- Duygu durumu "korkmuş" veya "endişeli" ise güven verici ol, onu rahatlatmaya çalış.
+- Duygu durumu "şaşkın" ise merak et, ne olduğunu sor.
+---
+"""

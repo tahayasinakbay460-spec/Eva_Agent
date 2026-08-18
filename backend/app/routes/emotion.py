@@ -1,37 +1,44 @@
 """
-routes/emotion.py - Duygu Algılama WebSocket Endpoint'i (Faz 5.1)
-==================================================================
-WS /ws/emotion?token=<JWT>  →  Video framelerini alır, duygu etiketi döndürür.
+routes/emotion.py - Duygu Algılama WebSocket Endpoint'i (Faz 5 — Tam Sürüm)
+==============================================================================
+WS /ws/emotion?token=<JWT>  →  Video framelerini alır, DeepFace ile analiz eder,
+3 katmanlı güvenlik filtresinden geçirip duygu etiketi döndürür.
 
-📚 Öğretici Not — WebSocket vs HTTP:
-    HTTP: İstek → Cevap → Bağlantı kapanır (her mesajda yeniden bağlan)
-    WebSocket: Bağlantı bir kere kurulur → İki yönlü sürekli iletişim
-
-    Neden WebSocket?
-    - Video frameleri sürekli akıyor (saniyede 1 frame bile olsa)
-    - HTTP'de her frame için yeni bağlantı açmak = gereksiz gecikme
-    - WebSocket'te bağlantı açık kalır, veri anında akar
+📚 Akış:
+    1. Frontend kamera açar → WebSocket bağlantısı kurar (JWT doğrulamalı)
+    2. Her 3 saniyede bir base64 JPEG frame gelir
+    3. DeepFace ile yüz ifadesi analizi yapılır
+    4. 3 katmanlı güvenlik filtresi uygulanır:
+       - Güven skoru < %75 → nötr
+       - Metin ile çelişki → metin kazanır
+       - Hafıza ile çelişki → anomali olarak filtrele
+    5. Nihai duygu etiketi frontend'e gönderilir
+    6. Frontend bu etiketi chat mesajıyla birlikte LLM'e gönderir
 
 📚 JWT Doğrulama — WebSocket'te Farklı:
     Normal HTTP endpoint: Authorization header'dan token alınır
     WebSocket: Header gönderilmez! → Token query parameter ile gelir
     Örn: ws://localhost:8000/ws/emotion?token=eyJhbGci...
-
-Faz 5.1: Placeholder — her frame'e "neutral" döner
-Faz 5.2: DeepFace modeli entegre edilecek
 """
 
 import json
 import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core.auth import decode_token
+from app.core.emotion_analyzer import analyze_emotion, apply_confidence_filter, EMOTION_LABELS_TR
 from app.database import SessionLocal
 from app.models.user import User
 
 
 router = APIRouter()
 logger = logging.getLogger("eva.emotion")
+
+# DeepFace CPU-bound iş olduğu için ayrı thread pool'da çalıştırıyoruz
+# Bu sayede WebSocket event loop bloklanmaz
+_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="deepface")
 
 
 async def _authenticate_websocket(websocket: WebSocket) -> User | None:
@@ -77,13 +84,6 @@ async def emotion_websocket(websocket: WebSocket):
     """
     Duygu algılama WebSocket endpoint'i.
 
-    Akış:
-    1. Bağlantı gelir → JWT doğrula
-    2. Geçerliyse kabul et, değilse 4001 ile kapat
-    3. Frontend'den gelen frame mesajlarını dinle
-    4. (Faz 5.2) DeepFace ile analiz et
-    5. Duygu etiketini JSON olarak geri gönder
-
     Gelen mesaj formatı:
     {
         "type": "frame",
@@ -93,11 +93,13 @@ async def emotion_websocket(websocket: WebSocket):
     Dönen mesaj formatı:
     {
         "type": "emotion",
-        "emotion": "happy",           ← duygu etiketi
-        "confidence": 0.87            ← güven skoru (0-1)
+        "emotion": "happy",           ← duygu etiketi (İngilizce)
+        "emotion_tr": "mutlu",        ← duygu etiketi (Türkçe)
+        "confidence": 0.87,           ← güven skoru (0-1)
+        "filtered": false             ← güvenlik filtresi uygulandı mı?
     }
 
-    Desteklenen duygu etiketleri (Faz 5.2'de aktif olacak):
+    Desteklenen duygu etiketleri:
     happy, sad, angry, surprise, fear, disgust, neutral
     """
 
@@ -105,9 +107,6 @@ async def emotion_websocket(websocket: WebSocket):
     user = await _authenticate_websocket(websocket)
 
     if user is None:
-        # Bağlantıyı kabul etmeden kapatamayız, önce kabul edip sonra kapatıyoruz
-        # 📚 Not: WebSocket protokolü gereği, close() çağırmadan önce
-        # accept() çağrılmalıdır, aksi halde bazı tarayıcılar hata verir
         await websocket.accept()
         await websocket.close(code=4001, reason="Yetkisiz: Geçersiz veya eksik token")
         return
@@ -134,25 +133,53 @@ async def emotion_websocket(websocket: WebSocket):
 
             msg_type = data.get("type")
 
-            # ── Frame İşleme ────────────────────────────────────────
+            # ── Frame İşleme (DeepFace Analizi) ─────────────────────
             if msg_type == "frame":
                 frame_data = data.get("data")
 
                 if not frame_data:
                     continue
 
-                # ═══════════════════════════════════════════════════
-                # FAZ 5.2'DE BURADA DeepFace ÇAĞRILACAK
-                # Şimdilik placeholder: her zaman "neutral" döndür
-                # ═══════════════════════════════════════════════════
-                emotion_result = {
-                    "type": "emotion",
-                    "emotion": "neutral",
-                    "confidence": 0.0,
-                    "debug": "Faz 5.1 placeholder — CV modeli henüz entegre edilmedi"
-                }
+                try:
+                    # ═══════════════════════════════════════════════════
+                    # DeepFace analizi CPU-bound iştir.
+                    # asyncio event loop'u bloklamemak için ThreadPool'da çalıştırıyoruz.
+                    #
+                    # 📚 run_in_executor():
+                    #     Senkron (CPU ağır) fonksiyonu ayrı thread'de çalıştırır.
+                    #     Ana event loop (WebSocket dinleme) bloklanmaz.
+                    # ═══════════════════════════════════════════════════
+                    loop = asyncio.get_event_loop()
+                    raw_result = await loop.run_in_executor(
+                        _executor,
+                        analyze_emotion,
+                        frame_data
+                    )
 
-                await websocket.send_json(emotion_result)
+                    # Katman 1: Güven skoru filtresi (%75 eşik)
+                    # (Katman 2 ve 3, chat mesajı gönderildiğinde routes/chat.py'da uygulanır)
+                    filtered_result = apply_confidence_filter(raw_result)
+
+                    emotion_response = {
+                        "type": "emotion",
+                        "emotion": filtered_result["emotion"],
+                        "emotion_tr": EMOTION_LABELS_TR.get(filtered_result["emotion"], "nötr"),
+                        "confidence": filtered_result["confidence"],
+                        "filtered": filtered_result["emotion"] != raw_result.get("emotion", "neutral")
+                    }
+
+                    await websocket.send_json(emotion_response)
+
+                except Exception as e:
+                    logger.error(f"Frame analiz hatası ({user.username}): {e}")
+                    # Hata durumunda neutral gönder — frontend'i kırmamak için
+                    await websocket.send_json({
+                        "type": "emotion",
+                        "emotion": "neutral",
+                        "emotion_tr": "nötr",
+                        "confidence": 0.0,
+                        "filtered": False
+                    })
 
             # ── Ping/Pong (Bağlantı Canlılık Kontrolü) ──────────
             elif msg_type == "ping":
@@ -163,13 +190,11 @@ async def emotion_websocket(websocket: WebSocket):
                 logger.debug(f"Bilinmeyen mesaj tipi: {msg_type} ({user.username})")
 
     except WebSocketDisconnect:
-        # Kullanıcı sayfayı kapattı veya bağlantıyı kesti — normal durum
         logger.info(f"🎥 Emotion WS bağlantısı kapandı: {user.username}")
 
     except Exception as e:
-        # Beklenmeyen hata — loglayıp bağlantıyı kapat
         logger.error(f"Emotion WS hatası ({user.username}): {str(e)}")
         try:
             await websocket.close(code=1011, reason="Sunucu hatası")
         except RuntimeError:
-            pass  # Bağlantı zaten kapalıysa RuntimeError oluşabilir
+            pass

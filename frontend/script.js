@@ -59,7 +59,8 @@ async function sendMessageToEva(message) {
   const requestBody = {
     message: message,
     history: conversationHistory,
-    conversation_id: activeConversationId   // Hangi sohbete ait olduğu (null ise yeni açılır)
+    conversation_id: activeConversationId,   // Hangi sohbete ait olduğu (null ise yeni açılır)
+    detected_emotion: cameraActive ? currentEmotion : null  // Faz 5: Kameradan gelen duygu
   };
 
   const response = await fetch(`${API_BASE}/chat`, {
@@ -759,6 +760,9 @@ function stopCamera() {
   btnCameraToggle.textContent = '📷 Kamera';
   btnCameraToggle.title = 'Kamera modunu aç';
 
+  // 6. Avatarı orijinal haline döndür (Faz 5.5)
+  resetAvatarEmotion();
+
   console.log('📷 Kamera kapatıldı');
 }
 
@@ -809,6 +813,9 @@ function connectEmotionSocket() {
         // Duygu etiketini güncelle
         currentEmotion = data.emotion || 'neutral';
         console.log(`🎭 Duygu: ${currentEmotion} (güven: ${(data.confidence * 100).toFixed(0)}%)`);
+
+        // Faz 5.5: Eva avatarını güncelle
+        updateAvatarEmotion(currentEmotion, data.emotion_tr || 'nötr');
 
       } else if (data.type === 'error') {
         console.warn('Emotion WS hatası:', data.message);
@@ -930,6 +937,96 @@ function flashCameraError() {
 // ── Kamera Butonu Event Listener ─────────────────────────────
 if (btnCameraToggle) {
   btnCameraToggle.addEventListener('click', toggleCamera);
+}
+
+
+/* ================================================================
+   FAZ 5.5: AVATAR DUYGU ANİMASYONLARI
+   ================================================================
+   📚 Kameradan gelen duygu etiketine göre Eva'nın avatarı değişir.
+       - Emoji: duyguya göre farklı emoji (😊, 😢, 😠, vb.)
+       - Renk: avatar halkasının gradient rengi değişir
+       - Tooltip: kullanıcı hover'da duygu durumunu görebilir
+   ================================================================ */
+
+// Duygu → Emoji eşlemesi
+const EMOTION_EMOJIS = {
+  happy:    '😊',
+  sad:      '😢',
+  angry:    '😠',
+  surprise: '😲',
+  fear:     '😰',
+  disgust:  '😖',
+  neutral:  '🤖'
+};
+
+// Duygu → Avatar halka rengi eşlemesi
+const EMOTION_COLORS = {
+  happy:    { from: '#22c55e', to: '#4ade80' },   // Yeşil
+  sad:      { from: '#3b82f6', to: '#60a5fa' },   // Mavi
+  angry:    { from: '#ef4444', to: '#f87171' },   // Kırmızı
+  surprise: { from: '#f59e0b', to: '#fbbf24' },   // Sarı
+  fear:     { from: '#8b5cf6', to: '#a78bfa' },   // Mor
+  disgust:  { from: '#6b7280', to: '#9ca3af' },   // Gri
+  neutral:  { from: '#7c3aed', to: '#a855f7' }    // Varsayılan mor (orijinal)
+};
+
+/**
+ * Eva avatarını tespit edilen duyguya göre günceller.
+ *
+ * 📚 Güncellenen elementler:
+ *     1. Avatar emoji → duyguya uygun emoji
+ *     2. Avatar ring → duyguya uygun gradient renk
+ *     3. Avatar title (tooltip) → "Eva — Kullanıcı şu an: mutlu"
+ *
+ * @param {string} emotion - İngilizce duygu etiketi (happy, sad, ...)
+ * @param {string} emotionTr - Türkçe duygu etiketi (mutlu, üzgün, ...)
+ */
+function updateAvatarEmotion(emotion, emotionTr) {
+  const avatarEmoji = document.querySelector('.avatar-emoji');
+  const avatarRing  = document.querySelector('.avatar-ring');
+  const avatarEl    = document.getElementById('eva-avatar');
+
+  if (!avatarEmoji || !avatarRing) return;
+
+  // 1. Emoji güncelle
+  const newEmoji = EMOTION_EMOJIS[emotion] || EMOTION_EMOJIS.neutral;
+  if (avatarEmoji.textContent !== newEmoji) {
+    // Küçük bir scale animasyonu ile geçiş
+    avatarEmoji.style.transition = 'transform 0.3s ease';
+    avatarEmoji.style.transform = 'scale(0.5)';
+    setTimeout(() => {
+      avatarEmoji.textContent = newEmoji;
+      avatarEmoji.style.transform = 'scale(1.2)';
+      setTimeout(() => {
+        avatarEmoji.style.transform = 'scale(1)';
+      }, 150);
+    }, 150);
+  }
+
+  // 2. Avatar halka rengi güncelle
+  const colors = EMOTION_COLORS[emotion] || EMOTION_COLORS.neutral;
+  avatarRing.style.background = `linear-gradient(135deg, ${colors.from}, ${colors.to})`;
+
+  // 3. Tooltip güncelle
+  if (avatarEl) {
+    avatarEl.title = emotion !== 'neutral'
+      ? `Eva — Kullanıcı şu an: ${emotionTr}`
+      : 'Eva';
+  }
+}
+
+/**
+ * Kamera kapatıldığında avatarı orijinal haline döndürür.
+ */
+function resetAvatarEmotion() {
+  const avatarEmoji = document.querySelector('.avatar-emoji');
+  const avatarRing  = document.querySelector('.avatar-ring');
+  const avatarEl    = document.getElementById('eva-avatar');
+
+  if (avatarEmoji) avatarEmoji.textContent = '🤖';
+  if (avatarRing) avatarRing.style.background = '';
+  if (avatarEl) avatarEl.title = 'Eva';
 }
 
 

@@ -9,8 +9,12 @@ Sadece Groq referansları kaldırıldı, yalnızca Gemini kaldı.
 from google import genai
 from google.genai import types # google ' a istek gonderirken onun kutuphanesini kurallarıyla donatıp gondermemiz gerekiyor 
 from app.config import Config
-from app.core.prompts import EVA_SYSTEM_PROMPT, MEMORY_INJECTION_TEMPLATE
+from app.core.prompts import EVA_SYSTEM_PROMPT, MEMORY_INJECTION_TEMPLATE, EMOTION_INJECTION_TEMPLATE
 from app.core.memory import get_memory
+from app.core.emotion_analyzer import (
+    get_filtered_emotion, analyze_emotion,
+    EMOTION_LABELS_TR
+)
 
 
 def _create_client():
@@ -37,9 +41,19 @@ def get_client():
     return _client
 
 
-def chat_with_eva(user_message: str,user_id: str = "default_user",conversation_history: list = None) -> str:
+def chat_with_eva(
+    user_message: str,
+    user_id: str = "default_user",
+    conversation_history: list = None,
+    detected_emotion: str = None
+) -> str:
     """
     Eva ile bir konuşma turu gerçekleştirir (Yeni google-genai SDK).
+    
+    Faz 5: detected_emotion parametresi eklenmiştir.
+    Kameradan tespit edilen duygu etiketi buraya gelir ve
+    3 katmanlı güvenlik filtresinden geçirildikten sonra
+    LLM'e gizli bir sistem notu olarak enjekte edilir.
     """
     memory = get_memory()  #hafıza nesnesi olusturuyor 
     client = get_client() # LLM ile olan baglantı motorunu calıştırıyor.
@@ -58,6 +72,37 @@ def chat_with_eva(user_message: str,user_id: str = "default_user",conversation_h
             memory_context=relevant_memories
         )
         system_content = system_content + "\n\n" + memory_block
+
+    # ─── ADIM 2.5 (Faz 5): Duygu Etiketini Prompt'a Enjekte Et ───────────
+    # 📚 Kameradan gelen duygu etiketi, 3 katmanlı filtreden geçirildikten sonra
+    #     LLM'e gizli bir not olarak eklenir. Kullanıcı bu notu görmez.
+    if detected_emotion and detected_emotion != "neutral":
+        # Sahte bir emotion_result oluştur (WS'den gelen etiketi kullanarak)
+        camera_result = {
+            "emotion": detected_emotion,
+            "emotion_tr": EMOTION_LABELS_TR.get(detected_emotion, "nötr"),
+            "confidence": 0.80,  # Frontend'den sadece etiket geliyor, default confidence
+            "all_emotions": {}
+        }
+        
+        # Katman 2 + 3 filtrelerini uygula (metin hiyerarşisi + hafıza filtresi)
+        filtered = get_filtered_emotion(
+            camera_emotion_result=camera_result,
+            user_message=user_message,
+            relevant_memories=relevant_memories
+        )
+        
+        final_emotion = filtered["emotion"]
+        final_emotion_tr = filtered["emotion_tr"]
+        
+        # Sadece nötr olmayan duygular için enjekte et
+        if final_emotion != "neutral":
+            emotion_block = EMOTION_INJECTION_TEMPLATE.format(
+                emotion_tr=final_emotion_tr,
+                confidence=int(filtered["confidence"] * 100)
+            )
+            system_content = system_content + "\n\n" + emotion_block
+            print(f"🎭 Duygu enjekte edildi: {final_emotion_tr} (filtre: {filtered['filtered']})")
 
     config = types.GenerateContentConfig(
         system_instruction=system_content,

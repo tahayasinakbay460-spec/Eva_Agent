@@ -37,7 +37,7 @@ def list_conversations(
     return conversations
 
 
-@router.post("/conversations", response_model=ConversationOut)
+@router.post("/conversations", response_model=ConversationOut) # şimdilik kullanılmıyor
 def create_conversation(
     body: ConversationCreate,
     current_user: User = Depends(get_current_user),

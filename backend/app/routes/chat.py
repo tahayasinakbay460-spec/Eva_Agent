@@ -61,6 +61,8 @@ def chat(
     Mesajlar MySQL'e kaydedilir ve sol panelde görünür.
     """
     print(f"\n[{current_user.username}#{current_user.id}]: {request.message}")
+    if request.detected_emotion:
+        print(f"  🎭 Kamera duygusu: {request.detected_emotion}")
 
     try:
         history_dicts = [
@@ -68,11 +70,12 @@ def chat(
             for msg in request.history
         ]
 
-        # Yapay zekaya gönder
+        # Yapay zekaya gönder (Faz 5: duygu etiketi de eklendi)
         eva_response = chat_with_eva(
             user_message=request.message,
             user_id=str(current_user.id),
-            conversation_history=history_dicts
+            conversation_history=history_dicts,
+            detected_emotion=request.detected_emotion  # Faz 5: Kameradan gelen duygu
         )
 
         print(f"Eva -> {current_user.username}: {eva_response[:80].encode('ascii', errors='ignore').decode('ascii')}...")

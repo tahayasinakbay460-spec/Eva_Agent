@@ -33,6 +33,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, description="Kullanıcının mesajı")
     history: List[HistoryMessage] = Field(default=[], description="Oturum geçmişi")
     conversation_id: Optional[int] = Field(default=None, description="Aktif sohbet ID'si (yoksa yeni oluşturulur)")
+    detected_emotion: Optional[str] = Field(default=None, description="Kameradan tespit edilen duygu (Faz 5)")
 
 
 class ChatResponse(BaseModel):

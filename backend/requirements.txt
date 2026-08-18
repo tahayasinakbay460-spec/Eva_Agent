@@ -37,3 +37,10 @@ python-jose[cryptography]==3.3.0  # JWT token oluşturma/doğrulama
 
 # MySQL Veritabanı Sürücüsü (Faz 3)
 pymysql==1.1.1
+
+# Duygu Algılama — Computer Vision (Faz 5)
+Pillow>=10.0.0              # Base64 frame -> PIL Image -> numpy array dönüşümü
+deepface>=0.0.93            # Yüz ifadesi analizi (emotion detection)
+tf-keras                    # DeepFace Keras backend
+numpy<2.0.0                 # ChromaDB ve LangChain uyumluluğu için
+protobuf<5.0.0              # Gemini SDK / OpenTelemetry uyumluluğu için
