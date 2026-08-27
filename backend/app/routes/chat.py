@@ -33,7 +33,8 @@ def _get_or_create_conversation(db: Session, user_id: int, conv_id: int | None,
     if conv_id:
         conv = db.query(Conversation).filter(
             Conversation.id == conv_id,
-            Conversation.user_id == user_id
+            Conversation.user_id == user_id,
+            Conversation.ancestor_id.is_(None),
         ).first()
         if conv:
             return conv

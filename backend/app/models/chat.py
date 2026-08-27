@@ -19,6 +19,14 @@ class Conversation(Base):
     id         = Column(Integer, primary_key=True, index=True)
     user_id    = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title      = Column(String(200), default="Yeni Sohbet")
+    # NULL = Eva sohbeti (sol panel geçmişi). Dolu = karakter/ata sohbeti
+    # (Eva listesinde görünmez; karakterin kendi geçmişinde durur).
+    ancestor_id = Column(
+        Integer,
+        ForeignKey("ancestors.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True
+    )
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

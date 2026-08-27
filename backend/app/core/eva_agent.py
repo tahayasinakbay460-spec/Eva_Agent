@@ -12,7 +12,7 @@ from app.config import Config
 from app.core.prompts import EVA_SYSTEM_PROMPT, MEMORY_INJECTION_TEMPLATE, EMOTION_INJECTION_TEMPLATE
 from app.core.memory import get_memory
 from app.core.emotion_analyzer import (
-    get_filtered_emotion, analyze_emotion,
+    get_filtered_emotion, normalize_emotion_label,
     EMOTION_LABELS_TR
 )
 
@@ -77,7 +77,10 @@ def chat_with_eva(
     # 📚 Kameradan gelen duygu etiketi, 3 katmanlı filtreden geçirildikten sonra
     #     LLM'e gizli bir not olarak eklenir. Kullanıcı bu notu görmez.
     if detected_emotion and detected_emotion != "neutral":
-        # Sahte bir emotion_result oluştur (WS'den gelen etiketi kullanarak)
+        # face-api.js etiketini backend standardına çevir (surprised → surprise vb.)
+        detected_emotion = normalize_emotion_label(detected_emotion)
+
+        # Frontend'den gelen etiketle bir emotion_result oluştur
         camera_result = {
             "emotion": detected_emotion,
             "emotion_tr": EMOTION_LABELS_TR.get(detected_emotion, "nötr"),

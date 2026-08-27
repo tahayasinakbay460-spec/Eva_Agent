@@ -10,43 +10,43 @@
 }
 
 :root {
-  /* Renkler */
-  --bg-base:        #050714;
-  --bg-panel:       #0a0d1f;
-  --bg-card:        rgba(15, 20, 45, 0.85);
-  --bg-input:       rgba(255, 255, 255, 0.05);
-  --bg-input-focus: rgba(99, 102, 241, 0.12);
+  --bg-base:        #12100E;
+  --bg-panel:       #1A1613;
+  --bg-card:        #221C18;
+  --bg-input:       rgba(232, 210, 180, 0.06);
+  --bg-input-focus: rgba(232, 210, 180, 0.09);
 
-  --accent:         #6366f1;
-  --accent-light:   #818cf8;
-  --accent-glow:    rgba(99, 102, 241, 0.4);
-  --accent-soft:    rgba(99, 102, 241, 0.15);
+  --accent:         #C56A45;
+  --accent-light:   #E07A50;
+  --accent-glow:    rgba(197, 106, 69, 0.28);
+  --accent-soft:    rgba(197, 106, 69, 0.12);
 
-  --purple:         #a855f7;
-  --cyan:           #22d3ee;
-  --pink:           #ec4899;
+  --purple:         #E07A50;
+  --cyan:           #6FBF7A;
+  --pink:           #C56A45;
 
-  --text-primary:   #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted:     #475569;
+  --text-primary:   #F0E6D8;
+  --text-secondary: #B5A898;
+  --text-muted:     #7A7168;
 
-  --border:         rgba(255, 255, 255, 0.08);
-  --border-focus:   rgba(99, 102, 241, 0.6);
+  --border:         rgba(232, 210, 180, 0.12);
+  --border-focus:   #C56A45;
 
-  --error:          #f43f5e;
-  --error-bg:       rgba(244, 63, 94, 0.1);
+  --error:          #B42318;
+  --error-bg:       rgba(180, 35, 24, 0.08);
 
-  --success:        #10b981;
+  --success:        #3F6B4A;
 
   --radius-sm:      8px;
-  --radius-md:      14px;
-  --radius-lg:      20px;
-  --radius-xl:      28px;
+  --radius-md:      12px;
+  --radius-lg:      16px;
+  --radius-xl:      22px;
 
-  --shadow-card:    0 25px 60px rgba(0, 0, 0, 0.6);
-  --shadow-glow:    0 0 40px var(--accent-glow);
+  --shadow-card:    0 18px 50px rgba(0, 0, 0, 0.45);
+  --shadow-glow:    none;
 
-  --font:           'Inter', -apple-system, sans-serif;
+  --font:           'Source Sans 3', system-ui, -apple-system, sans-serif;
+  --font-display:   'Fraunces', 'Times New Roman', serif;
 }
 
 html, body {
@@ -58,20 +58,61 @@ html, body {
 }
 
 /* ─── 2. ARKAPLAN: CANVAS + ORB'LAR ────────────────────────────── */
-#particles-canvas {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
+#particles-canvas,
+.bg-orb { display: none; }
+
+.brand-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 50px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
 }
 
-.bg-orb {
-  position: fixed;
+.avatar-pulse { display: none; }
+
+.avatar-core {
+  position: absolute;
+  inset: 20px;
+  background: var(--accent);
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.35;
-  pointer-events: none;
-  animation: orbFloat 12s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  animation: none;
+}
+
+.avatar-emoji {
+  font-size: 36px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: #F7F1E8;
+  filter: none;
+}
+
+.brand-name {
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: none;
+  -webkit-text-fill-color: inherit;
+  letter-spacing: -0.04em;
+  margin-bottom: 8px;
+  animation: none;
+}
+
+.brand-tagline .highlight {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.bg-orb,
+.orb-1, .orb-2, .orb-3, .orb-4 {
+  display: none !important;
 }
 
 .orb-1 {
@@ -130,13 +171,8 @@ html, body {
   align-items: center;
   justify-content: center;
   padding: 60px 50px;
-  background: linear-gradient(
-    135deg,
-    rgba(99, 102, 241, 0.08) 0%,
-    rgba(168, 85, 247, 0.05) 100%
-  );
+  background: var(--bg-panel);
   border-right: 1px solid var(--border);
-  animation: slideInLeft 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes slideInLeft {
@@ -158,12 +194,7 @@ html, body {
 }
 
 .avatar-pulse {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 2px solid var(--accent);
-  opacity: 0;
-  animation: pulseRing 3s ease-out infinite;
+  display: none;
 }
 
 .avatar-pulse.delay-1 { animation-delay: 1s; }
@@ -176,37 +207,34 @@ html, body {
 
 .avatar-core {
   position: absolute;
-  inset: 15px;
-  background: linear-gradient(135deg, var(--accent), var(--purple));
+  inset: 22px;
+  background: var(--accent);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 40px var(--accent-glow);
-  animation: avatarBreathe 4s ease-in-out infinite;
-}
-
-@keyframes avatarBreathe {
-  0%, 100% { box-shadow: 0 0 40px var(--accent-glow); transform: scale(1); }
-  50%      { box-shadow: 0 0 70px var(--accent-glow), 0 0 20px rgba(168, 85, 247, 0.4); transform: scale(1.04); }
+  box-shadow: none;
+  animation: none;
 }
 
 .avatar-emoji {
-  font-size: 42px;
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+  font-size: 36px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: #F7F1E8;
+  filter: none;
 }
 
-/* Brand metin */
 .brand-name {
-  font-size: 52px;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-light), var(--purple), var(--cyan));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -1px;
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: none;
+  -webkit-text-fill-color: inherit;
+  letter-spacing: -0.04em;
   margin-bottom: 8px;
-  animation: textGlow 3s ease-in-out infinite alternate;
+  animation: none;
 }
 
 @keyframes textGlow {
@@ -273,19 +301,21 @@ html, body {
 }
 
 .feature-icon {
-  font-size: 20px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  width: 28px;
   flex-shrink: 0;
 }
 
-/* ─── 5. SAĞ PANEL: FORM ─────────────────────────────────────────── */
 .form-panel {
   width: 480px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px 32px;
-  animation: slideInRight 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: 0.1s;
+  background: var(--bg-base);
   overflow-y: auto;
 }
 
@@ -303,9 +333,6 @@ html, body {
   border-radius: var(--radius-xl);
   padding: 36px;
   box-shadow: var(--shadow-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition: box-shadow 0.4s ease;
 }
 
 .auth-card:hover {
@@ -316,7 +343,7 @@ html, body {
 .auth-tabs {
   display: flex;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(44, 38, 34, 0.05);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 4px;
@@ -339,13 +366,13 @@ html, body {
 
 .auth-tab:hover {
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(44, 38, 34, 0.05);
 }
 
 .auth-tab.active {
-  background: linear-gradient(135deg, var(--accent), var(--purple));
-  color: white;
-  box-shadow: 0 2px 12px var(--accent-glow);
+  background: var(--accent);
+  color: #F7F1E8;
+  box-shadow: none;
 }
 
 /* ─── 8. FORM WRAPPER ────────────────────────────────────────────── */

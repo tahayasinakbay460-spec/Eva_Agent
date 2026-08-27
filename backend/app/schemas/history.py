@@ -13,6 +13,11 @@ class ConversationCreate(BaseModel):
     title: Optional[str] = "Yeni Sohbet"
 
 
+class ConversationRename(BaseModel):
+    """Sohbet başlığını yeniden adlandırmak için."""
+    title: str
+
+
 class MessageOut(BaseModel):
     """Tek bir mesajı frontend'e döndürmek için."""
     id: int

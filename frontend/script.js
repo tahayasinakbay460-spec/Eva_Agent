@@ -10,7 +10,9 @@
    1. AYARLAR & GLOBAL DEĞİŞKENLER
    ================================================================ */
 
-const API_BASE = 'http://localhost:8000/api';
+// Göreli yol kullanılır — frontend'i backend sunduğu için her ortamda çalışır
+// (localhost'a sabitlenirse başka bilgisayardan/sunucudan erişim bozulur)
+const API_BASE = '/api';
 
 // Oturum yönetimi
 function getToken()    { return localStorage.getItem('eva_token'); }
@@ -128,6 +130,8 @@ async function loadConversation(convId) {
 
     const conv = await response.json();
 
+    if (typeof leaveLegacyChatMode === 'function') leaveLegacyChatMode();
+
     // Ekranı temizle ve eski mesajları bas
     chatWindow.innerHTML = '';
     conversationHistory = [];
@@ -186,6 +190,72 @@ async function deleteConversation(convId, event) {
   }
 }
 
+/** Sohbet başlığını satır içinde yeniden adlandırır. */
+function startRenameConversation(convId, event) {
+  event.stopPropagation();
+
+  const item = event.currentTarget.closest('.conv-item');
+  const titleEl = item?.querySelector('.conv-title');
+  if (!item || !titleEl || item.classList.contains('renaming')) return;
+
+  const current = titleEl.textContent;
+  item.classList.add('renaming');
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'conv-rename-input';
+  input.value = current;
+  input.maxLength = 200;
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let finished = false;
+  const finish = async (save) => {
+    if (finished) return;
+    finished = true;
+    const next = input.value.trim();
+    if (save && next && next !== current) {
+      await saveConversationTitle(convId, next);
+    }
+    await fetchConversations();
+  };
+
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      finish(false);
+    }
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+async function saveConversationTitle(convId, title) {
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/history/conversations/${convId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ title })
+    });
+    if (!response.ok) {
+      console.error('Sohbet yeniden adlandırılamadı');
+    }
+  } catch (err) {
+    console.error('Sohbet yeniden adlandırılamadı:', err);
+  }
+}
+
 /** Backend sağlık kontrolü */
 async function checkBackendHealth() {
   try {
@@ -208,8 +278,8 @@ function renderConversationList(conversations) {
   if (conversations.length === 0) {
     convListEl.innerHTML = `
       <div class="conv-empty">
-        Henüz hiç sohbet yok.<br/>
-        Yukarıdaki butona tıklayarak<br/>yeni bir sohbet başlat!
+        Henüz sohbet yok.<br/>
+        Yeni bir konuşma başlatın.
       </div>`;
     return;
   }
@@ -219,12 +289,28 @@ function renderConversationList(conversations) {
     item.className = `conv-item${conv.id === activeConversationId ? ' active' : ''}`;
     item.dataset.id = conv.id;
     item.innerHTML = `
-      <span class="conv-icon">💬</span>
       <span class="conv-title" title="${escapeHtml(conv.title)}">${escapeHtml(conv.title)}</span>
-      <button class="conv-delete" title="Sil">✕</button>
+      <div class="conv-actions">
+        <button class="conv-action conv-rename" title="Yeniden adlandır" aria-label="Yeniden adlandır">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+        </button>
+        <button class="conv-action conv-delete" title="Sil" aria-label="Sil">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+            <path d="M10 11v6"></path>
+            <path d="M14 11v6"></path>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+          </svg>
+        </button>
+      </div>
     `;
 
     item.addEventListener('click', () => loadConversation(conv.id));
+    item.querySelector('.conv-rename').addEventListener('click', (e) => startRenameConversation(conv.id, e));
     item.querySelector('.conv-delete').addEventListener('click', (e) => deleteConversation(conv.id, e));
 
     convListEl.appendChild(item);
@@ -240,6 +326,8 @@ function updateActiveConvInList(convId) {
 
 /** Yeni sohbet başlatır — ekranı temizler, ID sıfırlar. */
 function startNewChat() {
+  if (typeof leaveLegacyChatMode === 'function') leaveLegacyChatMode();
+
   chatWindow.innerHTML = '';
   conversationHistory = [];
   activeConversationId = null;
@@ -289,13 +377,28 @@ function getCurrentTime() {
  */
 function addMessage(content, role, isError = false) {
   const isUser = role === 'user';
+  
+  // Faz 8: Miras sohbet modunda Eva mesajları karakterin kimliğiyle görünür
+  const isLegacyMsg = !isUser
+    && typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode;
 
   const row = document.createElement('div');
   row.className = `message-row ${isUser ? 'user' : 'eva'}`;
 
   const avatar = document.createElement('div');
   avatar.className = `msg-avatar ${isUser ? 'user-avatar' : ''}`;
-  avatar.textContent = isUser ? '👤' : '🤖';
+  if (isLegacyMsg && typeof activeLegacyAncestorPhoto !== 'undefined' && activeLegacyAncestorPhoto) {
+    avatar.innerHTML = `<img src="${activeLegacyAncestorPhoto}" alt="" />`;
+  } else if (isUser) {
+    const initial = (getUsername() || 'S').charAt(0).toUpperCase();
+    avatar.textContent = initial;
+  } else {
+    avatar.textContent = isLegacyMsg ? '🏛️' : 'E';
+  }
+
+  const senderName = isUser
+    ? 'Sen'
+    : (isLegacyMsg && activeLegacyAncestorName ? activeLegacyAncestorName : 'Eva');
 
   const contentWrapper = document.createElement('div');
   contentWrapper.className = 'message-content';
@@ -303,7 +406,7 @@ function addMessage(content, role, isError = false) {
   const meta = document.createElement('div');
   meta.className = 'message-meta';
   meta.innerHTML = `
-    <span class="message-sender">${isUser ? 'Sen' : 'Eva'}</span>
+    <span class="message-sender">${senderName}</span>
     <span class="message-time">${getCurrentTime()}</span>
   `;
 
@@ -337,7 +440,12 @@ function addTypingIndicator() {
 
   const avatar = document.createElement('div');
   avatar.className = 'msg-avatar';
-  avatar.textContent = '🤖';
+  if (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode
+      && typeof activeLegacyAncestorPhoto !== 'undefined' && activeLegacyAncestorPhoto) {
+    avatar.innerHTML = `<img src="${activeLegacyAncestorPhoto}" alt="" />`;
+  } else {
+    avatar.textContent = (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode) ? '🏛️' : 'E';
+  }
 
   const indicator = document.createElement('div');
   indicator.className = 'typing-indicator';
@@ -383,7 +491,9 @@ function setLoading(loading) {
     iconLoading.style.display = 'none';
     userInput.disabled = false;
     userInput.focus();
-    statusText.textContent = '● Çevrimiçi';
+    statusText.textContent = (typeof getLegacyStatusText === 'function')
+      ? getLegacyStatusText()
+      : '● Çevrimiçi';
     statusText.classList.remove('thinking');
     avatarThinking.classList.remove('active');
   }
@@ -410,25 +520,40 @@ async function handleSend() {
   setLoading(true);
   addTypingIndicator();
 
+  // YENİ EKLENEN: Avatarın duygusu mesaj gönderildiğinde, kullanıcının o anki duygusuna sabitlensin.
+  if (typeof update3DAvatarEmotion === 'function') {
+    update3DAvatarEmotion(currentEmotion || 'neutral');
+  }
+
   try {
-    const evaResponse = await sendMessageToEva(text);
+    let evaResponse;
+    
+    // Faz 8: Ata sohbet modundaysa farklı API çağır
+    if (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode && typeof sendLegacyChatMessage === 'function') {
+      // Ata persona sohbeti — legacy_chat API'sine gider
+      evaResponse = await sendLegacyChatMessage(text);
+    } else {
+      // Normal Eva sohbeti — chat API'sine gider
+      evaResponse = await sendMessageToEva(text);
+      
+      // Geçmişe ekle (sadece normal modda — legacy kendi geçmişini yönetir)
+      conversationHistory.push({ role: 'user', content: text });
+      conversationHistory.push({ role: 'assistant', content: evaResponse });
+
+      // 20 mesaj sınırı
+      if (conversationHistory.length > 20) {
+        conversationHistory = conversationHistory.slice(-20);
+      }
+
+      // Sol paneldeki sohbet başlığını yenile
+      await fetchConversations();
+      if (activeConversationId) updateActiveConvInList(activeConversationId);
+    }
+    
     removeTypingIndicator();
     addMessage(evaResponse, 'eva');
 
-    // Geçmişe ekle
-    conversationHistory.push({ role: 'user', content: text });
-    conversationHistory.push({ role: 'assistant', content: evaResponse });
-
-    // 20 mesaj sınırı
-    if (conversationHistory.length > 20) {
-      conversationHistory = conversationHistory.slice(-20);
-    }
-
-    // Sol paneldeki sohbet başlığını yenile
-    await fetchConversations();
-    if (activeConversationId) updateActiveConvInList(activeConversationId);
-
-    // Faz 4: Eva cevabını sesli oku
+    // Faz 4/6: Eva cevabını sesli oku
     speakText(evaResponse);
 
   } catch (error) {
@@ -466,6 +591,11 @@ btnNewChat.addEventListener('click', startNewChat);
 btnClear.addEventListener('click', () => {
   chatWindow.innerHTML = '';
   conversationHistory = [];
+  if (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode) {
+    legacyChatHistory = [];
+    addMessage('Ekran temizlendi. Bu karakterle geçmişin sol panelde duruyor.', 'eva');
+    return;
+  }
   addMessage('Ekran temizlendi. Sohbet geçmişin sol panelde duruyor.', 'eva');
 });
 
@@ -524,6 +654,21 @@ function speakText(text) {
   const trVoice = voices.find(v => v.lang.startsWith('tr'));
   if (trVoice) utterance.voice = trVoice;
 
+  // Faz 6: TTS Eventleri (Avatar animasyonu ve Ses Döngüsü için)
+  utterance.onstart = () => {
+    if (window.isCallModeActive) {
+      if (typeof set3DAvatarState === 'function') set3DAvatarState('speaking');
+    }
+  };
+
+  utterance.onend = () => {
+    if (window.isCallModeActive) {
+      if (typeof set3DAvatarState === 'function') set3DAvatarState('neutral');
+      // Eva susunca tekrar dinlemeye geç (Continuous Voice Loop)
+      startRecording();
+    }
+  };
+
   window.speechSynthesis.speak(utterance);
 }
 
@@ -558,13 +703,20 @@ if (SpeechRecognition && btnMic) {
   recognition.continuous = false;     // Tek cümle dinle
   recognition.interimResults = false; // Ara sonuç gösterme
 
-  // Ses tanıma başardığında metin input'a gelir ve direkt gönderilir
   recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
     userInput.value = transcript;
     autoResizeTextarea();
-    // Kısa bir bekleme sonrası otomatik gönder
-    setTimeout(() => handleSend(), 300);
+    
+    // Faz 6: Çağrı modundaysa avatar 'thinking' durumuna geçer ve otomatik gönderilir
+    if (window.isCallModeActive) {
+      if (typeof set3DAvatarState === 'function') set3DAvatarState('thinking');
+      document.getElementById('call-status-text').textContent = 'Eva Düşünüyor...';
+      handleSend(); // Hemen gönder
+    } else {
+      // Chat modundaysa kısa bir bekleme sonrası otomatik gönder
+      setTimeout(() => handleSend(), 300);
+    }
   };
 
   recognition.onerror = (event) => {
@@ -573,11 +725,22 @@ if (SpeechRecognition && btnMic) {
     if (event.error === 'not-allowed') {
       addMessage('⚠️ Mikrofon izni verilmedi. Tarayıcı ayarlarından mikrofon iznini aç.', 'eva', true);
     }
+    // Faz 6: Hata olursa döngüyü kırmamak için veya status güncellemek için
+    if (window.isCallModeActive) {
+      document.getElementById('call-status-text').textContent = 'Hata oluştu. Tekrar deneniyor...';
+      setTimeout(startRecording, 2000);
+    }
   };
 
-  recognition.onend = () => stopRecording();
+  recognition.onend = () => {
+    stopRecording();
+    if (window.isCallModeActive && currentAvatarState !== 'thinking' && currentAvatarState !== 'speaking') {
+      // Eğer kendi kendine kapanırsa ve Eva konuşmuyorsa, tekrar aç (Sürekli Dinleme)
+      startRecording();
+    }
+  };
 
-  // Mikrofon butonu tıklaması
+  // Mikrofon butonu tıklaması (Chat)
   btnMic.addEventListener('click', () => {
     if (isRecording) {
       recognition.stop();
@@ -594,50 +757,55 @@ if (SpeechRecognition && btnMic) {
 }
 
 function startRecording() {
-  if (!recognition || isLoading) return;
+  if (!recognition || isRecording) return;
   isRecording = true;
-  btnMic.classList.add('recording');
-  userInput.placeholder = 'Dinliyorum... (konuşmayı bitirince otomatik gider)';
   recognition.start();
+  if (btnMic) btnMic.classList.add('recording');
+  userInput.placeholder = 'Dinliyorum... (konuşmayı bitirince otomatik gider)';
+  
+  // Faz 6 Update
+  if (window.isCallModeActive) {
+    if (typeof set3DAvatarState === 'function') set3DAvatarState('listening');
+    const statusText = document.getElementById('call-status-text');
+    if (statusText) statusText.textContent = 'Dinliyor...';
+  }
 }
 
 function stopRecording() {
+  if (!recognition || !isRecording) return;
   isRecording = false;
+  recognition.stop();
   if (btnMic) btnMic.classList.remove('recording');
-  userInput.placeholder = "Eva'ya bir şey yaz... (Enter gönder, Shift+Enter yeni satır)";
+  userInput.placeholder = "Bir şey yazın…";
+  
+  if (window.isCallModeActive && typeof set3DAvatarState === 'function' && currentAvatarState === 'listening') {
+    set3DAvatarState('neutral');
+  }
 }
 
 
 /* ================================================================
-   FAZ 5: KAMERA & DUYGU ALGILAMA SİSTEMİ
+   FAZ 5 + 6.5: KAMERA & DUYGU ALGILAMA SİSTEMİ
    ================================================================
-   📚 Öğretici Not — Genel Akış:
+   📚 Öğretici Not — Genel Akış (Güncel: face-api.js, tarayıcı içi):
        1. Kullanıcı "📷 Kamera" butonuna tıklar
        2. Tarayıcıdan kamera izni istenir (getUserMedia)
-       3. İzin verilirse: WebSocket bağlantısı kurulur (JWT doğrulamalı)
-       4. Her 3 saniyede bir video frame'i canvas'a çizilir → base64 JPEG
-       5. Frame WebSocket üzerinden backend'e gönderilir
-       6. Backend duygu analizi yapıp etiketi geri gönderir
-       7. currentEmotion değişkeni güncellenir (Faz 5.4'te LLM'e gidecek)
+       3. face-api.js modelleri yüklenir (bir kez, /static/models'ten)
+       4. Algılama döngüsü video karesini doğrudan analiz eder
+       5. currentEmotion güncellenir → mesajla birlikte LLM'e gider
+       (Eski WebSocket + DeepFace backend akışı tamamen kaldırıldı)
    ================================================================ */
 
 // HTML elementleri (Faz 5)
 const btnCameraToggle = document.getElementById('btn-camera-toggle');
 const cameraVideo     = document.getElementById('camera-video');
-const cameraCanvas    = document.getElementById('camera-canvas');
 
 // Durum değişkenleri
 let cameraActive   = false;     // Kamera modu açık/kapalı
 let cameraStream   = null;      // MediaStream referansı (kamera akışı)
-let emotionSocket  = null;      // WebSocket bağlantısı
-let frameInterval  = null;      // setInterval referansı (3 sn'de bir frame)
-let currentEmotion = 'neutral'; // Backend'den gelen son duygu etiketi
-let wsReconnectAttempts = 0;    // Yeniden bağlanma deneme sayısı
-const WS_MAX_RECONNECTS = 3;   // Maksimum yeniden bağlanma denemesi
-const FRAME_INTERVAL_MS = 3000; // Frame gönderim aralığı (3 saniye)
-const FRAME_QUALITY     = 0.5;  // JPEG sıkıştırma kalitesi (0-1)
-const FRAME_WIDTH        = 320; // Yakalanan frame genişliği
-const FRAME_HEIGHT       = 240; // Yakalanan frame yüksekliği
+let currentEmotion = 'neutral'; // face-api.js'den gelen son duygu etiketi
+const FRAME_WIDTH  = 320;       // Kamera çözünürlüğü (CV analizi için yeterli)
+const FRAME_HEIGHT = 240;
 
 
 /**
@@ -687,9 +855,9 @@ async function startCamera() {
     cameraStream = stream;
     cameraVideo.srcObject = stream;
 
-    // Canvas boyutlarını ayarla
-    cameraCanvas.width  = FRAME_WIDTH;
-    cameraCanvas.height = FRAME_HEIGHT;
+    // PiP kamera önizlemesine de bağla (Call Mode köşe videosu)
+    const pipVideo = document.getElementById('call-pip-video');
+    if (pipVideo) pipVideo.srcObject = stream;
 
     // UI güncelle
     cameraActive = true;
@@ -698,11 +866,10 @@ async function startCamera() {
     btnCameraToggle.textContent = '🟢 Kamera';
     btnCameraToggle.title = 'Kamera modunu kapat';
 
-    console.log('📷 Kamera açıldı — WebSocket bağlantısı kuruluyor...');
+    console.log('📷 Kamera açıldı — face-api.js duygu algılama başlıyor...');
 
-    // WebSocket bağlantısını kur
-    wsReconnectAttempts = 0;
-    connectEmotionSocket();
+    // Faz 6.5: face-api.js ile tarayıcı içi duygu algılama
+    await startFaceApiDetection();
 
   } catch (error) {
     // İzin reddedildi veya başka bir hata
@@ -725,200 +892,205 @@ async function startCamera() {
 
 /**
  * Kamera modunu kapatır.
- * Stream'i durdurur, WebSocket'i kapatır, interval'i temizler.
- *
- * 📚 MediaStream.getTracks():
- *     Stream'deki tüm medya kanallarını (video, audio) döndürür.
- *     Her birini stop() ile durdurmak → kamera LED'ini söndürür.
  */
 function stopCamera() {
-  // 1. Frame gönderimini durdur
-  if (frameInterval) {
-    clearInterval(frameInterval);
-    frameInterval = null;
-  }
+  // 1. face-api.js tespiti durdur
+  stopFaceApiDetection();
 
-  // 2. WebSocket'i kapat
-  if (emotionSocket) {
-    emotionSocket.close(1000, 'Kullanıcı kamerayı kapattı');
-    emotionSocket = null;
-  }
-
-  // 3. Kamera stream'ini durdur (LED söner)
+  // 2. Kamera stream'ini durdur (LED söner)
   if (cameraStream) {
     cameraStream.getTracks().forEach(track => track.stop());
     cameraStream = null;
   }
 
-  // 4. Video elementini temizle
+  // 3. Video elementini temizle
   cameraVideo.srcObject = null;
 
-  // 5. UI güncelle
+  // 4. UI güncelle
   cameraActive = false;
   currentEmotion = 'neutral';
   btnCameraToggle.classList.remove('active');
   btnCameraToggle.textContent = '📷 Kamera';
   btnCameraToggle.title = 'Kamera modunu aç';
 
-  // 6. Avatarı orijinal haline döndür (Faz 5.5)
+  // 5. Avatarı orijinal haline döndür
   resetAvatarEmotion();
 
   console.log('📷 Kamera kapatıldı');
 }
 
 
+/* ================================================================
+   FAZ 6.5: FACE-API.JS — TARAYICI İÇİ DUYGU ALGILAMA MOTORU
+   ================================================================
+   Eski yapı: Frontend → WebSocket → Backend (DeepFace) → WebSocket → Frontend
+   Yeni yapı: Frontend (face-api.js) → Anında Sonuç
+   
+   Avantajlar:
+   - Sıfır gecikme (0ms latency)
+   - Backend yükü yok
+   - DeepFace hatası yok
+   - Saniyede 10+ kare işleyebilir
+   ================================================================ */
+
+let faceApiLoaded    = false; // Modeller bir kez yüklenir
+let faceApiRunning   = false; // Döngü durumu
+let faceApiOptions   = null;  // TinyFaceDetector ayarları (bir kez oluşturulur)
+
+// 📚 PERFORMANS: Algılama sıklığı. 400ms = saniyede 2.5 analiz.
+//    Duygu tespiti için fazlasıyla yeterli — eski 100ms (10 FPS) değeri
+//    CPU'yu gereksiz yoruyordu ve tarayıcıyı yavaşlatıyordu.
+const FACEAPI_LOOP_MS = 400;
+
+// Turkce duygu isimleri (face-api etiketi → Turkce)
+const FACEAPI_TR = {
+  happy:    'mutlu',
+  sad:      'üzgün',
+  angry:    'kızgın',
+  surprised: 'şaşkın',
+  fearful:  'korkmuş',
+  disgusted: 'iğrenmiş',
+  neutral:  'nötr'
+};
+
+// 📚 PERFORMANS: Bu sabitler ve DOM referansları eskiden döngünün İÇİNDE
+//    her karede yeniden oluşturuluyordu. Bir kez tanımlayıp tekrar kullanıyoruz.
+const INDICATOR_EMOJIS = {
+  happy: '😄', sad: '😢', angry: '😠',
+  surprised: '😲', fearful: '😨', disgusted: '🤢', neutral: '😐'
+};
+const INDICATOR_COLORS = {
+  happy: '#22c55e', sad: '#3b82f6', angry: '#ef4444',
+  surprised: '#f59e0b', fearful: '#8b5cf6', disgusted: '#6b7280', neutral: '#7c3aed'
+};
+const emotionIndEl   = document.getElementById('emotion-indicator');
+const emotionEmojiEl = document.getElementById('emotion-emoji');
+const emotionLabelEl = document.getElementById('emotion-label');
+const emotionBarEl   = document.getElementById('emotion-bar');
+
 /**
- * Duygu algılama WebSocket bağlantısı kurar.
- *
- * 📚 WebSocket URL'inde JWT:
- *     Normal HTTP: Authorization header ile gönderilir
- *     WebSocket:   Header gönderilmez, token query param olarak eklenir
- *     Güvenlik:    wss:// (TLS) production'da şart, localhost'ta ws:// yeterli
- *
- * Otomatik Yeniden Bağlanma:
- *     Bağlantı düşerse 3 kez dener (2, 4, 6 saniye aralarla)
- *     3 başarısız denemeden sonra kamerayı tamamen kapatır
+ * face-api.js modellerini yükler (bir kez yapılır).
+ * Modeller /static/models klasöründen alınır.
  */
-function connectEmotionSocket() {
-  const token = getToken();
-  if (!token) {
-    console.error('Token bulunamadı — WS bağlantısı kurulamıyor');
-    stopCamera();
+async function loadFaceApiModels() {
+  if (faceApiLoaded) return true; // Zaten yüklendi
+
+  // Kütüphane henüz yüklenmemiş olabilir (defer ile geliyor)
+  if (typeof faceapi === 'undefined') {
+    console.error('❌ face-api.js henüz yüklenmedi. Birkaç saniye sonra tekrar deneyin.');
+    return false;
+  }
+
+  try {
+    console.log('🧠 face-api.js modelleri yükleniyor...');
+    const MODEL_URL = '/static/models';
+    
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+    ]);
+
+    // Detektör ayarlarını bir kez oluştur (her karede yeniden oluşturmak israftı)
+    // inputSize 224: küçük giriş boyutu = daha hızlı analiz (varsayılan 416'ya göre ~3x)
+    faceApiOptions = new faceapi.TinyFaceDetectorOptions({
+      inputSize: 224,
+      scoreThreshold: 0.3
+    });
+
+    faceApiLoaded = true;
+    console.log('✅ face-api.js modelleri hazır!');
+    return true;
+  } catch (err) {
+    console.error('❌ face-api.js model yükleme hatası:', err);
+    return false;
+  }
+}
+
+/**
+ * Duygu algılama döngüsünü başlatır.
+ * Kamera açıldıktan sonra çağrılır.
+ */
+async function startFaceApiDetection() {
+  const ok = await loadFaceApiModels();
+  if (!ok) {
+    console.error('Modeller yüklenemedi, duygu algılama başlamadı.');
     return;
   }
 
-  // WebSocket URL'ini oluştur (localhost'ta ws://, production'da wss://)
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/emotion?token=${token}`;
+  faceApiRunning = true;
+  console.log('🎭 Duygu algılama döngüsü başladı (face-api.js)');
+  runFaceApiLoop();
+}
 
-  console.log('🔌 Emotion WebSocket bağlanıyor...');
+/**
+ * Ana algılama döngüsü.
+ * setTimeout kullanıyoruz (FACEAPI_LOOP_MS aralıkla — CPU dostu).
+ */
+async function runFaceApiLoop() {
+  if (!faceApiRunning || !cameraActive) return;
 
-  emotionSocket = new WebSocket(wsUrl);
-
-  // ── Bağlantı Kuruldu ──────────────────────────────────────
-  emotionSocket.onopen = () => {
-    console.log('✅ Emotion WebSocket bağlantısı kuruldu');
-    wsReconnectAttempts = 0;  // Başarılı bağlantı — sayacı sıfırla
-
-    // Frame gönderimini başlat
-    startFrameCapture();
-  };
-
-  // ── Mesaj Alındı ──────────────────────────────────────────
-  emotionSocket.onmessage = (event) => {
+  // Video hazır mı kontrol et
+  if (cameraVideo && cameraVideo.readyState === 4) {
     try {
-      const data = JSON.parse(event.data);
+      const detection = await faceapi
+        .detectSingleFace(cameraVideo, faceApiOptions)
+        .withFaceExpressions();
 
-      if (data.type === 'emotion') {
-        // Duygu etiketini güncelle
-        currentEmotion = data.emotion || 'neutral';
-        console.log(`🎭 Duygu: ${currentEmotion} (güven: ${(data.confidence * 100).toFixed(0)}%)`);
+      if (detection && detection.expressions) {
+        const expressions = detection.expressions;
+        
+        // En yüksek skorlu duyguyu bul
+        const dominantEmotion = Object.keys(expressions).reduce(
+          (a, b) => expressions[a] > expressions[b] ? a : b
+        );
+        const confidence = expressions[dominantEmotion];
+        const emotionTr  = FACEAPI_TR[dominantEmotion] || 'nötr';
 
-        // Faz 5.5: Eva avatarını güncelle
-        updateAvatarEmotion(currentEmotion, data.emotion_tr || 'nötr');
+        // Duyguyu güncelle (hem 3D avatar hem chat mod)
+        if (dominantEmotion !== currentEmotion) {
+          currentEmotion = dominantEmotion;
+          console.log(`🎭 face-api.js: ${dominantEmotion} (${(confidence * 100).toFixed(0)}%)`);
+        }
 
-      } else if (data.type === 'error') {
-        console.warn('Emotion WS hatası:', data.message);
+        // ── Canlı Duygu Göstergesi Widgetı ──────────────────
+        // (Sabitler ve DOM referansları modül seviyesinde tanımlı — bkz. yukarısı)
+        if (emotionIndEl && emotionEmojiEl && emotionLabelEl && emotionBarEl) {
+          emotionIndEl.classList.remove('hidden');
+          emotionEmojiEl.textContent  = INDICATOR_EMOJIS[dominantEmotion] || '😐';
+          emotionLabelEl.textContent  = emotionTr;
+          emotionBarEl.style.width    = `${(confidence * 100).toFixed(0)}%`;
+          emotionBarEl.style.background = INDICATOR_COLORS[dominantEmotion] || '#7c3aed';
+        }
 
-      } else if (data.type === 'pong') {
-        // Canlılık kontrolü yanıtı — loglama gerekli değil
+        // Chat avatarini güncelle
+        // (3D avatar sadece mesaj gönderilince güncellenir — handleSend içinde)
+        updateAvatarEmotion(dominantEmotion, emotionTr);
+
+        // Call Mode status yazısı
+        if (window.isCallModeActive) {
+          const statusEl = document.getElementById('call-status-text');
+          if (statusEl && currentAvatarState === 'listening') {
+            statusEl.textContent = `Dinliyor... (🎭 ${emotionTr.toUpperCase()})`;
+          }
+        }
       }
-
     } catch (err) {
-      console.error('WS mesaj parse hatası:', err);
+      // Sessiz hata — döngüyü kırma
     }
-  };
+  }
 
-  // ── Bağlantı Kapandı ──────────────────────────────────────
-  emotionSocket.onclose = (event) => {
-    console.log(`🔌 Emotion WS kapandı (code: ${event.code}, reason: ${event.reason})`);
-
-    // 4001 = Yetkisiz — yeniden bağlanma deneme
-    if (event.code === 4001) {
-      console.error('JWT doğrulaması başarısız — kamera kapatılıyor');
-      addMessage('⚠️ Oturum doğrulaması başarısız. Kamera modu kapatıldı.', 'eva', true);
-      stopCamera();
-      return;
-    }
-
-    // Normal kapanış (kullanıcı kapattı) — yeniden bağlanma
-    if (event.code === 1000) return;
-
-    // Beklenmeyen kapanış — yeniden bağlan
-    if (cameraActive && wsReconnectAttempts < WS_MAX_RECONNECTS) {
-      wsReconnectAttempts++;
-      const delay = wsReconnectAttempts * 2000;  // 2s, 4s, 6s
-      console.log(`🔄 Yeniden bağlanma denemesi ${wsReconnectAttempts}/${WS_MAX_RECONNECTS} (${delay}ms sonra)`);
-      setTimeout(() => {
-        if (cameraActive) connectEmotionSocket();
-      }, delay);
-    } else if (wsReconnectAttempts >= WS_MAX_RECONNECTS) {
-      console.error('Maksimum yeniden bağlanma denemesi aşıldı — kamera kapatılıyor');
-      addMessage('⚠️ Sunucu bağlantısı kurulamadı. Kamera modu kapatıldı.', 'eva', true);
-      stopCamera();
-    }
-  };
-
-  // ── Bağlantı Hatası ───────────────────────────────────────
-  emotionSocket.onerror = (error) => {
-    console.error('Emotion WS hatası:', error);
-    // onclose zaten tetiklenecek, burada ekstra işlem yok
-  };
+  // Bir sonraki analiz turunu planla
+  if (faceApiRunning) {
+    setTimeout(runFaceApiLoop, FACEAPI_LOOP_MS);
+  }
 }
 
-
 /**
- * Periyodik frame yakalama ve gönderimini başlatır.
- * Her FRAME_INTERVAL_MS (3 saniye) bir çalışır.
- *
- * 📚 Neden setInterval?
- *     requestAnimationFrame saniyede 60 kez çalışır — çok fazla
- *     Biz 3 saniyede 1 frame istiyoruz — setInterval daha uygun
+ * Duygu algılama döngüsünü durdurur.
  */
-function startFrameCapture() {
-  // Mevcut interval varsa temizle (çifte başlatma engeli)
-  if (frameInterval) clearInterval(frameInterval);
-
-  frameInterval = setInterval(() => {
-    if (!cameraActive || !emotionSocket || emotionSocket.readyState !== WebSocket.OPEN) {
-      return;  // Kamera kapalı veya WS bağlı değilse atla
-    }
-
-    const frameData = captureFrame();
-    if (frameData) {
-      emotionSocket.send(JSON.stringify({
-        type: 'frame',
-        data: frameData
-      }));
-    }
-  }, FRAME_INTERVAL_MS);
-}
-
-
-/**
- * Tek bir video frame'i yakalar ve base64 JPEG olarak döndürür.
- *
- * 📚 Canvas Frame Yakalama:
- *     1. Canvas 2D context al
- *     2. Video'nun mevcut frame'ini canvas'a çiz (drawImage)
- *     3. Canvas'ı JPEG formatında base64 string'e çevir (toDataURL)
- *
- *     Neden JPEG?
- *     - PNG'den çok daha küçük dosya boyutu
- *     - quality: 0.5 → ~15-25KB/frame (bandwidth dostu)
- *     - Yüz ifadesi analizi için yeterli kalite
- */
-function captureFrame() {
-  if (!cameraVideo || !cameraVideo.srcObject) return null;
-
-  // Video henüz yüklenmedi kontrolü
-  if (cameraVideo.readyState < 2) return null;  // HAVE_CURRENT_DATA
-
-  const ctx = cameraCanvas.getContext('2d');
-  ctx.drawImage(cameraVideo, 0, 0, FRAME_WIDTH, FRAME_HEIGHT);
-
-  // Canvas'ı base64 JPEG'e çevir
-  return cameraCanvas.toDataURL('image/jpeg', FRAME_QUALITY);
+function stopFaceApiDetection() {
+  faceApiRunning = false;
+  console.log('🎭 Duygu algılama durduruldu.');
 }
 
 
@@ -934,9 +1106,84 @@ function flashCameraError() {
 }
 
 
-// ── Kamera Butonu Event Listener ─────────────────────────────
+// ── Kamera / Görüntülü Görüşme Butonu Event Listener ─────────────────────────────
 if (btnCameraToggle) {
-  btnCameraToggle.addEventListener('click', toggleCamera);
+  btnCameraToggle.addEventListener('click', () => {
+    // Faz 6: Kameraya tıklayınca doğrudan Call Mode açılsın.
+    if (!window.isCallModeActive) {
+      startCallMode();
+    } else {
+      endCallMode();
+    }
+  });
+}
+
+
+/* ================================================================
+   FAZ 6: GÖRÜNTÜLÜ GÖRÜŞME (CALL MODE) MANTIĞI
+   ================================================================ */
+window.isCallModeActive = false;
+
+function startCallMode() {
+  window.isCallModeActive = true;
+  
+  // 1. Overlay'i Göster
+  const overlay = document.getElementById('call-overlay');
+  if (overlay) overlay.classList.remove('hidden');
+  
+  // 2. 3D Avatarı Başlat (Eğer henüz başlatılmadıysa)
+  if (typeof init3DAvatar === 'function' && !window._3DAvatarInitialized) {
+    init3DAvatar();
+    window._3DAvatarInitialized = true;
+  }
+  
+  // 3. TTS'i aç (Sesli Yanıt zorunlu)
+  if (!ttsEnabled && btnTtsToggle) btnTtsToggle.click();
+  
+  // 4. Kamerayı Aç (Duygu analizi için)
+  if (!cameraActive) toggleCamera();
+  
+  // 5. Mikrofonu Dinlemeye Başla
+  startRecording();
+}
+
+function endCallMode() {
+  window.isCallModeActive = false;
+  
+  // 1. Overlay'i Gizle
+  const overlay = document.getElementById('call-overlay');
+  if (overlay) overlay.classList.add('hidden');
+  
+  // 2. Kamerayı Kapat
+  if (cameraActive) toggleCamera();
+  
+  // 3. Dinlemeyi Durdur
+  stopRecording();
+  
+  // 4. Konuşan Sesi Durdur
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+// Call mode içi butonlar
+const btnEndCall = document.getElementById('btn-end-call');
+if (btnEndCall) {
+  btnEndCall.addEventListener('click', endCallMode);
+}
+
+const btnCallMic = document.getElementById('btn-call-mic');
+if (btnCallMic) {
+  btnCallMic.addEventListener('click', () => {
+    if (isRecording) {
+      recognition.stop();
+      btnCallMic.classList.remove('btn-mic-active');
+      btnCallMic.classList.add('btn-mic-muted');
+      document.getElementById('call-status-text').textContent = 'Sessizde';
+    } else {
+      startRecording();
+      btnCallMic.classList.add('btn-mic-active');
+      btnCallMic.classList.remove('btn-mic-muted');
+    }
+  });
 }
 
 
@@ -950,14 +1197,16 @@ if (btnCameraToggle) {
    ================================================================ */
 
 // Duygu → Emoji eşlemesi
+// 📚 face-api.js "surprised/fearful/disgusted" etiketi kullanır — her iki
+//    yazım da eklendi, yoksa bu duygular sessizce "nötr" görünüyordu.
 const EMOTION_EMOJIS = {
-  happy:    '😊',
-  sad:      '😢',
-  angry:    '😠',
-  surprise: '😲',
-  fear:     '😰',
-  disgust:  '😖',
-  neutral:  '🤖'
+  happy:     '😊',
+  sad:       '😢',
+  angry:     '😠',
+  surprise:  '😲', surprised: '😲',
+  fear:      '😰', fearful:   '😰',
+  disgust:   '😖', disgusted: '😖',
+  neutral:   '🤖'
 };
 
 // Duygu → Avatar halka rengi eşlemesi
@@ -966,9 +1215,12 @@ const EMOTION_COLORS = {
   sad:      { from: '#3b82f6', to: '#60a5fa' },   // Mavi
   angry:    { from: '#ef4444', to: '#f87171' },   // Kırmızı
   surprise: { from: '#f59e0b', to: '#fbbf24' },   // Sarı
+  surprised:{ from: '#f59e0b', to: '#fbbf24' },
   fear:     { from: '#8b5cf6', to: '#a78bfa' },   // Mor
+  fearful:  { from: '#8b5cf6', to: '#a78bfa' },
   disgust:  { from: '#6b7280', to: '#9ca3af' },   // Gri
-  neutral:  { from: '#7c3aed', to: '#a855f7' }    // Varsayılan mor (orijinal)
+  disgusted:{ from: '#6b7280', to: '#9ca3af' },
+  neutral:  { from: '#C56A45', to: '#E07A50' }
 };
 
 /**
@@ -983,35 +1235,16 @@ const EMOTION_COLORS = {
  * @param {string} emotionTr - Türkçe duygu etiketi (mutlu, üzgün, ...)
  */
 function updateAvatarEmotion(emotion, emotionTr) {
-  const avatarEmoji = document.querySelector('.avatar-emoji');
   const avatarRing  = document.querySelector('.avatar-ring');
   const avatarEl    = document.getElementById('eva-avatar');
+  if (!avatarRing) return;
 
-  if (!avatarEmoji || !avatarRing) return;
-
-  // 1. Emoji güncelle
-  const newEmoji = EMOTION_EMOJIS[emotion] || EMOTION_EMOJIS.neutral;
-  if (avatarEmoji.textContent !== newEmoji) {
-    // Küçük bir scale animasyonu ile geçiş
-    avatarEmoji.style.transition = 'transform 0.3s ease';
-    avatarEmoji.style.transform = 'scale(0.5)';
-    setTimeout(() => {
-      avatarEmoji.textContent = newEmoji;
-      avatarEmoji.style.transform = 'scale(1.2)';
-      setTimeout(() => {
-        avatarEmoji.style.transform = 'scale(1)';
-      }, 150);
-    }, 150);
-  }
-
-  // 2. Avatar halka rengi güncelle
   const colors = EMOTION_COLORS[emotion] || EMOTION_COLORS.neutral;
   avatarRing.style.background = `linear-gradient(135deg, ${colors.from}, ${colors.to})`;
 
-  // 3. Tooltip güncelle
   if (avatarEl) {
     avatarEl.title = emotion !== 'neutral'
-      ? `Eva — Kullanıcı şu an: ${emotionTr}`
+      ? `Eva — ${emotionTr}`
       : 'Eva';
   }
 }
@@ -1020,12 +1253,18 @@ function updateAvatarEmotion(emotion, emotionTr) {
  * Kamera kapatıldığında avatarı orijinal haline döndürür.
  */
 function resetAvatarEmotion() {
-  const avatarEmoji = document.querySelector('.avatar-emoji');
   const avatarRing  = document.querySelector('.avatar-ring');
   const avatarEl    = document.getElementById('eva-avatar');
 
-  if (avatarEmoji) avatarEmoji.textContent = '🤖';
   if (avatarRing) avatarRing.style.background = '';
+
+  if (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode) {
+    if (avatarEl) avatarEl.title = activeLegacyAncestorName || 'Karakter';
+    return;
+  }
+
+  const avatarEmoji = document.querySelector('.avatar-emoji');
+  if (avatarEmoji) avatarEmoji.textContent = 'E';
   if (avatarEl) avatarEl.title = 'Eva';
 }
 
@@ -1045,6 +1284,8 @@ async function init() {
 
   // Kullanıcı adlarını doldur
   if (sidebarUsernameEl) sidebarUsernameEl.textContent = username || 'Kullanıcı';
+  const initialEl = document.getElementById('sidebar-user-initial');
+  if (initialEl) initialEl.textContent = (username || 'A').charAt(0).toUpperCase();
 
   // Hoşgeldin mesajı
   addMessage(
@@ -1054,6 +1295,9 @@ async function init() {
 
   // Sol paneli doldur
   await fetchConversations();
+  if (typeof fetchSidebarCharacters === 'function') {
+    await fetchSidebarCharacters();
+  }
 
   // Backend sağlık kontrolü
   const isHealthy = await checkBackendHealth();

@@ -8,7 +8,7 @@
  * - Şifre güç göstergesi
  */
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = '/api';
 
 /* ================================================================
    TOKEN YÖNETİMİ
@@ -360,10 +360,5 @@ class ParticleSystem {
    ================================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Mevcut oturumu kontrol et
   checkExistingSession();
-
-  // Parçacık sistemi başlat
-  const canvas = document.getElementById('particles-canvas');
-  if (canvas) new ParticleSystem(canvas);
 });

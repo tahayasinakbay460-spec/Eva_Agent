@@ -5,22 +5,30 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Eva — Dürüst, empatik yapay zeka dostun" />
-  <title>Eva AI</title>
+  <title>Eva</title>
   <link rel="stylesheet" href="/static/style.css" />
-  <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <!-- Marked.js: Markdown → HTML -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Faz 6.5: face-api.js (Tarayıcı içi Duygu Tespiti)
+       📚 defer: Sayfa yüklenmesini bloklamasın — kütüphane sadece kamera
+       açıldığında kullanılıyor. Three.js ve simplex-noise kaldırıldı çünkü
+       avatar artık görsel tabanlı (avatar3d.js) ve onları hiç kullanmıyor. -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 
 <body>
 
-  <!-- ── ARKA PLAN EFEKT TOPLARI ──────────────────────────────── -->
-  <div class="bg-orb bg-orb-1"></div>
-  <div class="bg-orb bg-orb-2"></div>
-  <div class="bg-orb bg-orb-3"></div>
+  <!-- Anlık Duygu Göstergesi (Kamera açıkken sağ altta görünür) -->
+  <div id="emotion-indicator" class="emotion-indicator hidden">
+    <span id="emotion-emoji">😐</span>
+    <span id="emotion-label">nötr</span>
+    <div id="emotion-bar-container">
+      <div id="emotion-bar"></div>
+    </div>
+  </div>
 
   <!-- ── ANA LAYOUT (Sidebar + Chat) ─────────────────────────── -->
   <div class="layout">
@@ -33,13 +41,13 @@
       <!-- Sidebar Header -->
       <div class="sidebar-header">
         <div class="sidebar-brand">
-          <span class="sidebar-brand-icon">🤖</span>
+          <span class="sidebar-brand-mark">E</span>
           <span class="sidebar-brand-name">Eva</span>
         </div>
         <!-- Yeni Sohbet Butonu -->
         <button class="btn-new-chat" id="btn-new-chat" title="Yeni Sohbet">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-            fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
@@ -49,7 +57,7 @@
 
       <!-- Kullanıcı rozeti -->
       <div class="sidebar-user">
-        <div class="sidebar-user-avatar">👤</div>
+        <div class="sidebar-user-avatar" id="sidebar-user-initial">A</div>
         <div class="sidebar-user-info">
           <span class="sidebar-username" id="sidebar-username">...</span>
           <span class="sidebar-user-status">● Çevrimiçi</span>
@@ -74,6 +82,15 @@
           <div class="conv-loading-dot"></div>
         </div>
       </nav>
+
+      <!-- Faz 8: Miras Kasası + karakter sohbetleri -->
+      <div class="sidebar-section-label">Dijital Miras</div>
+      <button class="btn-legacy-vault" id="btn-legacy-vault" onclick="toggleLegacyPanel()" title="Miras Kasası">
+        <span class="legacy-vault-icon">◇</span>
+        <span>Miras Kasası</span>
+      </button>
+      <div class="sidebar-section-label sidebar-char-label">Karakterler</div>
+      <nav class="sidebar-character-list" id="sidebar-character-list"></nav>
 
     </aside>
 
@@ -100,7 +117,7 @@
           <!-- Eva Avatarı -->
           <div class="avatar" id="eva-avatar">
             <div class="avatar-ring"></div>
-            <span class="avatar-emoji">🤖</span>
+            <span class="avatar-emoji">E</span>
             <div class="avatar-thinking" id="avatar-thinking">
               <span></span><span></span><span></span>
             </div>
@@ -114,13 +131,10 @@
 
         <div class="header-right">
           <!-- Kamera Modu Toggle (Faz 5) -->
-          <button class="btn-camera-toggle" id="btn-camera-toggle" title="Kamera modunu aç/kapat">📷 Kamera</button>
-          <!-- Ses Toggle -->
-          <button class="btn-tts-toggle" id="btn-tts-toggle" title="Eva'nın sesini aç/kapat">🔊 Ses</button>
-          <!-- Hafıza rozeti -->
-          <div class="memory-badge" title="Uzun süreli hafıza aktif">🧠 Hafıza</div>
-          <!-- Sohbeti temizle -->
-          <button class="btn-clear" id="btn-clear" title="Sohbeti temizle">🗑️ Temizle</button>
+          <button class="btn-camera-toggle" id="btn-camera-toggle" title="Kamera modunu aç/kapat">Kamera</button>
+          <button class="btn-tts-toggle" id="btn-tts-toggle" title="Eva'nın sesini aç/kapat">Ses</button>
+          <div class="memory-badge" title="Uzun süreli hafıza aktif">Hafıza</div>
+          <button class="btn-clear" id="btn-clear" title="Sohbeti temizle">Temizle</button>
         </div>
       </header>
 
@@ -133,7 +147,7 @@
       <footer class="input-area">
         <div class="input-wrapper">
           <textarea id="user-input" class="input-textarea"
-            placeholder="Eva'ya bir şey yaz... (Enter gönder, Shift+Enter yeni satır)" rows="1"></textarea>
+            placeholder="Bir şey yazın…" rows="1"></textarea>
 
           <!-- Mikrofon Butonu (STT) -->
           <button id="btn-mic" class="btn-mic" title="Sesle yaz">
@@ -160,16 +174,309 @@
             </svg>
           </button>
         </div>
-        <p class="input-hint">Eva dürüsttür — her zaman hemfikir olmayabilir.</p>
+        <p class="input-hint">Enter gönderir · Shift+Enter yeni satır</p>
       </footer>
 
     </div><!-- /chat-area -->
   </div><!-- /layout -->
 
-  <!-- Kamera Stream — gizli, sadece frame yakalama için (Faz 5) -->
+  <!-- Kamera Stream — gizli, face-api.js doğrudan bu videoyu analiz eder (Faz 6.5) -->
   <video id="camera-video" autoplay playsinline style="display:none;"></video>
-  <canvas id="camera-canvas" style="display:none;"></canvas>
 
+  <!-- ── MİRAS KASASI MODAL (v2 — Modern UI) ────────────────── -->
+  <div id="legacy-modal" class="legacy-modal">
+    <div class="legacy-modal-backdrop" onclick="closeLegacyModal()"></div>
+    <div class="legacy-modal-container">
+      
+      <!-- Modal Header -->
+      <div class="legacy-modal-header">
+        <div class="legacy-modal-header-left">
+          <span class="legacy-modal-logo">🏛️</span>
+          <h2>Dijital Miras</h2>
+        </div>
+        <button onclick="closeLegacyModal()" class="legacy-modal-close" title="Kapat">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" 
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="legacy-modal-body">
+
+        <!-- ═══ SECTION: ANA MENÜ ═══ -->
+        <div id="legacy-home" class="legacy-section active">
+          <div class="legacy-home-header">
+            <h2 class="legacy-home-title">Dijital Miras Kasanız</h2>
+            <p class="legacy-home-subtitle">Sevdiklerinizi dijital dünyada ölümsüzleştirin</p>
+          </div>
+          
+          <div class="legacy-home-grid">
+            <!-- Kart 1: Karakterlerim -->
+            <div class="legacy-home-card" onclick="showLegacySection('legacy-characters')">
+              <div class="legacy-home-card-icon" style="--card-color: #7c3aed;">
+                <span>👥</span>
+              </div>
+              <div class="legacy-home-card-body">
+                <h3>Karakterlerim</h3>
+                <p>Oluşturduğunuz dijital kişilikleri görüntüleyin ve yönetin</p>
+              </div>
+              <div class="legacy-home-card-arrow">→</div>
+            </div>
+            
+            <!-- Kart 2: Karakter Oluştur -->
+            <div class="legacy-home-card" onclick="showCreateForm()">
+              <div class="legacy-home-card-icon" style="--card-color: #22c55e;">
+                <span>✨</span>
+              </div>
+              <div class="legacy-home-card-body">
+                <h3>Karakter Oluştur</h3>
+                <p>Yeni bir dijital kişilik oluşturun ve anılarını ekleyin</p>
+              </div>
+              <div class="legacy-home-card-arrow">→</div>
+            </div>
+            
+            <!-- Kart 3: Miras Anahtarı Gir -->
+            <div class="legacy-home-card" onclick="showLegacySection('legacy-enter-key')">
+              <div class="legacy-home-card-icon" style="--card-color: #f59e0b;">
+                <span>🔑</span>
+              </div>
+              <div class="legacy-home-card-body">
+                <h3>Miras Anahtarı Gir</h3>
+                <p>Size verilen miras anahtarıyla dijital mirasa erişin</p>
+              </div>
+              <div class="legacy-home-card-arrow">→</div>
+            </div>
+            
+            <!-- Kart 4: Güvenlik Ayarları (Dead Man's Switch + Miras Anahtarı) -->
+            <div class="legacy-home-card" onclick="showLegacySection('legacy-master-security')">
+              <div class="legacy-home-card-icon" style="--card-color: #ef4444;">
+                <span>⏰</span>
+              </div>
+              <div class="legacy-home-card-body">
+                <h3>Güvenlik Ayarları</h3>
+                <p>Miras anahtarı, geçerlilik süresi ve Dead Man's Switch ayarlarını yönetin</p>
+              </div>
+              <div class="legacy-home-card-arrow">→</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SECTION: KARAKTERLERİM ═══ -->
+        <div id="legacy-characters" class="legacy-section">
+          <div class="legacy-section-nav">
+            <button onclick="goToHome()" class="legacy-nav-back">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Ana Menü
+            </button>
+            <h2 class="legacy-section-title">👥 Karakterlerim</h2>
+          </div>
+          <div id="legacy-char-list">
+            <!-- JavaScript tarafından doldurulur -->
+          </div>
+        </div>
+
+        <!-- ═══ SECTION: KARAKTER OLUŞTUR ═══ -->
+        <div id="legacy-create" class="legacy-section">
+          <div class="legacy-section-nav">
+            <button onclick="goToHome()" class="legacy-nav-back">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Ana Menü
+            </button>
+            <h2 class="legacy-section-title">✨ Yeni Karakter Oluştur</h2>
+          </div>
+          
+          <div class="legacy-create-intro">
+            <p>Dedenizi, babanızı, annenizi, kız arkadaşınızı veya bizzat kendinizi dijital dünyada ölümsüzleştirin.</p>
+          </div>
+          
+          <form id="legacy-create-form" class="legacy-modern-form" onsubmit="event.preventDefault(); saveNewAncestor();">
+            <div class="legacy-form-grid">
+              <div class="legacy-form-group">
+                <label class="legacy-modern-label">İsim <span class="required">*</span></label>
+                <input type="text" id="legacy-name" class="legacy-modern-input" placeholder="Ör: Mehmet Dede" required />
+              </div>
+              
+              <div class="legacy-form-group">
+                <label class="legacy-modern-label">Akrabalık / İlişki <span class="required">*</span></label>
+                <input type="text" id="legacy-relationship" class="legacy-modern-input" placeholder="Ör: Dede, Baba, Anne, Kız Arkadaş, Ben" required />
+              </div>
+              
+              <div class="legacy-form-group legacy-form-half">
+                <label class="legacy-modern-label">Doğum Yılı</label>
+                <input type="text" id="legacy-birth-year" class="legacy-modern-input" placeholder="Ör: 1940" />
+              </div>
+              
+              <div class="legacy-form-group legacy-form-half">
+                <label class="legacy-modern-label">Vefat Yılı</label>
+                <input type="text" id="legacy-death-year" class="legacy-modern-input" placeholder="Hayattaysa boş bırakın" />
+              </div>
+            </div>
+            
+            <div class="legacy-form-group">
+              <label class="legacy-modern-label">Mizaç Özellikleri</label>
+              <textarea id="legacy-temperament" class="legacy-modern-textarea" rows="3" 
+                        placeholder="Ör: Sakin, bilge, espritüel, ağırbaşlı, sevecen..."></textarea>
+            </div>
+            
+            <div class="legacy-form-group">
+              <label class="legacy-modern-label">Hayat Hikayesi</label>
+              <textarea id="legacy-backstory" class="legacy-modern-textarea" rows="4" 
+                        placeholder="Ör: Köyde büyüdü, çiftçilik yaptı, İstanbul'a göç etti..."></textarea>
+            </div>
+            
+            <div class="legacy-form-grid" style="margin-top: 15px;">
+              <div class="legacy-form-group legacy-form-half">
+                <label class="legacy-modern-label">Fotoğraf (Opsiyonel)</label>
+                <input type="file" id="legacy-photo" class="legacy-modern-input" accept="image/*" />
+              </div>
+              <div class="legacy-form-group legacy-form-half">
+                <label class="legacy-modern-label">Ses Kaydı (Opsiyonel)</label>
+                <input type="file" id="legacy-audio" class="legacy-modern-input" accept="audio/*" />
+              </div>
+              <div class="legacy-form-group legacy-form-half">
+                <label class="legacy-modern-label">Video (Opsiyonel)</label>
+                <input type="file" id="legacy-video" class="legacy-modern-input" accept="video/*" />
+              </div>
+              <div class="legacy-form-group legacy-form-half">
+                <label class="legacy-modern-label">PDF Belge (Opsiyonel)</label>
+                <input type="file" id="legacy-pdf" class="legacy-modern-input" accept=".pdf" />
+              </div>
+            </div>
+            
+            <div class="legacy-form-submit">
+              <button type="submit" id="legacy-save-btn" class="legacy-action-btn legacy-action-btn-primary legacy-action-btn-lg">
+                <span class="btn-icon">💾</span> Kaydet
+              </button>
+              <button type="button" onclick="goToHome()" class="legacy-action-btn legacy-action-btn-lg">
+                İptal
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ═══ SECTION: MİRAS ANAHTARI GİR ═══ -->
+        <div id="legacy-enter-key" class="legacy-section">
+          <div class="legacy-section-nav">
+            <button onclick="goToHome()" class="legacy-nav-back">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Ana Menü
+            </button>
+            <h2 class="legacy-section-title">🔑 Miras Anahtarı ile Giriş</h2>
+          </div>
+          
+          <div class="legacy-enter-key-content">
+            <div class="legacy-key-hero">
+              <div class="legacy-key-hero-icon">🔐</div>
+              <h3>Dijital Mirasa Erişin</h3>
+              <p>Size verilen miras anahtarını girerek, sevdiğiniz kişinin dijital anılarına ve kişiliğine ulaşın.</p>
+            </div>
+            
+            <div class="legacy-key-form">
+              <div class="legacy-form-group">
+                <label class="legacy-modern-label">Miras Anahtarı</label>
+                <input type="text" id="legacy-key-input" class="legacy-modern-input legacy-key-input-special" 
+                       placeholder="EVA-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" />
+              </div>
+              <button id="legacy-enter-btn" onclick="enterWithLegacyKey()" class="legacy-action-btn legacy-action-btn-primary legacy-action-btn-lg legacy-action-btn-full">
+                <span class="btn-icon">🔓</span> Giriş Yap
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SECTION: KARAKTER DETAY ═══ -->
+        <div id="legacy-detail" class="legacy-section">
+          <div class="legacy-section-nav">
+            <button onclick="showLegacySection('legacy-characters')" class="legacy-nav-back">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Karakterlerim
+            </button>
+            <h2 class="legacy-section-title">📋 Karakter Detayı</h2>
+          </div>
+          <div id="legacy-detail-content">
+            <!-- JavaScript tarafından doldurulur -->
+          </div>
+        </div>
+
+        <!-- ═══ SECTION: MASTER GÜVENLİK (KENDİ MİRASIM) ═══ -->
+        <div id="legacy-master-security" class="legacy-section">
+          <div class="legacy-section-nav">
+            <button onclick="goToHome()" class="legacy-nav-back">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Ana Menü
+            </button>
+            <h2 class="legacy-section-title">🛡️ Kendi Dijital Mirasım</h2>
+          </div>
+          
+          <div class="legacy-create-intro">
+            <p>Size ait olan miras anahtarını ve Dead Man's Switch süresini buradan ayarlayabilirsiniz. Bu anahtar, siz belirlediğiniz süre boyunca giriş yapmadığınızda mirasçınıza iletilecektir.</p>
+          </div>
+          
+          <div id="legacy-master-content" class="legacy-master-content">
+            <!-- JavaScript ile doldurulacak -->
+            <div class="legacy-loader"><div class="legacy-loader-spinner"></div><span>Yükleniyor...</span></div>
+          </div>
+        </div>
+
+      </div><!-- /legacy-modal-body -->
+    </div><!-- /legacy-modal-container -->
+  </div><!-- /legacy-modal -->
+
+  <!-- ── ÇAĞRI MODU OVERLAY ───────────────────────────────── -->
+  <div id="call-overlay" class="call-overlay hidden">
+
+    <!-- Üst durum çubuğu -->
+    <div class="call-header">
+      <span class="call-eva-name">Eva</span>
+      <span class="call-status" id="call-status-text">Dinliyor...</span>
+    </div>
+
+    <!-- CSS/SVG Eva Yüz Avatarı (Ana Alan) -->
+    <div class="eva-avatar-wrap" id="eva-avatar-wrap">
+      <!-- Gerçekçi İnsan Avatarı -->
+      <img id="human-avatar-img" src="/static/avatars/neutral.jpg" alt="Eva Avatar" style="width: 280px; height: 280px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 40px rgba(124,58,237,0.3); transition: all 0.4s ease; border: 2px solid rgba(124,58,237,0.4);" />
+    </div><!-- /eva-avatar-wrap -->
+
+    <!-- Küçük kamera (köşe PiP) -->
+    <div class="call-pip" id="call-pip" style="opacity: 0; pointer-events: none; width: 1px; height: 1px; position: absolute; z-index: -1;">
+      <video id="call-pip-video" autoplay playsinline muted></video>
+      <span class="call-pip-label">Sen</span>
+    </div>
+
+    <!-- Alt kontrol butonları -->
+    <div class="call-controls">
+      <button id="btn-call-mic" class="call-btn btn-mic-active" title="Mikrofonu Kapat/Aç">🎤</button>
+      <button id="btn-end-call" class="call-btn btn-end" title="Çağrıyı Sonlandır">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path>
+          <line x1="23" y1="1" x2="1" y2="23"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- JavaScript Dosyaları -->
+  <script src="/static/avatar3d.js"></script>
+  <script src="/static/legacy.js"></script>
   <script src="/static/script.js"></script>
 </body>
 
