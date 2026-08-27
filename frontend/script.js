@@ -514,6 +514,10 @@ async function handleSend() {
   const text = userInput.value.trim();
   if (!text || isLoading) return;
 
+  // Eva sadece görüntülü/sesli aramada (Kamera) konuşur.
+  // Mikrofon yalnızca yazıya çevirir; cevap metin kalır.
+  const shouldSpeak = !!window.isCallModeActive;
+
   userInput.value = '';
   autoResizeTextarea();
   addMessage(text, 'user');
@@ -553,8 +557,11 @@ async function handleSend() {
     removeTypingIndicator();
     addMessage(evaResponse, 'eva');
 
-    // Faz 4/6: Eva cevabını sesli oku
-    speakText(evaResponse);
+    if (shouldSpeak) {
+      speakText(evaResponse);
+    } else if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
 
   } catch (error) {
     console.error('Hata:', error);
@@ -621,7 +628,7 @@ overlayEl.addEventListener('click', closeSidebar);
    ================================================================ */
 
 // ── TTS (Text-to-Speech) — Eva sesle konuşur ──────────────────
-let ttsEnabled = true;   // Başlangıçta ses açık
+let ttsEnabled = true;   // Ses butonu: sesli komutta cevabı kapatmak için
 
 /**
  * Eva'nın cevabını sesle okur.
@@ -707,7 +714,7 @@ if (SpeechRecognition && btnMic) {
     const transcript = event.results[0][0].transcript;
     userInput.value = transcript;
     autoResizeTextarea();
-    
+
     // Faz 6: Çağrı modundaysa avatar 'thinking' durumuna geçer ve otomatik gönderilir
     if (window.isCallModeActive) {
       if (typeof set3DAvatarState === 'function') set3DAvatarState('thinking');
