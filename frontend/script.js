@@ -549,7 +549,7 @@ async function handleSend() {
   autoResizeTextarea();
   addMessage(text, 'user');
   
-  const uniqueTrackingId = crypto.randomUUID();
+  const uniqueTrackingId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
   const abortController = new AbortController();
   abortController.uniqueId = uniqueTrackingId;
   activeRequests.set(trackingId, abortController);
