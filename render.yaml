@@ -17,3 +17,23 @@ services:
         sync: false
       - key: GEMINI_MODEL
         sync: false
+      - key: LLM_PROVIDER
+        sync: false
+      - key: LLM_FALLBACK_ORDER
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_MODEL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false
+      - key: SAMBANOVA_API_KEY
+        sync: false
+      - key: SAMBANOVA_MODEL
+        sync: false
+      - key: CHROMA_DB_PATH
+        value: ./chroma_db
+      - key: ANONYMIZED_TELEMETRY
+        value: "False"
