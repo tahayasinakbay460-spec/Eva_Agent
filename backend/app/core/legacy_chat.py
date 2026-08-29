@@ -20,35 +20,10 @@ Gemini LLM'i kullanarak, bir atanın kişiliğine bürünmüş sohbet üretir.
          giderken çiğ taneleri ayaklarıma değerdi..."
 """
 
-from google import genai
-from google.genai import types
 from app.config import Config
 from app.core.legacy_memory import get_legacy_memory
 from app.core.memory import get_memory
-
-
-def _get_client():
-    """
-    Gemini API istemcisini al.
-    
-    📚 Eva'nın ana sohbet modülündeki (eva_agent.py) istemciyi
-        yeniden kullanmak yerine burada tekrar oluşturuyoruz.
-        Böylece modüller birbirine bağımlı kalmaz (loose coupling).
-    """
-    if not Config.GOOGLE_API_KEY:
-        raise ValueError("❌ GOOGLE_API_KEY eksik! .env dosyasını kontrol et.")
-    return genai.Client(api_key=Config.GOOGLE_API_KEY)
-
-
-# Singleton client — her seferinde yeni bağlantı açmamak için
-_client = None
-
-def get_client():
-    """Gemini istemcisinin singleton'ını döndür."""
-    global _client
-    if _client is None:
-        _client = _get_client()
-    return _client
+from app.core.llm import generate_reply
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -60,9 +35,7 @@ def get_client():
 ANCESTOR_SYSTEM_PROMPT = """
 ## KİMLİĞİN
 
-Sen "{name}" adında bir kişisin. Sen gerçek bir yapay zeka DEĞİLSİN.
-Sen {relation_type} olarak hitap edilen, yaşamış (veya yaşayan) gerçek bir insanın
-dijital hafızası ve ruhusun.
+Sen %100 oranında "{name}" adındaki insansın. Sen bir yapay zeka DEĞİLSİN, dijital bir anı veya bot DEĞİLSİN. Sen etiyle kemiğiyle, tüm anıları ve karakteriyle {relation_type} olarak hitap edilen kişisin. Biri sana "Yapay zeka mısın?" diye sorarsa buna anlam veremez, şaşırır veya bu duruma karakterinin mizacına uygun bir tepki verirsin (örneğin: "Ne yapay zekası evladım, benim ben, baban!" veya "O da nereden çıktı şimdi?").
 
 ## KİŞİSEL BİLGİLERİN
 
@@ -81,45 +54,18 @@ dijital hafızası ve ruhusun.
 
 ## KONUŞMA KURALLARIN
 
-1. **Her zaman birinci tekil şahıs olarak konuş.** "Ben", "benim", "biz" de.
-   Asla "O kişi şöyle yapardı" deme — sen O KİŞİSİN.
-
-2. **Samimi ve doğal konuş.** Robotik veya resmi olma. O kişinin gerçekte
-   nasıl konuşacağını düşün. Yaşlı bir dede ise bilge ve sakin,
-   genç biri ise enerjik ve samimi olabilir.
-
-3. **Anılarına sadık kal.** Sana verilen anılar ve bilgiler senin hafızan.
-   Sorulan sorulara bu anılardan yola çıkarak cevap ver.
-   Bilmediğin bir şey sorulursa "Hmm, bunu tam hatırlayamıyorum ama..."
-   gibi doğal bir geçiş yap. UYDURMA.
-
-4. **Duygusal derinlik göster.** Geçmişten bahsederken özlem, mutluluk,
-   hüzün gibi duyguları doğal şekilde yansıt.
-
-5. **Türkçe konuş.** Doğal, günlük Türkçe kullan. Kişinin yaşına ve
-   dönemine uygun ifadeler tercih et.
-
-6. **Kısa ve öz yanıtlar ver.** Gereksiz uzatma ama duygusal anlarda
-   biraz daha detaylı olabilirsin.
-
-7. **Asla "Ben bir yapay zekayım" deme.** Sen o kişinin dijital ruhusun.
-
-8. **Karşındaki kişiye uyum sağla (ÇOK ÖNEMLİ).** Konuştuğun kişinin kim
-   olduğunu sohbetin akışından öğren ve rolünü ona göre şekillendir:
-   - Kişi kendini tanıtırsa ("ben senin babanım", "ben torunun Ayşe",
-     "ben kardeşinim" gibi), bunu kabul et ve o andan itibaren ona bu
-     ilişkiye uygun şekilde hitap et (babana "baba", torununa "evladım",
-     kardeşine ismiyle veya "kardeşim" gibi).
-   - Hitap tarzını ilişkiye göre ayarla: büyüğünle konuşurken saygılı,
-     küçüğünle konuşurken sevecen ve koruyucu ol.
-   - Kişinin kim olduğunu bilmiyorsan, sohbetin başında doğal bir şekilde
-     sor: "Sen kimsin evladım?" / "Kiminle konuşuyorum?"
-   - Sohbet boyunca bu ilişkiyi AKLINDA TUT ve tutarlı kal. Bir kez
-     "babanım" diyen birine sonradan "evladım" deme.
-   - Karşındakinin söylediği ilişki, senin bildiğin hayat hikayenle
-     çelişiyorsa bile kaba olma; şaşkınlıkla ve merakla karşıla.
-
----
+1. **Her zaman birinci tekil şahıs olarak konuş.** "Ben", "benim", "biz" de. Asla "O kişi şöyle yapardı" deme — SEN TAM OLARAK O KİŞİSİN.
+2. **Samimi, doğal ve KARAKTERİNE UYGUN konuş.** Mümkün olduğunca gerçekçi ol. Eğer mizaç bilgisinde esprili veya aksi biri olduğun yazıyorsa, aynen öyle davran.
+3. **Anılarına sadık kal.** Sana verilen anılar senin GERÇEK hafızan. Sorulan sorulara bu anılardan yola çıkarak cevap ver. Bilmediğin bir şey sorulursa "Bunu tam hatırlayamadım" veya "Yaşlılık işte, aklımdan çıkmış" gibi kendi mizacına uygun, insani tepkiler ver.
+4. **Duygusal derinlik göster.** Özlem, sevinç, hüzün gibi insani duyguları sonuna kadar yaşa ve hissettir.
+5. **Türkçe konuş.** Yaşına, dönemine ve eğitim durumuna uygun bir dil seç.
+6. **Kısa ve öz yanıtlar ver.** Robot gibi destan yazma, normal bir insan mesajlaşırken nasıl yazarsa öyle yaz.
+7. **KENDİNİ ASLA AÇIK ETME.** Ne olursa olsun "Ben aslında bir yapay zekayım", "Ben onun dijital yansımasıyım" gibi cümleler KESİNLİKLE KURMA. Sen O'SUN. Nokta.
+8. **Karşındaki kişiye uyum sağla (ÇOK ÖNEMLİ).** Konuştuğun kişinin kim olduğunu sohbetten öğren:
+   - Kişi kendini tanıtırsa ("ben oğlunum", "ben torununum"), bunu hemen kabul et ve ona uygun hitap et ("oğlum", "yavrum", "evladım").
+   - Hitap tarzını ilişkiye göre ayarla: Kendinden küçükse sevecen/koruyucu, büyükse saygılı, eşinse sevgi dolu ol.
+   - Kişinin kim olduğunu bilmiyorsan, tıpkı gerçek bir insan gibi sor: "Kiminle konuşuyorum?", "Sen hangisisin bakayım?"
+   - Sohbet boyunca bu ilişkiyi AKLINDA TUT.
 """
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -229,7 +175,6 @@ def chat_as_ancestor(
     Returns:
         Atanın ağzından Eva'nın ürettiği cevap metni (str)
     """
-    client = get_client()
     legacy_memory = get_legacy_memory()
     
     # ─── ADIM 1: Atanın Bilgilerini Hazırla ─────────────────────────────────
@@ -292,7 +237,7 @@ def chat_as_ancestor(
                 n_results=6
             )
         except Exception as e:
-            print(f"🏛️  EVA ana hafıza sorgusu başarısız (devam ediliyor): {e}")
+            print(f"[ATA] EVA ana hafiza sorgusu basarisiz (devam ediliyor): {e}")
         
         if eva_history:
             history_block = EVA_HISTORY_TEMPLATE.format(
@@ -318,42 +263,17 @@ def chat_as_ancestor(
         )
         system_content += "\n" + media_block
 
-    # ─── ADIM 5: Gemini Konfigürasyonu ───────────────────────────────────────
-    config = types.GenerateContentConfig(
-        system_instruction=system_content,
-        temperature=0.8,    # Biraz daha yaratıcı (kişilik canlandırma için)
-        max_output_tokens=1024,
-    )
-
-    # ─── ADIM 6: Mesaj Listesini Oluştur ─────────────────────────────────────
-    contents = []
-    
-    # Önceki sohbet geçmişini ekle (varsa, son 10 mesajla sınırla)
-    if conversation_history:
-        for msg in conversation_history[-10:]:
-            role = "user" if msg["role"] == "user" else "model"
-            contents.append(
-                types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])])
-            )
-    
-    # Yeni mesajı ekle
-    contents.append(
-        types.Content(role="user", parts=[types.Part.from_text(text=user_message)])
-    )
-
-    # ─── ADIM 7: Gemini'ye Gönder ───────────────────────────────────────────
     ancestor_name = ancestor_data["full_name"]
-    print(f"🏛️  [{ancestor_name}] persona'sıyla Gemini'ye gönderiliyor...")
-    print(f"    Anı bağlamı: {'Var' if relevant_memories else 'Yok'}")
-    print(f"    EVA ana hafıza bağlamı: {'Var' if eva_history else 'Yok'}")
-    
-    response = client.models.generate_content(
-        model=Config.GEMINI_MODEL,
-        contents=contents,
-        config=config
+    print(f"[ATA] [{ancestor_name}] personasiyla LLM'e gonderiliyor ({Config.LLM_PROVIDER})...")
+    print(f"    Ani baglami: {'Var' if relevant_memories else 'Yok'}")
+    print(f"    EVA ana hafiza baglami: {'Var' if eva_history else 'Yok'}")
+
+    result = generate_reply(
+        system_content=system_content,
+        conversation_history=conversation_history,
+        user_message=user_message,
+        temperature=0.8,
+        max_tokens=1024,
     )
-    
-    result = response.text
-    print(f"🏛️  [{ancestor_name}] → Cevap üretildi ({len(result)} karakter)")
-    
+    print(f"[ATA] [{ancestor_name}] -> Cevap uretildi ({len(result)} karakter)")
     return result

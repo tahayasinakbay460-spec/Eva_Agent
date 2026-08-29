@@ -41,8 +41,9 @@ from app.schemas.legacy import (
     LegacyKeyEnterRequest, LegacyKeyEnterResponse,
     LegacyChatRequest, LegacyChatResponse,
     LegacyChatHistoryResponse, LegacyChatMessageOut,
-    DeadManSwitchCreateRequest, DeadManSwitchResponse,
+    DeadManSwitchCreateRequest, DeadManSwitchResponse
 )
+from app.routes.chat import CANCELLED_REQUESTS
 from app.core.dependencies import get_current_user
 from app.core.legacy_memory import get_legacy_memory
 from app.core.legacy_chat import chat_as_ancestor
@@ -376,7 +377,7 @@ def create_ancestor(
     db.commit()
     db.refresh(new_ancestor)
     
-    print(f"🏛️  Yeni ata oluşturuldu: {new_ancestor.full_name} ({new_ancestor.relation_type}) — Sahip: {current_user.username}")
+    print(f"[ATA] Yeni ata olusturuldu: {new_ancestor.full_name} ({new_ancestor.relation_type}) -- Sahip: {current_user.username}")
     return _ancestor_to_response(new_ancestor)
 
 
@@ -451,7 +452,7 @@ def update_ancestor(
     db.commit()
     db.refresh(ancestor)
     
-    print(f"🏛️  Ata güncellendi: {ancestor.full_name}")
+    print(f"[ATA] Ata guncellendi: {ancestor.full_name}")
     
     return _ancestor_to_response(ancestor)
 
@@ -495,7 +496,7 @@ def delete_ancestor(
     db.delete(ancestor)
     db.commit()
     
-    print(f"🏛️  Ata silindi: {ancestor_name}")
+    print(f"[ATA] Ata silindi: {ancestor_name}")
     
     return {"message": f"{ancestor_name} profili ve tüm verileri silindi."}
 
@@ -553,7 +554,7 @@ def add_memory(
     db.commit()
     db.refresh(new_memory)
     
-    print(f"🏛️  Anı eklendi → {ancestor.full_name}: \"{request.title or 'Başlıksız'}\"")
+    print(f"[ATA] Ani eklendi -> {ancestor.full_name}: \"{request.title or 'Basliksiz'}\"")
     
     return MemoryResponse(
         id=new_memory.id,
@@ -662,7 +663,7 @@ def create_legacy_key(
     db.refresh(new_key)
     
     validity = f"{request.valid_days} gün geçerli" if request.valid_days else "süresiz"
-    print(f"🔑 Miras anahtarı üretildi: {key_hash} → {ancestor.full_name} ({validity})")
+    print(f"[KEY] Miras anahtari uretildi: {key_hash} -> {ancestor.full_name} ({validity})")
     
     return _key_to_response(new_key, ancestor.full_name)
 
@@ -809,7 +810,7 @@ def enter_with_legacy_key(
     # JWT artık gerekmiyor çünkü kendi hesabında
     access_token = create_access_token(user_id=current_user.id)
     
-    print(f"🔑 Miras profili içe aktarıldı: {legacy_key.key_hash} → {cloned_ancestor.full_name} to User {current_user.username}")
+    print(f"[KEY] Miras profili ice aktarildi: {legacy_key.key_hash} -> {cloned_ancestor.full_name} to User {current_user.username}")
     
     return LegacyKeyEnterResponse(
         success=True,
@@ -970,6 +971,11 @@ def legacy_chat(
         if not ancestor.audio_url:
             optional_media.append("ses kaydı")
     
+    # 1. Kullanıcı mesajını HEMEN kaydet
+    db.add(Message(conversation_id=conv.id, role="user", content=request.message))
+    conv.updated_at = datetime.utcnow()
+    db.commit()
+
     try:
         # Gemini'ye gönder — ata persona'sıyla cevap al
         response_text = chat_as_ancestor(
@@ -981,8 +987,18 @@ def legacy_chat(
             eva_owner_user_id=str(master_owner.id) if master_owner else None,
             optional_media=optional_media
         )
+        # 2. İptal Kontrolü
+        if request.tracking_id and request.tracking_id in CANCELLED_REQUESTS:
+            CANCELLED_REQUESTS.remove(request.tracking_id)
+            print(f"İSTEK İPTAL EDİLDİ (tracking_id: {request.tracking_id}). Ata'nın yanıtı kaydedilmedi.")
+            return LegacyChatResponse(
+                response="",
+                ancestor_id=ancestor.id,
+                ancestor_name=ancestor_data["full_name"],
+                conversation_id=conv.id,
+            )
 
-        db.add(Message(conversation_id=conv.id, role="user", content=request.message))
+        # 3. Asistan (Ata) mesajını kaydet
         db.add(Message(conversation_id=conv.id, role="assistant", content=response_text))
         conv.updated_at = datetime.utcnow()
         db.commit()
@@ -995,7 +1011,7 @@ def legacy_chat(
                 ancestor_name=ancestor_data["full_name"],
             )
         except Exception as chroma_err:
-            print(f"🏛️  Karakter sohbeti Chroma kaydı başarısız (devam): {chroma_err}")
+            print(f"[ATA] Karakter sohbeti Chroma kaydi basarisiz (devam): {chroma_err}")
         
         return LegacyChatResponse(
             response=response_text,
@@ -1006,8 +1022,21 @@ def legacy_chat(
         
     except HTTPException:
         raise
+    except ValueError as ve:
+        # Tüm LLM sağlayıcıları tükendi (kota bitti, fallback zinciri boş)
+        print(f"[ATA] LLM kota hatasi: {ve}")
+        ancestor_name = ancestor_data.get("full_name", "Ben")
+        fallback_msg = (
+            "Bir sorun oluştu, lütfen tekrar dene."
+        )
+        return LegacyChatResponse(
+            response=fallback_msg,
+            ancestor_id=ancestor.id,
+            ancestor_name=ancestor_name,
+            conversation_id=conv.id,
+        )
     except Exception as e:
-        print(f"🏛️  Sohbet hatası: {e}")
+        print(f"[ATA] Sohbet hatasi: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Ata sohbetinde bir hata oluştu: {str(e)}"
@@ -1077,8 +1106,8 @@ def create_dead_man_switch(
     db.commit()
     db.refresh(new_switch)
     
-    print(f"⏰ Dead Man's Switch oluşturuldu: {ancestor.full_name} → {request.notify_email} "
-          f"({request.inactive_days} gün)")
+    print(f"[SWITCH] Dead Man's Switch olusturuldu: {ancestor.full_name} -> {request.notify_email} "
+          f"({request.inactive_days} gun)")
     
     return DeadManSwitchResponse(
         id=new_switch.id,
@@ -1144,7 +1173,7 @@ def dead_man_checkin(
     
     db.commit()
     
-    print(f"⏰ Check-in: {current_user.username} — {count} switch güncellendi")
+    print(f"[SWITCH] Check-in: {current_user.username} -- {count} switch guncellendi")
     
     return {
         "message": f"{count} Dead Man's Switch güncellendi. Zamanlayıcılar sıfırlandı.",

@@ -34,6 +34,13 @@ class ChatRequest(BaseModel):
     history: List[HistoryMessage] = Field(default=[], description="Oturum geçmişi")
     conversation_id: Optional[int] = Field(default=None, description="Aktif sohbet ID'si (yoksa yeni oluşturulur)")
     detected_emotion: Optional[str] = Field(default=None, description="Kameradan tespit edilen duygu (Faz 5)")
+    tracking_id: Optional[str] = Field(default=None, description="Frontend tarafından iptal işlemi için gönderilen benzersiz ID")
+
+class CancelRequest(BaseModel):
+    """
+    İptal isteği için gönderilen tracking_id
+    """
+    tracking_id: str
 
 
 class ChatResponse(BaseModel):

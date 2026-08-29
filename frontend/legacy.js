@@ -67,7 +67,7 @@ function createToastContainer() {
 // API YARDIMCI
 // ══════════════════════════════════════════════════════════════════════════════
 
-async function legacyFetch(endpoint, method = 'GET', body = null) {
+async function legacyFetch(endpoint, method = 'GET', body = null, signal = null) {
   const token = localStorage.getItem('eva_token');
   if (!token) {
     showToast('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.', 'error');
@@ -81,6 +81,7 @@ async function legacyFetch(endpoint, method = 'GET', body = null) {
       'Authorization': `Bearer ${token}`
     }
   };
+  if (signal) options.signal = signal;
   
   if (body && method !== 'GET') {
     if (body instanceof FormData) {
@@ -1139,13 +1140,14 @@ async function startLegacyChat(ancestorId, ancestorName) {
   if (userInputEl) userInputEl.focus();
 }
 
-async function sendLegacyChatMessage(message) {
+async function sendLegacyChatMessage(message, signal = null, trackingId = null) {
   try {
     const result = await legacyFetch('/chat', 'POST', {
       ancestor_id: activeLegacyAncestorId,
       message: message,
-      history: legacyChatHistory
-    });
+      history: legacyChatHistory,
+      tracking_id: trackingId
+    }, signal);
 
     legacyChatHistory.push({ role: 'user', content: message });
     legacyChatHistory.push({ role: 'assistant', content: result.response });

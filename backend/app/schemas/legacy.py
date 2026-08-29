@@ -191,6 +191,7 @@ class LegacyChatRequest(BaseModel):
     ancestor_id: int = Field(..., description="Hangi atayla konuşulacak")
     message: str = Field(..., min_length=1, description="Kullanıcının mesajı")
     history: List[dict] = Field(default=[], description="Sohbet geçmişi")
+    tracking_id: Optional[str] = Field(default=None, description="Frontend tarafından iptal işlemi için gönderilen benzersiz ID")
 
 
 class LegacyChatResponse(BaseModel):

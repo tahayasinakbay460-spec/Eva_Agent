@@ -44,7 +44,7 @@ class LegacyMemoryManager:
         # Yerel embedding fonksiyonu — API anahtarı gerektirmez, ücretsiz
         self.embedding_fn = embedding_functions.DefaultEmbeddingFunction()
 
-        print("🏛️  Ata Teknolojisi Hafıza Yöneticisi başlatıldı.")
+        print("[ATA] Ata Teknolojisi Hafiza Yoneticisi baslatildi.")
 
     def _get_collection(self, ancestor_id: int):
         """
@@ -106,7 +106,7 @@ class LegacyMemoryManager:
             ids=[doc_id]
         )
         
-        print(f"🏛️  Anı kaydedildi → Ancestor #{ancestor_id} | ID: {doc_id[:8]}...")
+        print(f"[ATA] Ani kaydedildi -> Ancestor #{ancestor_id} | ID: {doc_id[:8]}...")
         return doc_id
 
     def save_chat_turn(
@@ -136,7 +136,7 @@ class LegacyMemoryManager:
             }],
             ids=[doc_id]
         )
-        print(f"🏛️  Sohbet turu kaydedildi → Ancestor #{ancestor_id} | ID: {doc_id[:8]}...")
+        print(f"[ATA] Sohbet turu kaydedildi -> Ancestor #{ancestor_id} | ID: {doc_id[:8]}...")
         return doc_id
 
     def retrieve_context(self, ancestor_id: int, query: str, n_results: int = 5) -> str:
@@ -197,10 +197,10 @@ class LegacyMemoryManager:
         collection_name = f"legacy_ancestor_{ancestor_id}"
         try:
             self.client.delete_collection(name=collection_name)
-            print(f"🏛️  Ancestor #{ancestor_id} anıları ChromaDB'den silindi.")
+            print(f"[ATA] Ancestor #{ancestor_id} anilari ChromaDB'den silindi.")
         except Exception as e:
             # Koleksiyon zaten yoksa sessizce geç
-            print(f"🏛️  Silme hatası (muhtemelen zaten yok): {e}")
+            print(f"[ATA] Silme hatasi (muhtemelen zaten yok): {e}")
 
     def get_memory_count(self, ancestor_id: int) -> int:
         """

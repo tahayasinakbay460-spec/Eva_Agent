@@ -26,7 +26,21 @@ function clearSession() {
 // Oturum içi durum
 let conversationHistory = [];   // Aktif sohbetin mesaj dizisi (LLM context için)
 let activeConversationId = null; // Şu an açık olan sohbetin MySQL ID'si
-let isLoading = false;
+const activeRequests = new Map();
+
+function cancelGeneration(trackingId) {
+  if (activeRequests.has(trackingId)) {
+    const controller = activeRequests.get(trackingId);
+    controller.abort();
+    if (controller.uniqueId) {
+      fetch(`${API_BASE}/chat/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracking_id: controller.uniqueId })
+      }).catch(e => console.error('Cancel isteği hatası:', e));
+    }
+  }
+}
 
 // HTML elementleri
 const chatWindow     = document.getElementById('chat-window');
@@ -54,7 +68,7 @@ const sidebarUsernameEl = document.getElementById('sidebar-username');
    ================================================================ */
 
 /** Eva'ya mesaj gönderir ve cevabı döndürür. */
-async function sendMessageToEva(message) {
+async function sendMessageToEva(message, abortSignal = null, uniqueTrackingId = null) {
   const token = getToken();
   if (!token) { logout(); return ''; }
 
@@ -62,17 +76,21 @@ async function sendMessageToEva(message) {
     message: message,
     history: conversationHistory,
     conversation_id: activeConversationId,   // Hangi sohbete ait olduğu (null ise yeni açılır)
-    detected_emotion: cameraActive ? currentEmotion : null  // Faz 5: Kameradan gelen duygu
+    detected_emotion: (typeof cameraActive !== 'undefined' && cameraActive) ? currentEmotion : null,
+    tracking_id: uniqueTrackingId
   };
 
-  const response = await fetch(`${API_BASE}/chat`, {
+  const options = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify(requestBody)
-  });
+  };
+  if (abortSignal) options.signal = abortSignal;
+
+  const response = await fetch(`${API_BASE}/chat`, options);
 
   if (response.status === 401 || response.status === 403) {
     clearSession();
@@ -87,13 +105,7 @@ async function sendMessageToEva(message) {
     throw new Error(data.detail || 'Sunucu hatası');
   }
 
-  // Backend yeni bir sohbet açtıysa ID'yi kaydet ve paneli güncelle
-  if (data.conversation_id && data.conversation_id !== activeConversationId) {
-    activeConversationId = data.conversation_id;
-    await fetchConversations();   // Yeni sohbet başlığını sol panele ekle
-  }
-
-  return data.response;
+  return data;
 }
 
 /** Kullanıcının tüm eski sohbetlerini çeker ve sol paneli doldurur. */
@@ -157,6 +169,13 @@ async function loadConversation(convId) {
 
     // Mobilde paneli kapat
     closeSidebar();
+    
+    if (activeRequests.has(convId)) {
+        addTypingIndicator();
+    } else {
+        removeTypingIndicator();
+    }
+    updateUIForTrackingId(convId);
 
   } catch (err) {
     console.error('Sohbet yüklenemedi:', err);
@@ -341,7 +360,12 @@ function startNewChat() {
   );
 
   closeSidebar();
-  userInput.focus();
+  if (activeRequests.has('new')) {
+     addTypingIndicator();
+  } else {
+     removeTypingIndicator();
+  }
+  updateUIForTrackingId(null);
 }
 
 /** Mobil sidebar açma/kapama */
@@ -472,14 +496,16 @@ function scrollToBottom() {
    5. UI DURUM GÜNCELLEMELERİ
    ================================================================ */
 
-function setLoading(loading) {
-  isLoading = loading;
+function updateUIForTrackingId(convId) {
+  const trackingId = convId || 'new';
+  const isGenerating = activeRequests.has(trackingId);
 
-  if (loading) {
-    btnSend.disabled = true;
+  if (isGenerating) {
+    btnSend.disabled = false; // İptal butonu için aktif bırak
     btnSend.classList.add('loading');
     iconSend.style.display = 'none';
     iconLoading.style.display = 'block';
+    iconLoading.innerHTML = '<rect x="6" y="6" width="12" height="12" fill="currentColor"></rect>'; // Kare (Stop) ikonu
     userInput.disabled = true;
     statusText.textContent = '● Düşünüyor...';
     statusText.classList.add('thinking');
@@ -489,8 +515,9 @@ function setLoading(loading) {
     btnSend.classList.remove('loading');
     iconSend.style.display = 'block';
     iconLoading.style.display = 'none';
+    iconLoading.innerHTML = '<path d="M21 12a9 9 0 11-6.219-8.56" />'; // Yuvarlak dönen ikon
     userInput.disabled = false;
-    userInput.focus();
+    if (document.activeElement !== userInput) userInput.focus();
     statusText.textContent = (typeof getLegacyStatusText === 'function')
       ? getLegacyStatusText()
       : '● Çevrimiçi';
@@ -502,7 +529,8 @@ function setLoading(loading) {
 function autoResizeTextarea() {
   userInput.style.height = 'auto';
   userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
-  btnSend.disabled = userInput.value.trim().length === 0 || isLoading;
+  const trackingId = activeConversationId || 'new';
+  btnSend.disabled = userInput.value.trim().length === 0 || activeRequests.has(trackingId);
 }
 
 
@@ -512,63 +540,91 @@ function autoResizeTextarea() {
 
 async function handleSend() {
   const text = userInput.value.trim();
-  if (!text || isLoading) return;
+  const trackingId = activeConversationId || 'new';
+  if (!text || activeRequests.has(trackingId)) return;
 
-  // Eva sadece görüntülü/sesli aramada (Kamera) konuşur.
-  // Mikrofon yalnızca yazıya çevirir; cevap metin kalır.
   const shouldSpeak = !!window.isCallModeActive;
 
   userInput.value = '';
   autoResizeTextarea();
   addMessage(text, 'user');
-  setLoading(true);
+  
+  const uniqueTrackingId = crypto.randomUUID();
+  const abortController = new AbortController();
+  abortController.uniqueId = uniqueTrackingId;
+  activeRequests.set(trackingId, abortController);
+  updateUIForTrackingId(activeConversationId);
   addTypingIndicator();
 
-  // YENİ EKLENEN: Avatarın duygusu mesaj gönderildiğinde, kullanıcının o anki duygusuna sabitlensin.
   if (typeof update3DAvatarEmotion === 'function') {
-    update3DAvatarEmotion(currentEmotion || 'neutral');
+    update3DAvatarEmotion((typeof currentEmotion !== 'undefined' ? currentEmotion : 'neutral'));
   }
 
   try {
     let evaResponse;
     
-    // Faz 8: Ata sohbet modundaysa farklı API çağır
     if (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode && typeof sendLegacyChatMessage === 'function') {
-      // Ata persona sohbeti — legacy_chat API'sine gider
-      evaResponse = await sendLegacyChatMessage(text);
+      evaResponse = await sendLegacyChatMessage(text, abortController.signal, uniqueTrackingId);
     } else {
-      // Normal Eva sohbeti — chat API'sine gider
-      evaResponse = await sendMessageToEva(text);
+      const data = await sendMessageToEva(text, abortController.signal, uniqueTrackingId);
+      evaResponse = data.response;
       
-      // Geçmişe ekle (sadece normal modda — legacy kendi geçmişini yönetir)
-      conversationHistory.push({ role: 'user', content: text });
-      conversationHistory.push({ role: 'assistant', content: evaResponse });
-
-      // 20 mesaj sınırı
-      if (conversationHistory.length > 20) {
-        conversationHistory = conversationHistory.slice(-20);
+      const isStillViewingThisChat = (activeConversationId || 'new') === trackingId;
+      
+      if (isStillViewingThisChat) {
+          conversationHistory.push({ role: 'user', content: text });
+          conversationHistory.push({ role: 'assistant', content: evaResponse });
+          if (conversationHistory.length > 20) {
+            conversationHistory = conversationHistory.slice(-20);
+          }
       }
-
-      // Sol paneldeki sohbet başlığını yenile
-      await fetchConversations();
-      if (activeConversationId) updateActiveConvInList(activeConversationId);
+      
+      if (data.conversation_id) {
+         if (trackingId === 'new') {
+            activeRequests.delete('new');
+            activeRequests.set(data.conversation_id, abortController);
+            if (isStillViewingThisChat) {
+               activeConversationId = data.conversation_id;
+            }
+         }
+         await fetchConversations();
+         if (activeConversationId) updateActiveConvInList(activeConversationId);
+      }
     }
     
-    removeTypingIndicator();
-    addMessage(evaResponse, 'eva');
+    const isNowViewingThisChat = (activeConversationId || 'new') === (activeRequests.has(activeConversationId) ? activeConversationId : trackingId);
+    
+    if (isNowViewingThisChat) {
+        removeTypingIndicator();
+        addMessage(evaResponse, 'eva');
 
-    if (shouldSpeak) {
-      speakText(evaResponse);
-    } else if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+        if (shouldSpeak) {
+          speakText(evaResponse);
+        } else if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
     }
 
   } catch (error) {
-    console.error('Hata:', error);
-    removeTypingIndicator();
-    addMessage('⚠️ Bağlantı veya sunucu hatası oluştu. (F12 Konsoluna bakınız)', 'eva', true);
+    if (error.name === 'AbortError') {
+       console.log('Sohbet iptal edildi: ' + trackingId);
+       if ((activeConversationId || 'new') === trackingId) {
+           removeTypingIndicator();
+       }
+    } else {
+       console.error('Hata:', error);
+       if ((activeConversationId || 'new') === trackingId) {
+           removeTypingIndicator();
+           addMessage('⚠️ SUNUCU (API) ÇÖKTÜ VEYA BAĞLANTI KOPTU', 'eva', true);
+       }
+    }
   } finally {
-    setLoading(false);
+    for (const [key, val] of activeRequests.entries()) {
+        if (val === abortController) {
+            activeRequests.delete(key);
+        }
+    }
+    updateUIForTrackingId(activeConversationId);
   }
 }
 
@@ -578,7 +634,14 @@ async function handleSend() {
    ================================================================ */
 
 // Gönder butonu
-btnSend.addEventListener('click', handleSend);
+btnSend.addEventListener('click', () => {
+  const trackingId = activeConversationId || 'new';
+  if (activeRequests.has(trackingId)) {
+     cancelGeneration(trackingId);
+  } else {
+     handleSend();
+  }
+});
 
 // Enter = gönder, Shift+Enter = yeni satır
 userInput.addEventListener('keydown', (e) => {

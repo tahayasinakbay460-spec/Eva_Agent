@@ -19,12 +19,12 @@
   --color-border:       rgba(232, 210, 180, 0.10);
   --color-border-2:     rgba(232, 210, 180, 0.16);
 
-  --color-primary:      #C56A45;
-  --color-primary-2:    #E07A50;
-  --color-primary-glow: rgba(197, 106, 69, 0.28);
+  --color-primary:      #0ea5e9;
+  --color-primary-2:    #38bdf8;
+  --color-primary-glow: rgba(14, 165, 233, 0.28);
 
-  --color-user-bubble:  #C56A45;
-  --color-eva-bubble:   #221C18;
+  --color-user-bubble:  #0ea5e9;
+  --color-eva-bubble:   #0f172a;
 
   --color-text:         #F0E6D8;
   --color-text-muted:   #B5A898;
@@ -59,6 +59,34 @@ body {
   position: relative;
 }
 
+/* Tüm Uygulama İçin Ambient Glow (Buzlu cam etkisini belirginleştirir) */
+body::before,
+body::after {
+  content: '';
+  position: absolute;
+  width: 50vw;
+  height: 50vw;
+  max-width: 600px;
+  max-height: 600px;
+  border-radius: 50%;
+  filter: blur(150px);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55; /* Ton gücü ciddi şekilde artırıldı */
+}
+
+body::before {
+  top: -10%;
+  left: -5%; /* Sola kaydırıldı ki sidebar tam üstüne gelsin */
+  background: radial-gradient(circle, #0ea5e9, transparent 60%); 
+}
+
+body::after {
+  bottom: -10%;
+  right: 10%;
+  background: radial-gradient(circle, #0284c7, transparent 70%); /* Derin Mavi */
+}
+
 /* Eski orb stilleri — HTML'den kaldırıldı */
 .bg-orb { display: none; }
 
@@ -80,14 +108,18 @@ body {
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
   height: 100dvh;
-  background: var(--color-sidebar-bg);
-  border-right: 1px solid var(--color-border);
+  background: rgba(18, 16, 14, 0.40); /* Opaklık iyice düşürüldü ki ışık girsin */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(14, 165, 233, 0.25); /* Border'a da hafif turkuaz tonu eklendi */
+  box-shadow: 2px 0 24px rgba(0,0,0,0.25);
   display: flex;
   flex-direction: column;
   gap: 0;
   overflow: hidden;
   transition: transform var(--transition-slow), opacity var(--transition-slow);
   z-index: 100;
+  position: relative;
 }
 
 /* ── Sidebar Header ─────────────────────────────────────────── */
@@ -260,7 +292,7 @@ body {
   padding: 8px 10px;
   border-radius: 10px;
   cursor: pointer;
-  transition: background var(--transition);
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.1); /* Yaylanma */
   position: relative;
   animation: convFadeIn 0.25s ease;
 }
@@ -271,11 +303,14 @@ body {
 }
 
 .conv-item:hover {
-  background: var(--color-surface-2);
+  background: rgba(14, 165, 233, 0.15); /* Premium saydam turkuaz hover */
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+  transform: translateX(4px); /* Hoverda hafif sağa kaysın */
 }
 
 .conv-item.active {
-  background: var(--color-surface-3);
+  background: rgba(14, 165, 233, 0.25); /* Aktif öğe daha belirgin */
+  box-shadow: inset 2px 0 0 rgba(14, 165, 233, 0.8);
 }
 
 .conv-item.active::before {
@@ -404,6 +439,7 @@ body {
   height: 100dvh;
   min-width: 0;
   overflow: hidden;
+  position: relative;
 }
 
 /* ── HEADER ─────────────────────────────────────────────────── */
@@ -414,7 +450,10 @@ body {
   padding: 14px 20px;
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
-  background: rgba(18, 16, 14, 0.92);
+  background: rgba(18, 16, 14, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 10;
 }
 
 @keyframes slideDown {
@@ -598,6 +637,8 @@ body {
   padding: 24px 20px;
   display: flex;
   flex-direction: column;
+  z-index: 1;
+  position: relative;
   gap: 4px;
   scroll-behavior: smooth;
 }
@@ -707,18 +748,22 @@ body {
 }
 
 .message-bubble.eva {
-  background: var(--color-eva-bubble);
+  background: var(--color-surface);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--color-border);
   border-radius: 16px 16px 16px 6px;
   color: var(--color-text);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
 }
 
 .message-bubble.eva:hover { box-shadow: none; }
 
 .message-bubble.user {
-  background: var(--color-user-bubble);
+  background: linear-gradient(135deg, var(--color-primary), #0284c7);
   border-radius: 16px 16px 6px 16px;
   color: #F7F1E8;
+  box-shadow: 0 4px 12px var(--color-primary-glow);
 }
 
 .message-bubble.error {
@@ -776,10 +821,14 @@ body {
 
 /* ── GİRİŞ ALANI ────────────────────────────────────────────── */
 .input-area {
-  padding: 14px 20px 18px;
+  padding: 16px 20px;
+  background: rgba(18, 16, 14, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--color-border);
   flex-shrink: 0;
-  background: rgba(18, 16, 14, 0.92);
+  z-index: 10;
+  position: relative;
 }
 
 .input-wrapper {
@@ -826,7 +875,7 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all var(--transition);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .btn-send:not(:disabled):hover {
@@ -844,7 +893,12 @@ body {
   color: white;
 }
 
-.btn-send.loading #icon-loading { animation: spin 1s linear infinite; }
+.btn-send.loading #icon-loading { 
+  animation: spin 1s linear infinite; 
+}
+.btn-send.loading #icon-loading rect {
+  animation: none; /* Kare ikonu dönmesin (İptal Butonu) */
+}
 
 @keyframes spin {
   from { transform: rotate(0deg); }
@@ -1541,19 +1595,23 @@ body {
   width: calc(100% - 20px);
   margin: 6px 10px 16px;
   padding: 11px 16px;
-  background: transparent;
-  border: 1px solid var(--color-border-2);
+  background: rgba(14, 165, 233, 0.1); /* Turkuaza uyumlu cam */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(14, 165, 233, 0.3);
   border-radius: 12px;
   color: var(--color-text);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: background var(--transition), border-color var(--transition);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Yaylanma */
 }
 .btn-legacy-vault:hover {
-  background: var(--color-surface-2);
-  border-color: var(--color-primary);
+  background: rgba(14, 165, 233, 0.25);
+  border-color: rgba(14, 165, 233, 0.6);
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.25);
+  transform: scale(1.03); /* Hoverda hafif büyüsün */
 }
 .legacy-vault-icon { font-size: 1.2rem; }
 
