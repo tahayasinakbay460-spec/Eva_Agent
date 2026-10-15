@@ -1,71 +1,70 @@
-"""
-schemas/chat.py - API Veri Şemaları (Pydantic)
-================================================
-Pydantic modelleri, gelen ve giden verilerin
-tipini ve formatını otomatik olarak doğrular.
+import uuid
+from datetime import datetime
+from typing import Literal
 
-📚 Örnek:
-    Kullanıcı { "message": 123 } gönderirse
-    Pydantic bunu otomatik string'e çevirir.
-    Zorunlu alan eksikse 422 hatası döner.
-"""
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class HistoryMessage(BaseModel):
-    """Tek bir konuşma geçmişi mesajı"""
-    role: str           # "user" veya "assistant"
-    content: str        # Mesajın içeriği
+class ConversationCreate(BaseModel):
+    persona_id: uuid.UUID | None = None  # None -> default EVA
 
 
-class ChatRequest(BaseModel):
-    """
-    POST /api/chat için beklenen JSON body.
-    
-    Örnek:
-    {
-        "message": "Merhaba Eva!",
-        "user_id": "kullanici_123",
-        "history": [...]
-    }
-    """
-    message: str = Field(..., min_length=1, description="Kullanıcının mesajı")
-    history: List[HistoryMessage] = Field(default=[], description="Oturum geçmişi")
-    conversation_id: Optional[int] = Field(default=None, description="Aktif sohbet ID'si (yoksa yeni oluşturulur)")
-    detected_emotion: Optional[str] = Field(default=None, description="Kameradan tespit edilen duygu (Faz 5)")
-    tracking_id: Optional[str] = Field(default=None, description="Frontend tarafından iptal işlemi için gönderilen benzersiz ID")
+class ConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
-class CancelRequest(BaseModel):
-    """
-    İptal isteği için gönderilen tracking_id
-    """
-    tracking_id: str
+    id: uuid.UUID
+    persona_id: uuid.UUID
+    channel: str
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
 
 
-class ChatResponse(BaseModel):
-    """
-    POST /api/chat'in döndürdüğü JSON.
-    
-    Örnek:
-    {
-        "response": "Merhaba! Ben Eva...",
-        "user_id": "kullanici_123"
-    }
-    """
-    response: str
-    user_id: str
-    conversation_id: int
+class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    role: str
+    content: str
+    channel: str
+    interrupted: bool
+    created_at: datetime
 
 
-class MemoryStatsResponse(BaseModel):
-    """GET /api/chat/memory-stats'ın döndürdüğü JSON."""
-    user_id: str
-    memory_count: int
-    message: str
+class SendMessageRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
+    # Client-generated; lets a retried request replay instead of double-sending (§10).
+    idempotency_key: str = Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
 
 
-class HealthResponse(BaseModel):
-    """GET /api/health'in döndürdüğü JSON."""
-    status: str
-    message: str
+# --- SSE payloads (documented here so the OpenAPI schema carries them) ----------
+
+
+class SSEMessageStart(BaseModel):
+    user_message_id: uuid.UUID
+    assistant_message_id: uuid.UUID
+
+
+class SSEDelta(BaseModel):
+    text: str
+
+
+class SSEDone(BaseModel):
+    assistant_message_id: uuid.UUID
+    stop_reason: Literal["end_turn", "max_tokens", "refusal"]
+    interrupted: bool
+
+
+class SSEError(BaseModel):
+    code: Literal["provider_error", "internal_error"]
+    retryable: bool
+
+
+class SSEEnvelope(BaseModel):
+    """Not sent on the wire; registers the SSE payload schemas in OpenAPI so the TS client
+    gets their types. Each event carries exactly one of these as its ``data``."""
+
+    message_start: SSEMessageStart | None = None
+    delta: SSEDelta | None = None
+    done: SSEDone | None = None
+    error: SSEError | None = None

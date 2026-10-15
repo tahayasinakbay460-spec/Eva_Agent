@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EVA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="avatar" aria-hidden="true">E</div>
+        <div>
+          <h1>EVA</h1>
+          <p class="status" id="status">bağlanıyor…</p>
+        </div>
+      </div>
+      <label class="name-field">
+        <span>Adın</span>
+        <input id="username" type="text" maxlength="30" placeholder="misafir" autocomplete="off">
+      </label>
+    </header>
+
+    <main class="chat" id="chat" aria-live="polite">
+      <div class="empty" id="empty">
+        <div class="avatar big" aria-hidden="true">E</div>
+        <p>Selam! Ben EVA. Aklından ne geçiyorsa yaz.</p>
+      </div>
+    </main>
+
+    <form class="composer" id="composer">
+      <textarea id="input" rows="1" placeholder="Mesaj yaz…" aria-label="Mesaj"></textarea>
+      <button type="submit" id="send" aria-label="Gönder">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12 3.5 13.9z" fill="currentColor"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

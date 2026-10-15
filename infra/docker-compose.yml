@@ -1,0 +1,41 @@
+# Local infrastructure only (CLAUDE.md §3). Application services run on the host via uv/npm.
+#   docker compose -f infra/docker-compose.yml up -d
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: eva
+      POSTGRES_PASSWORD: eva
+      POSTGRES_DB: eva
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eva"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: eva
+      MINIO_ROOT_PASSWORD: eva-local-only
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  # LiveKit is added in Phase 2 (voice).
+
+volumes:
+  pgdata:
+  miniodata:

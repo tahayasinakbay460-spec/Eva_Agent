@@ -1,24 +1,35 @@
-# Backend
+# Secrets
 .env
-backend/.env
-backend/chroma_db/
-backend/*.db
-backend/instance/
-backend/__pycache__/
-backend/app/__pycache__/
-backend/app/core/__pycache__/
-backend/app/routes/__pycache__/
-backend/app/models/__pycache__/
-backend/venv/
+.env.*
+!.env.example
+!.env.local.example
+
+# Python
+__pycache__/
+*.py[cod]
 backend/.venv/
+backend/venv/
+backend/*.db
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.pytest_cache/
 backend/uploads/
 
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.env.local
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+*.tsbuildinfo
 
-# Genel
+# Local infra data
+infra/data/
+
+# OS / editor
 .DS_Store
-*.pyc
-*.pyo
+Thumbs.db
+.vscode/
+.idea/
+
+# Local databases anywhere (may contain chat history)
+*.db
