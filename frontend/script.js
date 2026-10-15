@@ -15,7 +15,7 @@
 const API_BASE = '/api';
 
 // Oturum yönetimi
-function getToken()    { return localStorage.getItem('eva_token'); }
+function getToken() { return localStorage.getItem('eva_token'); }
 function getUsername() { return localStorage.getItem('eva_username'); }
 function clearSession() {
   localStorage.removeItem('eva_token');
@@ -27,6 +27,170 @@ function clearSession() {
 let conversationHistory = [];   // Aktif sohbetin mesaj dizisi (LLM context için)
 let activeConversationId = null; // Şu an açık olan sohbetin MySQL ID'si
 const activeRequests = new Map();
+
+/* ================================================================
+   WEBSOCKET MANAGER (Faz 9 — Streaming)
+   ================================================================
+   Eva'nın cevabı token token gelir. Bağlantı sohbet boyunca açık
+   kalır — her mesajda yeni WebSocket açılmaz (verimsiz olurdu).
+*/
+let evaSocket = null;        // Aktif WebSocket bağlantısı
+let socketReady = false;     // Bağlantı kuruldu mu?
+let socketQueue = [];        // Bağlantı kurulmadan gelenleri sakla
+let activeBubble = null;     // Şu an dolan baloncuk (streaming için)
+let activeRawText = '';      // Ham metin (TTS + history için)
+let renderScheduled = false; // rAF throttle flagı
+
+/** WebSocket bağlantısı kur veya mevcut olanı kullan. */
+function ensureSocket() {
+  if (evaSocket && (evaSocket.readyState === WebSocket.OPEN || evaSocket.readyState === WebSocket.CONNECTING)) {
+    return; // Zaten açık
+  }
+  const token = getToken();
+  if (!token) { logout(); return; }
+
+  const proto  = location.protocol === 'https:' ? 'wss' : 'ws';
+  const wsUrl  = `${proto}://${location.host}/api/ws/chat?token=${token}`;
+
+  evaSocket  = new WebSocket(wsUrl);
+  socketReady = false;
+
+  evaSocket.onopen = () => {
+    socketReady = true;
+    console.log('[WS] Bağlantı kuruldu ✓');
+    // Kuyruğta bekleyen varsa gönder
+    while (socketQueue.length > 0) {
+      evaSocket.send(socketQueue.shift());
+    }
+  };
+
+  evaSocket.onclose = (e) => {
+    socketReady = false;
+    evaSocket = null;
+    console.log('[WS] Bağlantı kapandı:', e.code);
+  };
+
+  evaSocket.onerror = (e) => {
+    console.error('[WS] Hata:', e);
+  };
+
+  evaSocket.onmessage = handleSocketMessage;
+}
+
+/** Gelen WebSocket mesajını işle. */
+function handleSocketMessage(event) {
+  let data;
+  try { data = JSON.parse(event.data); } catch { data = null; }
+
+  // ── JSON obje: bitti / hata sinyali ──────────────────────
+  if (data && data.type === 'done') {
+    const convId = data.conversation_id;
+
+    // Stream bitti: tam cevabı markdown render et
+    if (activeBubble && activeRawText) {
+      activeBubble.innerHTML = marked.parse(activeRawText);
+      activeBubble.querySelectorAll('a').forEach(a => { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
+    }
+
+    // History'ye ekle — YALNlZCA assistant tarafını ekliyoruz
+    // (user tarafı handleSend'de zaten eklendi)
+    if (activeRawText) {
+      conversationHistory.push({ role: 'assistant', content: activeRawText });
+      if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
+    }
+
+    // conversation_id'yi güncelle
+    if (convId) {
+      if (activeConversationId !== convId) {
+        activeConversationId = convId;
+        activeRequests.delete('new');
+      }
+      fetchConversations().then(() => updateActiveConvInList(convId));
+    }
+
+    // TTS: stream bittiğinde seslendir
+    if (typeof speakText === 'function' && window.isCallModeActive) {
+      speakText(activeRawText);
+    }
+
+    activeBubble   = null;
+    activeRawText  = '';
+    renderScheduled = false;
+
+    // 3D avatar duraksasın
+    if (typeof window.evaIdle === 'function') window.evaIdle();
+
+    activeRequests.clear();
+    updateUIForTrackingId(activeConversationId);
+    return;
+  }
+
+  if (data && data.type === 'error') {
+    removeTypingIndicator();
+    addMessage('⚠️ ' + (data.detail || 'Sunucu hatası'), 'eva', true);
+    activeRequests.clear();
+    activeBubble   = null;
+    activeRawText  = '';
+    renderScheduled = false;
+    updateUIForTrackingId(activeConversationId);
+    return;
+  }
+
+  // ── Düz metin: token chunk ──────────────────────────────
+  const chunk = event.data;
+
+  if (!activeBubble) {
+    // İlk token: typing indicator kaldır, baloncuk oluştur
+    removeTypingIndicator();
+    const row = document.createElement('div');
+    row.className = 'message-row eva';
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = 'E';
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'message-content';
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    meta.innerHTML = `<span class="message-sender">Eva</span><span class="message-time">${getCurrentTime()}</span>`;
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble eva stream-bubble';
+    contentWrapper.appendChild(meta);
+    contentWrapper.appendChild(bubble);
+    row.appendChild(avatar);
+    row.appendChild(contentWrapper);
+    chatWindow.appendChild(row);
+    activeBubble  = bubble;
+    activeRawText = '';
+    renderScheduled = false;
+    if (typeof window.evaTalk === 'function') window.evaTalk();
+  }
+
+  // Token'u biriktir; rAF ile throttle ederek render et
+  // → Her token'da ayrı innerHTML = marked.parse() çok pahalı ve titreme yapar
+  activeRawText += chunk;
+  if (!renderScheduled) {
+    renderScheduled = true;
+    requestAnimationFrame(() => {
+      if (activeBubble) {
+        // Stream sırasında düz metin göster (markdown flicker yapmaz)
+        activeBubble.textContent = activeRawText;
+        scrollToBottom();
+      }
+      renderScheduled = false;
+    });
+  }
+}
+
+/** WebSocket üzerinden mesaj gönderir. */
+function sendViaSocket(payload) {
+  ensureSocket();
+  const str = JSON.stringify(payload);
+  if (socketReady && evaSocket.readyState === WebSocket.OPEN) {
+    evaSocket.send(str);
+  } else {
+    socketQueue.push(str); // Henzü hazır değilse kuyruğa ekle
+  }
+}
 
 function cancelGeneration(trackingId) {
   if (activeRequests.has(trackingId)) {
@@ -43,23 +207,23 @@ function cancelGeneration(trackingId) {
 }
 
 // HTML elementleri
-const chatWindow     = document.getElementById('chat-window');
-const userInput      = document.getElementById('user-input');
-const btnSend        = document.getElementById('btn-send');
-const btnClear       = document.getElementById('btn-clear');
-const btnNewChat     = document.getElementById('btn-new-chat');
-const btnLogout      = document.getElementById('btn-logout');
-const btnHamburger   = document.getElementById('btn-hamburger');
-const btnMic         = document.getElementById('btn-mic');         // Faz 4
-const btnTtsToggle   = document.getElementById('btn-tts-toggle');  // Faz 4
-const statusText     = document.getElementById('status-text');
+const chatWindow = document.getElementById('chat-window');
+const userInput = document.getElementById('user-input');
+const btnSend = document.getElementById('btn-send');
+const btnClear = document.getElementById('btn-clear');
+const btnNewChat = document.getElementById('btn-new-chat');
+const btnLogout = document.getElementById('btn-logout');
+const btnHamburger = document.getElementById('btn-hamburger');
+const btnMic = document.getElementById('btn-mic');         // Faz 4
+const btnTtsToggle = document.getElementById('btn-tts-toggle');  // Faz 4
+const statusText = document.getElementById('status-text');
 const avatarThinking = document.getElementById('avatar-thinking');
-const iconSend       = document.getElementById('icon-send');
-const iconLoading    = document.getElementById('icon-loading');
-const sidebarEl      = document.getElementById('sidebar');
-const overlayEl      = document.getElementById('sidebar-overlay');
-const convListEl     = document.getElementById('conversation-list');
-const convLoadingEl  = document.getElementById('conv-loading');
+const iconSend = document.getElementById('icon-send');
+const iconLoading = document.getElementById('icon-loading');
+const sidebarEl = document.getElementById('sidebar');
+const overlayEl = document.getElementById('sidebar-overlay');
+const convListEl = document.getElementById('conversation-list');
+const convLoadingEl = document.getElementById('conv-loading');
 const sidebarUsernameEl = document.getElementById('sidebar-username');
 
 
@@ -169,11 +333,11 @@ async function loadConversation(convId) {
 
     // Mobilde paneli kapat
     closeSidebar();
-    
+
     if (activeRequests.has(convId)) {
-        addTypingIndicator();
+      addTypingIndicator();
     } else {
-        removeTypingIndicator();
+      removeTypingIndicator();
     }
     updateUIForTrackingId(convId);
 
@@ -361,9 +525,9 @@ function startNewChat() {
 
   closeSidebar();
   if (activeRequests.has('new')) {
-     addTypingIndicator();
+    addTypingIndicator();
   } else {
-     removeTypingIndicator();
+    removeTypingIndicator();
   }
   updateUIForTrackingId(null);
 }
@@ -401,7 +565,7 @@ function getCurrentTime() {
  */
 function addMessage(content, role, isError = false) {
   const isUser = role === 'user';
-  
+
   // Faz 8: Miras sohbet modunda Eva mesajları karakterin kimliğiyle görünür
   const isLegacyMsg = !isUser
     && typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode;
@@ -465,7 +629,7 @@ function addTypingIndicator() {
   const avatar = document.createElement('div');
   avatar.className = 'msg-avatar';
   if (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode
-      && typeof activeLegacyAncestorPhoto !== 'undefined' && activeLegacyAncestorPhoto) {
+    && typeof activeLegacyAncestorPhoto !== 'undefined' && activeLegacyAncestorPhoto) {
     avatar.innerHTML = `<img src="${activeLegacyAncestorPhoto}" alt="" />`;
   } else {
     avatar.textContent = (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode) ? '🏛️' : 'E';
@@ -543,89 +707,55 @@ async function handleSend() {
   const trackingId = activeConversationId || 'new';
   if (!text || activeRequests.has(trackingId)) return;
 
-  const shouldSpeak = !!window.isCallModeActive;
-
   userInput.value = '';
   autoResizeTextarea();
   addMessage(text, 'user');
-  
-  const uniqueTrackingId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-  const abortController = new AbortController();
-  abortController.uniqueId = uniqueTrackingId;
-  activeRequests.set(trackingId, abortController);
+
+  // ── Miras modu: eski sistem (fetch) kullan ──────────────────
+  if (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode && typeof sendLegacyChatMessage === 'function') {
+    const uniqueTrackingId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now();
+    const abortController = new AbortController();
+    abortController.uniqueId = uniqueTrackingId;
+    activeRequests.set(trackingId, abortController);
+    updateUIForTrackingId(activeConversationId);
+    addTypingIndicator();
+    try {
+      const evaResponse = await sendLegacyChatMessage(text, abortController.signal, uniqueTrackingId);
+      removeTypingIndicator();
+      addMessage(evaResponse, 'eva');
+    } catch (err) {
+      removeTypingIndicator();
+      if (err.name !== 'AbortError') addMessage('⚠️ ' + err.message, 'eva', true);
+    } finally {
+      activeRequests.delete(trackingId);
+      updateUIForTrackingId(activeConversationId);
+    }
+    return;
+  }
+
+  // ── Normal mod: WebSocket streaming ───────────────────────
+  const fakeController = { abort: () => { evaSocket && evaSocket.close(); } };
+  activeRequests.set(trackingId, fakeController);
   updateUIForTrackingId(activeConversationId);
   addTypingIndicator();
 
-  if (typeof update3DAvatarEmotion === 'function') {
-    update3DAvatarEmotion((typeof currentEmotion !== 'undefined' ? currentEmotion : 'neutral'));
-  }
+  // 3D avatar: düşünüyor
+  if (typeof window.evaThink === 'function') window.evaThink();
 
-  try {
-    let evaResponse;
-    
-    if (typeof isLegacyChatMode !== 'undefined' && isLegacyChatMode && typeof sendLegacyChatMessage === 'function') {
-      evaResponse = await sendLegacyChatMessage(text, abortController.signal, uniqueTrackingId);
-    } else {
-      const data = await sendMessageToEva(text, abortController.signal, uniqueTrackingId);
-      evaResponse = data.response;
-      
-      const isStillViewingThisChat = (activeConversationId || 'new') === trackingId;
-      
-      if (isStillViewingThisChat) {
-          conversationHistory.push({ role: 'user', content: text });
-          conversationHistory.push({ role: 'assistant', content: evaResponse });
-          if (conversationHistory.length > 20) {
-            conversationHistory = conversationHistory.slice(-20);
-          }
-      }
-      
-      if (data.conversation_id) {
-         if (trackingId === 'new') {
-            activeRequests.delete('new');
-            activeRequests.set(data.conversation_id, abortController);
-            if (isStillViewingThisChat) {
-               activeConversationId = data.conversation_id;
-            }
-         }
-         await fetchConversations();
-         if (activeConversationId) updateActiveConvInList(activeConversationId);
-      }
-    }
-    
-    const isNowViewingThisChat = (activeConversationId || 'new') === (activeRequests.has(activeConversationId) ? activeConversationId : trackingId);
-    
-    if (isNowViewingThisChat) {
-        removeTypingIndicator();
-        addMessage(evaResponse, 'eva');
+  // ✔ Düzeltme: History'yi göndermeden ÖNCE user mesajını push etmiyoruz.
+  //   Backend user_message'i ayrıca alıyor; onu history'ye de koyarsak
+  //   LLM context'e iki kez giriyor → çift cevap / anlamsız tekrar.
+  //   User history'yi 'done' sinyalinden SONRA ekle.
+  sendViaSocket({
+    message: text,
+    history: conversationHistory,   // ← Henüz user mesajı YOK
+    conversation_id: activeConversationId,
+    detected_emotion: (typeof cameraActive !== 'undefined' && cameraActive) ? currentEmotion : null,
+  });
 
-        if (shouldSpeak) {
-          speakText(evaResponse);
-        } else if (window.speechSynthesis) {
-          window.speechSynthesis.cancel();
-        }
-    }
-
-  } catch (error) {
-    if (error.name === 'AbortError') {
-       console.log('Sohbet iptal edildi: ' + trackingId);
-       if ((activeConversationId || 'new') === trackingId) {
-           removeTypingIndicator();
-       }
-    } else {
-       console.error('Hata:', error);
-       if ((activeConversationId || 'new') === trackingId) {
-           removeTypingIndicator();
-           addMessage('⚠️ SUNUCU (API) ÇÖKTÜ VEYA BAĞLANTI KOPTU', 'eva', true);
-       }
-    }
-  } finally {
-    for (const [key, val] of activeRequests.entries()) {
-        if (val === abortController) {
-            activeRequests.delete(key);
-        }
-    }
-    updateUIForTrackingId(activeConversationId);
-  }
+  // User mesajını done sinyali gelmeden history'ye ekle — ama tek seferlik
+  conversationHistory.push({ role: 'user', content: text });
+  if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
 }
 
 
@@ -637,9 +767,9 @@ async function handleSend() {
 btnSend.addEventListener('click', () => {
   const trackingId = activeConversationId || 'new';
   if (activeRequests.has(trackingId)) {
-     cancelGeneration(trackingId);
+    cancelGeneration(trackingId);
   } else {
-     handleSend();
+    handleSend();
   }
 });
 
@@ -715,8 +845,8 @@ function speakText(text) {
     .trim();
 
   const utterance = new SpeechSynthesisUtterance(cleanText);
-  utterance.lang  = 'tr-TR';   // Türkçe
-  utterance.rate  = 0.95;      // Biraz yavaş, daha doğal
+  utterance.lang = 'tr-TR';   // Türkçe
+  utterance.rate = 0.95;      // Biraz yavaş, daha doğal
   utterance.pitch = 1.05;      // Hafif yüksek, daha canlı
 
   // Türkçe ses varsa onu seç
@@ -832,7 +962,7 @@ function startRecording() {
   recognition.start();
   if (btnMic) btnMic.classList.add('recording');
   userInput.placeholder = 'Dinliyorum... (konuşmayı bitirince otomatik gider)';
-  
+
   // Faz 6 Update
   if (window.isCallModeActive) {
     if (typeof set3DAvatarState === 'function') set3DAvatarState('listening');
@@ -847,7 +977,7 @@ function stopRecording() {
   recognition.stop();
   if (btnMic) btnMic.classList.remove('recording');
   userInput.placeholder = "Bir şey yazın…";
-  
+
   if (window.isCallModeActive && typeof set3DAvatarState === 'function' && currentAvatarState === 'listening') {
     set3DAvatarState('neutral');
   }
@@ -868,13 +998,13 @@ function stopRecording() {
 
 // HTML elementleri (Faz 5)
 const btnCameraToggle = document.getElementById('btn-camera-toggle');
-const cameraVideo     = document.getElementById('camera-video');
+const cameraVideo = document.getElementById('camera-video');
 
 // Durum değişkenleri
-let cameraActive   = false;     // Kamera modu açık/kapalı
-let cameraStream   = null;      // MediaStream referansı (kamera akışı)
+let cameraActive = false;     // Kamera modu açık/kapalı
+let cameraStream = null;      // MediaStream referansı (kamera akışı)
 let currentEmotion = 'neutral'; // face-api.js'den gelen son duygu etiketi
-const FRAME_WIDTH  = 320;       // Kamera çözünürlüğü (CV analizi için yeterli)
+const FRAME_WIDTH = 320;       // Kamera çözünürlüğü (CV analizi için yeterli)
 const FRAME_HEIGHT = 240;
 
 
@@ -914,7 +1044,7 @@ async function startCamera() {
     // Kamera izni iste
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        width:  { ideal: FRAME_WIDTH },
+        width: { ideal: FRAME_WIDTH },
         height: { ideal: FRAME_HEIGHT },
         facingMode: 'user'   // Ön kamera
       },
@@ -1003,9 +1133,9 @@ function stopCamera() {
    - Saniyede 10+ kare işleyebilir
    ================================================================ */
 
-let faceApiLoaded    = false; // Modeller bir kez yüklenir
-let faceApiRunning   = false; // Döngü durumu
-let faceApiOptions   = null;  // TinyFaceDetector ayarları (bir kez oluşturulur)
+let faceApiLoaded = false; // Modeller bir kez yüklenir
+let faceApiRunning = false; // Döngü durumu
+let faceApiOptions = null;  // TinyFaceDetector ayarları (bir kez oluşturulur)
 
 // 📚 PERFORMANS: Algılama sıklığı. 400ms = saniyede 2.5 analiz.
 //    Duygu tespiti için fazlasıyla yeterli — eski 100ms (10 FPS) değeri
@@ -1014,13 +1144,13 @@ const FACEAPI_LOOP_MS = 400;
 
 // Turkce duygu isimleri (face-api etiketi → Turkce)
 const FACEAPI_TR = {
-  happy:    'mutlu',
-  sad:      'üzgün',
-  angry:    'kızgın',
+  happy: 'mutlu',
+  sad: 'üzgün',
+  angry: 'kızgın',
   surprised: 'şaşkın',
-  fearful:  'korkmuş',
+  fearful: 'korkmuş',
   disgusted: 'iğrenmiş',
-  neutral:  'nötr'
+  neutral: 'nötr'
 };
 
 // 📚 PERFORMANS: Bu sabitler ve DOM referansları eskiden döngünün İÇİNDE
@@ -1033,10 +1163,10 @@ const INDICATOR_COLORS = {
   happy: '#22c55e', sad: '#3b82f6', angry: '#ef4444',
   surprised: '#f59e0b', fearful: '#8b5cf6', disgusted: '#6b7280', neutral: '#7c3aed'
 };
-const emotionIndEl   = document.getElementById('emotion-indicator');
+const emotionIndEl = document.getElementById('emotion-indicator');
 const emotionEmojiEl = document.getElementById('emotion-emoji');
 const emotionLabelEl = document.getElementById('emotion-label');
-const emotionBarEl   = document.getElementById('emotion-bar');
+const emotionBarEl = document.getElementById('emotion-bar');
 
 /**
  * face-api.js modellerini yükler (bir kez yapılır).
@@ -1054,7 +1184,7 @@ async function loadFaceApiModels() {
   try {
     console.log('🧠 face-api.js modelleri yükleniyor...');
     const MODEL_URL = '/static/models';
-    
+
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
       faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
@@ -1108,13 +1238,13 @@ async function runFaceApiLoop() {
 
       if (detection && detection.expressions) {
         const expressions = detection.expressions;
-        
+
         // En yüksek skorlu duyguyu bul
         const dominantEmotion = Object.keys(expressions).reduce(
           (a, b) => expressions[a] > expressions[b] ? a : b
         );
         const confidence = expressions[dominantEmotion];
-        const emotionTr  = FACEAPI_TR[dominantEmotion] || 'nötr';
+        const emotionTr = FACEAPI_TR[dominantEmotion] || 'nötr';
 
         // Duyguyu güncelle (hem 3D avatar hem chat mod)
         if (dominantEmotion !== currentEmotion) {
@@ -1126,9 +1256,9 @@ async function runFaceApiLoop() {
         // (Sabitler ve DOM referansları modül seviyesinde tanımlı — bkz. yukarısı)
         if (emotionIndEl && emotionEmojiEl && emotionLabelEl && emotionBarEl) {
           emotionIndEl.classList.remove('hidden');
-          emotionEmojiEl.textContent  = INDICATOR_EMOJIS[dominantEmotion] || '😐';
-          emotionLabelEl.textContent  = emotionTr;
-          emotionBarEl.style.width    = `${(confidence * 100).toFixed(0)}%`;
+          emotionEmojiEl.textContent = INDICATOR_EMOJIS[dominantEmotion] || '😐';
+          emotionLabelEl.textContent = emotionTr;
+          emotionBarEl.style.width = `${(confidence * 100).toFixed(0)}%`;
           emotionBarEl.style.background = INDICATOR_COLORS[dominantEmotion] || '#7c3aed';
         }
 
@@ -1196,40 +1326,40 @@ window.isCallModeActive = false;
 
 function startCallMode() {
   window.isCallModeActive = true;
-  
+
   // 1. Overlay'i Göster
   const overlay = document.getElementById('call-overlay');
   if (overlay) overlay.classList.remove('hidden');
-  
+
   // 2. 3D Avatarı Başlat (Eğer henüz başlatılmadıysa)
   if (typeof init3DAvatar === 'function' && !window._3DAvatarInitialized) {
     init3DAvatar();
     window._3DAvatarInitialized = true;
   }
-  
+
   // 3. TTS'i aç (Sesli Yanıt zorunlu)
   if (!ttsEnabled && btnTtsToggle) btnTtsToggle.click();
-  
+
   // 4. Kamerayı Aç (Duygu analizi için)
   if (!cameraActive) toggleCamera();
-  
+
   // 5. Mikrofonu Dinlemeye Başla
   startRecording();
 }
 
 function endCallMode() {
   window.isCallModeActive = false;
-  
+
   // 1. Overlay'i Gizle
   const overlay = document.getElementById('call-overlay');
   if (overlay) overlay.classList.add('hidden');
-  
+
   // 2. Kamerayı Kapat
   if (cameraActive) toggleCamera();
-  
+
   // 3. Dinlemeyi Durdur
   stopRecording();
-  
+
   // 4. Konuşan Sesi Durdur
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
@@ -1270,27 +1400,27 @@ if (btnCallMic) {
 // 📚 face-api.js "surprised/fearful/disgusted" etiketi kullanır — her iki
 //    yazım da eklendi, yoksa bu duygular sessizce "nötr" görünüyordu.
 const EMOTION_EMOJIS = {
-  happy:     '😊',
-  sad:       '😢',
-  angry:     '😠',
-  surprise:  '😲', surprised: '😲',
-  fear:      '😰', fearful:   '😰',
-  disgust:   '😖', disgusted: '😖',
-  neutral:   '🤖'
+  happy: '😊',
+  sad: '😢',
+  angry: '😠',
+  surprise: '😲', surprised: '😲',
+  fear: '😰', fearful: '😰',
+  disgust: '😖', disgusted: '😖',
+  neutral: '🤖'
 };
 
 // Duygu → Avatar halka rengi eşlemesi
 const EMOTION_COLORS = {
-  happy:    { from: '#22c55e', to: '#4ade80' },   // Yeşil
-  sad:      { from: '#3b82f6', to: '#60a5fa' },   // Mavi
-  angry:    { from: '#ef4444', to: '#f87171' },   // Kırmızı
+  happy: { from: '#22c55e', to: '#4ade80' },   // Yeşil
+  sad: { from: '#3b82f6', to: '#60a5fa' },   // Mavi
+  angry: { from: '#ef4444', to: '#f87171' },   // Kırmızı
   surprise: { from: '#f59e0b', to: '#fbbf24' },   // Sarı
-  surprised:{ from: '#f59e0b', to: '#fbbf24' },
-  fear:     { from: '#8b5cf6', to: '#a78bfa' },   // Mor
-  fearful:  { from: '#8b5cf6', to: '#a78bfa' },
-  disgust:  { from: '#6b7280', to: '#9ca3af' },   // Gri
-  disgusted:{ from: '#6b7280', to: '#9ca3af' },
-  neutral:  { from: '#C56A45', to: '#E07A50' }
+  surprised: { from: '#f59e0b', to: '#fbbf24' },
+  fear: { from: '#8b5cf6', to: '#a78bfa' },   // Mor
+  fearful: { from: '#8b5cf6', to: '#a78bfa' },
+  disgust: { from: '#6b7280', to: '#9ca3af' },   // Gri
+  disgusted: { from: '#6b7280', to: '#9ca3af' },
+  neutral: { from: '#C56A45', to: '#E07A50' }
 };
 
 /**
@@ -1305,8 +1435,8 @@ const EMOTION_COLORS = {
  * @param {string} emotionTr - Türkçe duygu etiketi (mutlu, üzgün, ...)
  */
 function updateAvatarEmotion(emotion, emotionTr) {
-  const avatarRing  = document.querySelector('.avatar-ring');
-  const avatarEl    = document.getElementById('eva-avatar');
+  const avatarRing = document.querySelector('.avatar-ring');
+  const avatarEl = document.getElementById('eva-avatar');
   if (!avatarRing) return;
 
   const colors = EMOTION_COLORS[emotion] || EMOTION_COLORS.neutral;
@@ -1323,8 +1453,8 @@ function updateAvatarEmotion(emotion, emotionTr) {
  * Kamera kapatıldığında avatarı orijinal haline döndürür.
  */
 function resetAvatarEmotion() {
-  const avatarRing  = document.querySelector('.avatar-ring');
-  const avatarEl    = document.getElementById('eva-avatar');
+  const avatarRing = document.querySelector('.avatar-ring');
+  const avatarEl = document.getElementById('eva-avatar');
 
   if (avatarRing) avatarRing.style.background = '';
 
@@ -1344,7 +1474,7 @@ function resetAvatarEmotion() {
    ================================================================ */
 
 async function init() {
-  const token    = getToken();
+  const token = getToken();
   const username = getUsername();
 
   if (!token) {

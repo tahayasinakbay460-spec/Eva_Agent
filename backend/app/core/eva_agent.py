@@ -8,7 +8,7 @@ Hafıza + duygu filtresi burada. Asıl LLM çağrısı core/llm.py'de
 from app.config import Config
 from app.core.prompts import EVA_SYSTEM_PROMPT, MEMORY_INJECTION_TEMPLATE, EMOTION_INJECTION_TEMPLATE
 from app.core.memory import get_memory
-from app.core.llm import generate_reply
+from app.core.llm import generate_reply, generate_reply_stream
 from app.core.emotion_analyzer import (
     get_filtered_emotion, normalize_emotion_label,
     EMOTION_LABELS_TR
@@ -80,3 +80,78 @@ def chat_with_eva(
     print("Konusma hafizaya kaydedildi.")
 
     return eva_response
+
+
+def chat_with_eva_stream(
+    user_message: str,
+    user_id: str = "default_user",
+    conversation_history: list = None,
+    detected_emotion: str = None,
+):
+    """
+    STREAMING versiyonu — token token yield eder.
+    Aynı hafıza + duygu mantığını kullanır.
+    Tüm cevap toplandıktan sonra hafızaya kaydedilir.
+    WebSocket endpoint'i tarafından kullanılır.
+    """
+    memory = get_memory()
+
+    relevant_memories = memory.retrieve_relevant_memories(
+        user_id=user_id,
+        query=user_message,
+        n_results=4
+    )
+
+    system_content = EVA_SYSTEM_PROMPT
+    if relevant_memories:
+        memory_block = MEMORY_INJECTION_TEMPLATE.format(
+            memory_context=relevant_memories
+        )
+        system_content = system_content + "\n\n" + memory_block
+
+    if detected_emotion and detected_emotion != "neutral":
+        detected_emotion = normalize_emotion_label(detected_emotion)
+        camera_result = {
+            "emotion": detected_emotion,
+            "emotion_tr": EMOTION_LABELS_TR.get(detected_emotion, "nötr"),
+            "confidence": 0.80,
+            "all_emotions": {}
+        }
+        filtered = get_filtered_emotion(
+            camera_emotion_result=camera_result,
+            user_message=user_message,
+            relevant_memories=relevant_memories
+        )
+        final_emotion = filtered["emotion"]
+        final_emotion_tr = filtered["emotion_tr"]
+        if final_emotion != "neutral":
+            emotion_block = EMOTION_INJECTION_TEMPLATE.format(
+                emotion_tr=final_emotion_tr,
+                confidence=int(filtered["confidence"] * 100)
+            )
+            system_content = system_content + "\n\n" + emotion_block
+
+    print(f"[STREAM] LLM'e gonderiliyor... (Hafiza: {'Var' if relevant_memories else 'Yok'})")
+
+    # Token token yield et, aynı zamanda tam cevabı biriktir
+    full_response_parts = []
+    for token in generate_reply_stream(
+        system_content=system_content,
+        conversation_history=conversation_history,
+        user_message=user_message,
+        temperature=0.7,
+        max_tokens=1024,
+    ):
+        full_response_parts.append(token)
+        yield token  # ← Frontend'e anlık gönder
+
+    # Stream bitti → hafızaya kaydet
+    full_response = "".join(full_response_parts)
+    if full_response.strip():
+        memory.save_conversation(
+            user_id=user_id,
+            user_message=user_message,
+            eva_response=full_response
+        )
+        print("[STREAM] Konusma hafizaya kaydedildi.")
+

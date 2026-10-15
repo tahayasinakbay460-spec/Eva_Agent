@@ -146,6 +146,39 @@ def generate_reply(
     )
 
 
+def generate_reply_stream(
+    system_content: str,
+    conversation_history: list,
+    user_message: str,
+    temperature: float = 0.7,
+    max_tokens: int = 1024,
+):
+    """
+    STREAMİNG LLM çağrısı — token token yield eder.
+    İlk çalışan provider'dan akan cevabı döndürür.
+    WebSocket endpoint'i tarafından kullanılır.
+    """
+    chain = _get_fallback_chain()
+    if not chain:
+        yield "[HATA] LLM sağlayıcı bulunamadı."
+        return
+
+    for provider_name in chain:
+        try:
+            prov = PROVIDERS[provider_name]
+            print(f"[STREAM] {provider_name.upper()} deneniyor...")
+            if prov["type"] == "gemini":
+                yield from _stream_gemini(prov, system_content, conversation_history, user_message, temperature, max_tokens)
+            else:
+                yield from _stream_openai_compat(provider_name, prov, system_content, conversation_history, user_message, temperature, max_tokens)
+            return  # Başarılıysa dur
+        except Exception as e:
+            print(f"[!] STREAM Fallback -- {provider_name}: {e}")
+            continue
+
+    yield "[HATA] Tüm sağlayıcılar başarısız oldu."
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # PROVIDER ÇAĞRI FONKSİYONLARI
 # ═══════════════════════════════════════════════════════════════════════
@@ -238,3 +271,79 @@ def _call_gemini(
         raise ValueError("Gemini boş cevap döndü.")
     print(f"[OK] GEMINI basarili!")
     return text
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# STREAMİNG PROVIDER FONKSİYONLARI
+# ═══════════════════════════════════════════════════════════════════════
+
+def _stream_gemini(
+    prov: dict,
+    system_content: str,
+    conversation_history: list,
+    user_message: str,
+    temperature: float,
+    max_tokens: int,
+):
+    """Gemini native SDK — token token yield eder."""
+    api_key = getattr(Config, prov["api_key_attr"])
+    model = getattr(Config, prov["model_attr"], None) or prov["default_model"]
+
+    client = genai.Client(api_key=api_key)
+    config = types.GenerateContentConfig(
+        system_instruction=system_content,
+        temperature=temperature,
+        max_output_tokens=max_tokens,
+    )
+
+    contents = []
+    if conversation_history:
+        for msg in conversation_history[-10:]:
+            role = "user" if msg.get("role") == "user" else "model"
+            contents.append(
+                types.Content(role=role, parts=[types.Part.from_text(text=msg.get("content") or "")])
+            )
+    contents.append(
+        types.Content(role="user", parts=[types.Part.from_text(text=user_message)])
+    )
+
+    print(f"[STREAM] GEMINI ({model})")
+    # generate_content_stream → her chunk'ta text yield eder
+    for chunk in client.models.generate_content_stream(
+        model=model,
+        contents=contents,
+        config=config,
+    ):
+        if chunk.text:
+            yield chunk.text
+
+
+def _stream_openai_compat(
+    provider_name: str,
+    prov: dict,
+    system_content: str,
+    conversation_history: list,
+    user_message: str,
+    temperature: float,
+    max_tokens: int,
+):
+    """Tüm OpenAI uyumlu sağlayıcılar — token token yield eder."""
+    api_key = getattr(Config, prov["api_key_attr"])
+    model = getattr(Config, prov["model_attr"], None) or prov["default_model"]
+
+    client = OpenAI(base_url=prov["base_url"], api_key=api_key)
+    messages = _build_openai_messages(system_content, conversation_history, user_message)
+
+    print(f"[STREAM] {provider_name.upper()} ({model})")
+    # stream=True → delta gelirken yield eder
+    with client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=True,
+    ) as stream:
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta

@@ -3,25 +3,30 @@ routes/chat.py - Sohbet API Endpoint'leri (FastAPI)
 =====================================================
 POST /api/chat          → Eva ile konuşma (JWT korumalı)
 GET  /api/chat/memory-stats → Hafıza istatistikleri (JWT korumalı)
+WS   /ws/chat           → Eva streaming (JWT token query param)
 
 Faz 2: Tüm endpoint'ler artık JWT token gerektiriyor.
 Faz 3: Mesajlar artık MySQL'deki messages tablosuna da kaydediliyor.
+Faz 9: WebSocket streaming — token token akış.
 """
 
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.orm import Session
+import json
+import asyncio
 from typing import List
 from app.schemas.chat import ChatRequest, ChatResponse, MemoryStatsResponse, CancelRequest
-from app.core.eva_agent import chat_with_eva
+from app.core.eva_agent import chat_with_eva, chat_with_eva_stream
 from app.core.memory import get_memory
 
 # Global tracking set for cancelled requests
 CANCELLED_REQUESTS = set()
 from app.core.dependencies import get_current_user
+from app.core.auth import decode_token          # JWT WebSocket doğrulama
 from app.models.user import User
 from app.models.chat import Conversation, Message
-from app.database import get_db
+from app.database import get_db, SessionLocal
 
 router = APIRouter()
 
@@ -158,3 +163,141 @@ def cancel_chat(request: CancelRequest):
     if request.tracking_id:
         CANCELLED_REQUESTS.add(request.tracking_id)
     return {"status": "cancelled"}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# WEBSOCKET STREAMİNG ENDPOINT  (Faz 9)
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.websocket("/ws/chat")
+async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
+    """
+    WebSocket Streaming Chat — Faz 9
+    ==================================
+    Bağlantı: ws://localhost:8000/api/ws/chat?token=<JWT>
+
+    Protokol:
+      → Kullanıcı JSON gönderir:
+         { "message": "...", "history": [...], "conversation_id": null }
+      ← Eva token token text yollar (her chunk ayrı mesaj)
+      ← Stream bittiğinde: {"type": "done", "conversation_id": 123}
+      ← Hata olursa:       {"type": "error", "detail": "..."}
+    """
+    await websocket.accept()
+
+    # ── 1. JWT doğrula ──────────────────────────────────────────────
+    token_data = decode_token(token)
+    if not token_data:
+        await websocket.send_json({"type": "error", "detail": "Geçersiz token."})
+        await websocket.close(code=1008)
+        return
+
+    db = SessionLocal()
+    try:
+        from app.models.user import User as UserModel
+        user = db.query(UserModel).filter(UserModel.id == token_data.user_id).first()
+        if not user:
+            await websocket.send_json({"type": "error", "detail": "Kullanıcı bulunamadı."})
+            await websocket.close(code=1008)
+            return
+
+        print(f"[WS] Bağlantı: {user.username}#{user.id}")
+
+        while True:
+            # ── 2. Kullanıcıdan mesaj al ─────────────────────────────
+            try:
+                raw = await websocket.receive_text()
+                data = json.loads(raw)
+            except WebSocketDisconnect:
+                print(f"[WS] Bağlantı kesildi: {user.username}")
+                break
+            except Exception as e:
+                await websocket.send_json({"type": "error", "detail": str(e)})
+                continue
+
+            user_message  = data.get("message", "").strip()
+            history       = data.get("history", [])
+            conv_id       = data.get("conversation_id", None)
+            detected_emo  = data.get("detected_emotion", None)
+
+            if not user_message:
+                continue
+
+            print(f"[WS] {user.username}: {user_message[:60]}")
+
+            # ── 3. Sohbet oturumunu bul / oluştur ───────────────────
+            conv = _get_or_create_conversation(
+                db=db,
+                user_id=user.id,
+                conv_id=conv_id,
+                first_message=user_message
+            )
+
+            # Kullanıcı mesajını hemen DB'ye kaydet
+            db.add(Message(conversation_id=conv.id, role="user", content=user_message))
+            conv.updated_at = datetime.utcnow()
+            db.commit()
+
+            # ── 4. Streaming — token token gönder (thread'de çalışır) ───
+            full_response_parts = []
+            try:
+                import threading
+                q = asyncio.Queue()
+                SENTINEL = object()
+
+                # ✔ Loop'u thread başlamadan önce yakala — thread içinden
+                #   asyncio.get_event_loop() çağırmak Python 3.10+'da güvensiz.
+                captured_loop = asyncio.get_event_loop()
+
+                def _produce():
+                    """Thread'de çalışır: her token'u event loop üzerinden kuyruğa iter."""
+                    try:
+                        for chunk in chat_with_eva_stream(
+                            user_message=user_message,
+                            user_id=str(user.id),
+                            conversation_history=history,
+                            detected_emotion=detected_emo,
+                        ):
+                            if chunk:
+                                captured_loop.call_soon_threadsafe(q.put_nowait, chunk)
+                    except Exception as prod_err:
+                        # Hata olursa frontend'e ilet
+                        captured_loop.call_soon_threadsafe(
+                            q.put_nowait, f"[HATA] {prod_err}"
+                        )
+                    finally:
+                        captured_loop.call_soon_threadsafe(q.put_nowait, SENTINEL)
+
+                t = threading.Thread(target=_produce, daemon=True)
+                t.start()
+
+                # Ana async döngü: kuyruktan oku, WebSocket'e gönder
+                while True:
+                    item = await asyncio.wait_for(q.get(), timeout=60.0)
+                    if item is SENTINEL:
+                        break
+                    full_response_parts.append(item)
+                    await websocket.send_text(item)
+
+            except asyncio.TimeoutError:
+                await websocket.send_json({"type": "error", "detail": "Zaman aşımı (60s)"})
+                continue
+            except Exception as e:
+                await websocket.send_json({"type": "error", "detail": str(e)})
+                continue
+
+            # ── 5. Stream bitti — DB'ye kaydet ve bitti sinyali gönder
+            full_response = "".join(full_response_parts)
+            if full_response.strip():
+                db.add(Message(conversation_id=conv.id, role="assistant", content=full_response))
+                conv.updated_at = datetime.utcnow()
+                db.commit()
+
+            # Frontend'e "stream bitti" sinyali + conversation_id
+            await websocket.send_json({
+                "type": "done",
+                "conversation_id": conv.id
+            })
+
+    finally:
+        db.close()

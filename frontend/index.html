@@ -21,6 +21,9 @@
 
 <body>
 
+  <!-- 3D Arka Plan Canvas (Faz 9 - GPU Particle Network) -->
+  <canvas id="three-canvas"></canvas>
+
   <!-- Anlık Duygu Göstergesi (Kamera açıkken sağ altta görünür) -->
   <div id="emotion-indicator" class="emotion-indicator hidden">
     <span id="emotion-emoji">😐</span>
@@ -474,10 +477,15 @@
     </div>
   </div>
 
-  <!-- JavaScript Dosyaları -->
+  <!-- Three.js (3D arka plan) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.min.js"></script>
+  <!-- Eva Dosyaları -->
+  <script src="/static/three-bg.js"></script>
   <script src="/static/avatar3d.js"></script>
   <script src="/static/legacy.js"></script>
   <script src="/static/script.js"></script>
+  <!-- Sayfa yüklendiğinde WebSocket bağlantısını önceden kur (0 bekleme hissi) -->
+  <script>window.addEventListener('DOMContentLoaded', () => { if (typeof ensureSocket === 'function') ensureSocket(); });</script>
 </body>
 
 </html>
