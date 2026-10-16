@@ -33,6 +33,23 @@ E2E = _meter.create_histogram(
     "eva.chat.e2e", unit="ms", description="Send to last LLM token (text chat)"
 )
 TURNS = _meter.create_counter("eva.chat.turns", description="Text chat turns by outcome")
+MEMORY_RETRIEVAL = _meter.create_histogram(
+    "eva.memory.retrieval", unit="ms", description="Hot-path memory lookup per chat turn"
+)
+
+
+def record_memory_retrieval(elapsed_ms: float, *, candidates: int) -> None:
+    """Sohbet sırasında anı aramanın süresi (§4.4 hedef: p50 < 20 ms). İçerik kaydedilmez."""
+    MEMORY_RETRIEVAL.record(elapsed_ms, {"candidates_bucket": _bucket(candidates)})
+
+
+def _bucket(n: int) -> str:
+    # Tam sayı yerine aralık: metrik etiketleri az sayıda farklı değer almalı.
+    for limit in (0, 10, 100, 1000):
+        if n <= limit:
+            return f"<={limit}"
+    return ">1000"
+
 
 TurnOutcome = Literal["ok", "interrupted", "provider_error"]
 

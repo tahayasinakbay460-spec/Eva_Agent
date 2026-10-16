@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, Index, String, Text, Uuid
+from sqlalchemy import Date, Float, ForeignKey, Index, String, Text, Uuid, event
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -47,3 +47,22 @@ class Memory(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True
     )
+    # Aramaya hazır metin: içerik + kişiler, Türkçe kurallarıyla küçük harfe çevrilmiş.
+    # Kayıttan hemen önce otomatik doldurulur (aşağıdaki olay dinleyicisi); elle yazılmaz.
+    # Sohbet sırasında veritabanı sadece mesajdaki kelimeleri içeren anıları getirsin diye var.
+    search_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+def turkish_lower(text: str) -> str:
+    """Python'un ``lower()``'ı "I" harfini "i" yapar; Türkçede "ı" olmalı."""
+    return text.replace("I", "ı").replace("İ", "i").lower()
+
+
+def build_search_text(content: str, people: list[str]) -> str:
+    return turkish_lower(" ".join([content, *people]))
+
+
+@event.listens_for(Memory, "before_insert")
+@event.listens_for(Memory, "before_update")
+def _fill_search_text(_mapper: object, _connection: object, memory: Memory) -> None:
+    memory.search_text = build_search_text(memory.content, list(memory.people or []))

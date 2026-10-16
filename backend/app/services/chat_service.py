@@ -31,7 +31,7 @@ from app.providers.base import (
     TextDelta,
 )
 from app.providers.registry import ProviderRegistry
-from app.services import persona_service
+from app.services import memory_retrieval, persona_service
 
 # --- events emitted to the transport layer --------------------------------------
 
@@ -164,7 +164,11 @@ class ChatService:
         assistant_id = new_id()
         yield MessageStart(user_msg.id, assistant_id)
 
-        request = self._build_request(persona_row, user, history, content)
+        # Sıcak yoldaki tek hafıza sorgusu (§4.3): mesaja göre ilgili anılar.
+        memories = await memory_retrieval.retrieve(
+            db, user_id=user.id, persona_id=persona_row.id, query_text=content
+        )
+        request = self._build_request(persona_row, user, history, content, memories)
         provider, feature_cfg = self._registry.llm("chat")
         timer = TurnTimer(provider=provider.name, model=feature_cfg.model)
         parts: list[str] = []
@@ -242,11 +246,18 @@ class ChatService:
         return list(reversed(result.scalars().all()))
 
     def _build_request(
-        self, persona_row: Persona, user: User, history: Sequence[Message], content: str
+        self,
+        persona_row: Persona,
+        user: User,
+        history: Sequence[Message],
+        content: str,
+        memories: Sequence[str] = (),
     ) -> LLMRequest:
         definition = persona_service.definition_of(persona_row)
         relationship = RelationshipState(stage="introduction", user_display_name=user.display_name)
-        prompt = self._compiler.compile(definition, relationship=relationship)
+        prompt = self._compiler.compile(
+            definition, relationship=relationship, retrieved_memories=memories
+        )
         _, feature_cfg = self._registry.llm("chat")
         turns = [(m.role, m.content) for m in history]
         turns.append(("user", content))
