@@ -1,7 +1,7 @@
-"""Pure-ASGI middleware: request IDs and security headers.
+"""Saf ASGI ara katmanı (middleware): her isteğe kimlik (request ID) ve güvenlik başlıkları.
 
-Written as raw ASGI (not ``BaseHTTPMiddleware``) so streaming SSE responses
-are passed through untouched.
+``BaseHTTPMiddleware`` yerine ham ASGI ile yazıldı; böylece akışlı SSE cevapları
+(sunucunun parça parça gönderdiği cevaplar) bozulmadan geçer.
 """
 
 import uuid

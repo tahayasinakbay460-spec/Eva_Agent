@@ -1,4 +1,8 @@
-"""Latency metrics and spans are recorded per chat turn, and never carry content (§2.6, §4.4)."""
+"""Her sohbet turu için gecikme ölçümleri ve span'ler kaydedilir; içlerinde asla mesaj
+içeriği bulunmaz (§2.6, §4.4).
+
+Span: bir işin başından sonuna süresini ve özelliklerini tutan ölçüm kaydı (OpenTelemetry).
+"""
 
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
@@ -19,9 +23,9 @@ from tests.conftest import parse_sse
 
 SECRET_TEXT = "annemin kızlık soyadı Yıldız"
 
-# The global OTel providers can be installed once per process; the app's instruments
-# were created against the API proxies and bind to these on installation.
-# Delta temporality: each collect() returns only what was recorded since the last one.
+# OpenTelemetry'nin genel sağlayıcıları süreç başına yalnızca bir kez kurulabilir. Uygulamanın
+# ölçüm araçları önce geçici vekillere (proxy) bağlanır, bunlar kurulunca da buradakilere geçer.
+# "Delta" modu: her collect() çağrısı sadece bir öncekinden beri kaydedilenleri döndürür.
 _metric_reader = InMemoryMetricReader(
     preferred_temporality={
         Counter: AggregationTemporality.DELTA,
@@ -38,12 +42,12 @@ metrics.set_meter_provider(MeterProvider(metric_readers=[_metric_reader]))
 @pytest.fixture(autouse=True)
 def _reset_exporters() -> Iterator[None]:
     _span_exporter.clear()
-    _collect()  # drain anything recorded by earlier tests
+    _collect()  # önceki testlerin kaydettiklerini boşalt
     yield
 
 
 def _collect() -> dict[str, list[Any]]:
-    """Data points recorded since the previous collect, keyed by metric name."""
+    """Bir önceki collect'ten beri kaydedilen ölçüm noktaları, ölçüm adına göre gruplu."""
     points: dict[str, list[Any]] = {}
     data = _metric_reader.get_metrics_data()
     if data is None:

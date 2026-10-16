@@ -1,8 +1,9 @@
-"""Zero-cost, network-free adapters used by tests and offline development (§4.2).
+"""Testlerde ve internetsiz geliştirmede kullanılan, bedava ve ağsız sahte adaptörler (§4.2).
 
-They are deterministic so tests can assert on their output. None of them is a
-real safety or quality implementation; the mock moderation keyword list in
-particular exists only to exercise crisis/fraud code paths in tests.
+Deterministiktirler (aynı girdiye hep aynı çıktı), böylece testler çıktılarını kontrol
+edebilir. Hiçbiri gerçek bir güvenlik ya da kalite uygulaması değildir; özellikle sahte
+moderasyondaki anahtar kelime listesi yalnızca testlerde kriz/dolandırıcılık kod yollarını
+çalıştırmak için var.
 """
 
 import asyncio
@@ -56,7 +57,7 @@ class MockLLMProvider:
 
 
 class MockSTTProvider:
-    """Treats each audio chunk's bytes as UTF-8 text; the stream end is the end of turn."""
+    """Her ses parçasının baytlarını UTF-8 metin sayar; akışın bitişi turun bitişidir."""
 
     name = "mock"
 
@@ -71,7 +72,7 @@ class MockSTTProvider:
 
 
 class MockTTSProvider:
-    """Yields 10 ms of silence per input character, one chunk per text fragment."""
+    """Girdideki her karakter için 10 ms sessizlik üretir; her metin parçasına bir ses parçası."""
 
     name = "mock"
 
@@ -170,7 +171,7 @@ class MockAvatarProvider:
 
 
 class MockEmbeddingProvider:
-    """Deterministic unit vectors derived from a hash; equal texts give equal vectors."""
+    """Hash'ten türetilen, uzunluğu 1 olan sabit vektörler; aynı metin hep aynı vektörü verir."""
 
     name = "mock"
 
@@ -213,7 +214,7 @@ class MockModerationProvider:
 
 
 class MockMessagingProvider:
-    """Keeps sent messages in memory (``outbox``) for tests; nothing leaves the process."""
+    """Gönderilen mesajları testler için bellekte (``outbox``) tutar; dışarı hiçbir şey çıkmaz."""
 
     name = "mock"
 

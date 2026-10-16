@@ -1,7 +1,8 @@
-"""Write the OpenAPI schema to frontend/src/lib/api/openapi.json.
+"""OpenAPI şemasını frontend/src/lib/api/openapi.json dosyasına yazar.
 
-The TS client types are generated from this file (``npm run gen-client`` in frontend/),
-so the FastAPI schema stays the single source of truth (CLAUDE.md §13).
+Frontend'deki TypeScript istemci tipleri bu dosyadan üretilir (frontend/ içinde
+``npm run gen-client``). Böylece API'nin tek doğru kaynağı FastAPI şeması olarak kalır
+(CLAUDE.md §13).
 """
 
 import json

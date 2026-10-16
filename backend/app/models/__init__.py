@@ -1,4 +1,4 @@
-"""ORM models. Import everything here so Alembic autogenerate sees all tables."""
+"""ORM modelleri. Alembic autogenerate tüm tabloları görsün diye hepsi burada import edilir."""
 
 from app.models.auth import AuthChallenge, AuthCode, Passkey
 from app.models.conversation import Conversation, Message

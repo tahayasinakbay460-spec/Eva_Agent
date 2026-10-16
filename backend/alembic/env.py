@@ -1,4 +1,5 @@
-"""Alembic environment: async engine, URL from Settings, metadata from app.models."""
+"""Alembic ortam dosyası: migration'ları async motorla çalıştırır; veritabanı adresini
+Settings'ten, tablo tanımlarını (metadata) app.models'tan alır."""
 
 import asyncio
 from logging.config import fileConfig
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.core.config import get_settings
 from app.database import Base
-from app.models import *  # noqa: F403  (register every table on Base.metadata)
+from app.models import *  # noqa: F403  (tüm tablolar Base.metadata'ya kaydolsun)
 from app.models.memory import VectorType
 
 config = context.config

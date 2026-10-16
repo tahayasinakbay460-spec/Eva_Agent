@@ -10,8 +10,8 @@ from app.models.base import TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin
 
 
 class Passkey(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """A WebAuthn credential. The public key is not secret; the private key never leaves
-    the user's device."""
+    """Bir WebAuthn kimlik bilgisi (passkey). Açık anahtar gizli değildir; özel anahtar
+    kullanıcının cihazından asla çıkmaz."""
 
     __tablename__ = "passkeys"
 
@@ -28,10 +28,11 @@ class Passkey(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class AuthChallenge(UUIDPrimaryKeyMixin, Base):
-    """A pending WebAuthn ceremony. Single use: ``consumed_at`` is set before verifying.
+    """Yarım kalmış bir WebAuthn "töreni" (passkey kayıt/giriş adımları). Tek kullanımlık:
+    doğrulamadan önce ``consumed_at`` doldurulur.
 
-    ``payload`` carries the sign-up form (display name, declarations) between the
-    options and verify calls; it never holds credentials.
+    ``payload``, kayıt formunu (görünen ad, beyanlar) options ve verify çağrıları
+    arasında taşır; içinde asla kimlik bilgisi tutulmaz.
     """
 
     __tablename__ = "auth_challenges"
@@ -47,10 +48,11 @@ class AuthChallenge(UUIDPrimaryKeyMixin, Base):
 
 
 class AuthCode(UUIDPrimaryKeyMixin, Base):
-    """A 6-digit code emailed for sign-up, sign-in or password reset.
+    """Kayıt, giriş ya da şifre sıfırlama için e-postayla gönderilen 6 haneli kod.
 
-    Only ``sha256(flow_id:code)`` is stored. The row id is the flow id the client holds;
-    ``attempts`` caps guessing and ``consumed_at`` makes the code single use.
+    Yalnızca ``sha256(flow_id:code)`` saklanır. Satırın id'si, istemcinin elindeki akış
+    kimliğidir (flow id); ``attempts`` tahmin denemelerini sınırlar, ``consumed_at`` da
+    kodu tek kullanımlık yapar.
     """
 
     __tablename__ = "auth_codes"
@@ -62,7 +64,7 @@ class AuthCode(UUIDPrimaryKeyMixin, Base):
     )
     code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    # Pending sign-up data (display name, locale, password hash); never the password.
+    # Bekleyen kayıt bilgisi (görünen ad, dil, şifre özeti); şifrenin kendisi asla değil.
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, index=True)

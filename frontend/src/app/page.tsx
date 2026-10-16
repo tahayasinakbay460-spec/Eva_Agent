@@ -60,7 +60,7 @@ export default function HomePage() {
   );
 }
 
-/* ---------------------------------------------------------------- hero */
+/* ---------------------------------------------------------------- üst büyük alan (hero) */
 
 function Hero({
   firstName,
@@ -73,7 +73,7 @@ function Hero({
 }) {
   return (
     <header className="relative h-[330px] overflow-hidden">
-      {/* abstract "portrait": warm glow + soft shapes stand in for the photo */}
+      {/* soyut "portre": fotoğraf yerine sıcak bir ışıltı ve yumuşak şekiller kullanılıyor */}
       <div className="absolute inset-0 bg-[radial-gradient(70%_60%_at_65%_40%,#f59e8b_0%,#b15da8_35%,#4c2a84_65%,transparent_100%)] opacity-80" />
       <div className="absolute -right-10 top-10 h-64 w-64 rounded-full bg-[radial-gradient(circle,#ffd7b5_0%,#ff8ec7_40%,transparent_72%)] opacity-70 blur-sm" />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-bg-1 to-transparent" />
@@ -133,7 +133,7 @@ function Waveform() {
   );
 }
 
-/* ---------------------------------------------------------------- cards */
+/* ---------------------------------------------------------------- kartlar */
 
 function MoodCard() {
   return (
@@ -206,7 +206,7 @@ function EvaMessageCard() {
         const reply = [...msgs].reverse().find((m) => m.role === "assistant");
         if (!cancelled && reply) setLast(reply);
       } catch {
-        /* home still renders */
+        /* hata olsa da ana sayfa yine gösterilir */
       }
     })();
     return () => {
@@ -272,7 +272,7 @@ function StudioCard() {
   );
 }
 
-/* ---------------------------------------------------------------- states */
+/* ---------------------------------------------------------------- durum ekranları */
 
 function Splash() {
   return (

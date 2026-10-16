@@ -1,5 +1,5 @@
-"""Persona lookup and seeding. Authorization lives here: a user sees system personas
-(owner NULL) and their own."""
+"""Persona bulma ve varsayılan personayı oluşturma. Yetki kontrolü burada: kullanıcı
+sistem personalarını (sahibi NULL) ve kendi personalarını görür."""
 
 import uuid
 
@@ -41,7 +41,7 @@ async def get_default_eva(db: AsyncSession) -> Persona:
     return persona
 
 
-def _visible_to(user: User):  # type: ignore[no-untyped-def]  # SQLAlchemy expression
+def _visible_to(user: User):  # type: ignore[no-untyped-def]  # SQLAlchemy ifadesi
     return or_(Persona.owner_id.is_(None), Persona.owner_id == user.id)
 
 

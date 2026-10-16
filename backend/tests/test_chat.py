@@ -176,9 +176,12 @@ async def test_history_order_survives_a_frozen_clock(
     auth_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Coarse clocks (Windows) can give a reply the same timestamp as its prompt."""
+    """Hassasiyeti düşük saatlerde (Windows) cevap, sorusuyla aynı zaman damgasını alabilir.
+
+    Saat dondurulsa bile mesaj sırası bozulmamalı.
+    """
     frozen = datetime(2026, 10, 16, 12, 0, tzinfo=UTC)
-    monkeypatch.setattr("app.services.chat_service.utcnow", lambda: frozen)
+    monkeypatch.setattr("app.database.utcnow", lambda: frozen)
     provider = _RecordingProvider()
     app.state.registry.register_llm("mock", provider)
     conversation_id = await _new_conversation(client, auth_headers)

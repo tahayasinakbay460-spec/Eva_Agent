@@ -1,6 +1,9 @@
 import type { tr } from "./tr";
 
-/** Deep "any string" version of the Turkish messages so other locales must match its shape. */
+/**
+ * Türkçe metinlerin, içindeki her metni "herhangi bir string" yapan kopyası (iç içe her
+ * seviyede). Böylece diğer diller (ör. en) aynı anahtarlara sahip olmak zorunda kalır.
+ */
 type Widen<T> = T extends string
   ? string
   : T extends readonly string[]

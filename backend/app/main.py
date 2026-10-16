@@ -1,6 +1,6 @@
-"""FastAPI application factory.
+"""FastAPI uygulamasını kuran fabrika (create_app).
 
-Run locally:  uv run uvicorn app.main:app --reload --port 8000
+Lokalde çalıştırmak için:  uv run uvicorn app.main:app --reload --port 8000
 """
 
 import asyncio
@@ -27,7 +27,7 @@ from app.worker.runner import WorkerContext, run_forever
 
 log = logging.getLogger("eva")
 
-# Adapters that never deliver real email/SMS; refused in staging/prod.
+# Gerçekte hiç e-posta/SMS göndermeyen adaptörler; staging/prod'da kabul edilmez.
 DEV_ONLY_MESSAGING = frozenset({"mock", "dev_mailbox"})
 
 
@@ -37,7 +37,7 @@ async def seed_defaults(app: FastAPI) -> None:
 
 
 def check_production_providers(app: FastAPI) -> None:
-    """Refuse to start staging/prod with adapters that never deliver anything."""
+    """Staging/prod, hiçbir şey teslim etmeyen sahte adaptörlerle açılmasın diye durdurur."""
     settings: Settings = app.state.settings
     registry: ProviderRegistry = app.state.registry
     if not settings.is_dev and registry.provider_name("messaging", "default") in DEV_ONLY_MESSAGING:

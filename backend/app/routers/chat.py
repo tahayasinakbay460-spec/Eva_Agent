@@ -1,4 +1,5 @@
-"""Text chat endpoints. Replies stream as Server-Sent Events."""
+"""Metin sohbeti uç noktaları. Cevaplar Server-Sent Events (SSE) ile akar: sunucu tek bir
+HTTP cevabı içinde cevabı parça parça (token token) gönderir."""
 
 import json
 import uuid
@@ -130,7 +131,8 @@ async def send_message(
     db: DB,
 ) -> StreamingResponse:
     service = _service(request)
-    # Validate ownership before the response starts so a 404 is a real 404.
+    # Sahipliği akış başlamadan kontrol et; böylece 404 gerçek bir HTTP 404 olarak döner
+    # (akış başladıktan sonra durum kodu artık değiştirilemez).
     try:
         await service.get_conversation(db, user, conversation_id)
     except ConversationNotFoundError as exc:

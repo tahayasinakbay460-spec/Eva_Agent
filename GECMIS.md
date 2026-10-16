@@ -4,6 +4,39 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 
 ---
 
+## 16 Ekim 2026 (4. oturum) — Faz 1: EVA artık hatırlıyor
+
+### Yeni kararlar
+- Kod yorumları ve commit mesajları artık **Türkçe**; GitHub'da Claude simgesi çıkmasın diye commit'lere Claude satırı eklenmiyor.
+- Arka plan işleri için Redis yerine şimdilik **veritabanı kuyruğu** (`docs/adr/0003-database-job-queue.md`).
+- Vektörler için ayrı bir vektör veritabanı yok: Postgres'in **pgvector** eklentisi. Senin bilgisayarında (SQLite) vektörler liste olarak duruyor.
+
+### Ne yapıldı (5 adım, her biri ayrı commit)
+1. **Anılar ekranı (`/anilar`):** Ana sayfadaki "Anılar" kısayolu buraya gidiyor. Anı (yaşanmış bir olay) ya da bilgi (kalıcı bir gerçek) ekle, düzenle, unuttur. Tarih, kişiler, duygu ve "hassas" işareti var. "Unut" gerçekten siler; çöp kutusu yok.
+2. **EVA sohbette hatırlıyor:** Her mesajda konuyla ilgili anılar bulunup EVA'ya veriliyor. "Bodrum'da" yazınca "Bodrum'a gittik" anısı bulunuyor (Türkçe ekler). En önemli birkaç bilgi her zaman ekleniyor. 2000 anıda bile arama 7 ms sürüyor (hedef 20 ms).
+3. **Arka plan işçisi:** Ağır işler sohbeti bekletmeden arkada yapılıyor. Senin bilgisayarında backend'in içinde kendiliğinden çalışıyor, ekstra terminal gerekmiyor. Her anı arkada vektöre çevriliyor.
+4. **Otomatik anı çıkarma:** Sohbet 10 dakika susunca EVA konuşmadan önemli şeyleri kendisi not alıyor. Bunlar anılar ekranında "Sohbetten" etiketiyle görünüyor. EVA senin yazdığın anılara dokunamıyor, sadece kendi notlarını düzeltebiliyor.
+5. **Sohbetten "Anı olarak kaydet":** Kendi mesajlarının altında küçük bir düğme var; basınca mesaj hazır dolu bir form açılıyor.
+
+### Faz 1 çıkış şartları
+- **"Unut/sil uçtan uca çalışıyor": ✅** Bir test, anının sohbetten çıkarılıp vektöre çevrilmesini ve EVA'nın onu kullanmasını; sonra unutturulunca tablodan, vektörden, listeden ve EVA'nın aklından tamamen gitmesini ve geri gelmemesini kontrol ediyor.
+- **"Metin gecikme hedefi tutuyor": ⚠️ kısmen ölçüldü.** Bizim sunucunun eklediği süre p50 12 ms (hedef: toplam 700 ms). Gerçek ilk-kelime süresi ancak **gerçek bir model anahtarıyla** ölçülebilir; şu an mock çalışıyor.
+
+### Önemli: şu an göremeyeceğin şey
+Otomatik anı çıkarma **gerçek bir yapay zekâ modeli** istiyor. Sende şu an sahte (mock) model çalıştığı için sohbetten otomatik anı **çıkmayacak** (sistem bozuk cevabı fark edip hiçbir şey kaydetmiyor; bu doğru davranış). Elle eklediğin anılar ve "Anı olarak kaydet" çalışıyor; EVA'nın cevabı ise mock olduğu için anıları "kullanarak konuşmuyor", sadece arka planda doğru anılar ona veriliyor (testlerle kanıtlı). Gerçek anahtar gelince hepsi canlanacak.
+
+**Testler:** 86 → 141; hepsi hem SQLite'ta hem Postgres + pgvector'de geçiyor (CI'da yeni iş).
+
+### Senin yapman gereken (bir kere)
+```powershell
+cd C:\Users\HYPER\Desktop\EVA\backend
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload --port 8000
+```
+
+---
+
 ## 16 Ekim 2026 (3. oturum) — CI yeşil, passkey ile giriş
 
 ### Ne yapıldı
@@ -193,6 +226,12 @@ Kodda karşına çıkacak, muhtemelen yeni olan kavramlar. Takıldıkça buraya 
 - **Challenge:** Sunucunun her girişte ürettiği tek kullanımlık rastgele sayı. Cihaz onu imzalar; böylece eski bir imza tekrar kullanılamaz.
 - **RP ID:** Passkey'in bağlı olduğu alan adı (şu an `localhost`). Sahte bir sitede passkey çalışmaz çünkü alan adı tutmaz.
 - **Tehdit modeli (threat model):** "Saldırgan neler deneyebilir, nasıl engelliyoruz, hangi test kanıtlıyor" tablosu. `docs/threat-model.md`.
+- **Sıcak yol:** Mesaj gönderilip ilk kelime gelene kadar geçen yol. Burada yavaş iş yapılmaz; ağır işler işçiye bırakılır.
+- **Kuyruk / işçi (worker):** "Yapılacaklar listesi" ve o listeyi arkada sırayla yapan program. Sohbet hiçbir zaman onu beklemez.
+- **Embedding / vektör:** Bir metnin anlamını temsil eden sayı listesi. Anlamca yakın metinlerin vektörleri de birbirine yakın olur.
+- **pgvector:** Postgres'in vektör saklayıp "en yakın vektörleri bul" diyebilmesini sağlayan eklentisi.
+- **Prompt injection:** Bir metnin içine "kurallarını unut" gibi sahte talimat gizleyip yapay zekâyı kandırma denemesi. Anılar ve sohbet bu yüzden "veri" etiketiyle veriliyor.
+- **Migration:** Veritabanı tablolarına yapılan değişikliğin sırayla uygulanan kaydı. `uv run alembic upgrade head` hepsini uygular.
 - **CI (Continuous Integration):** Her push'ta GitHub'ın kodu kendi makinesinde test etmesi. Bir şey bozulursa kırmızı olur.
 - **Sözleşme testi (contract test):** Bir arayüzün "olmazsa olmaz" davranışlarını test eder. Her yeni adaptör aynı testlerden geçmek zorunda.
 - **STT / TTS:** Speech-to-text (konuşmayı yazıya çevirme) / text-to-speech (yazıyı sese çevirme).
@@ -206,14 +245,15 @@ Kodda karşına çıkacak, muhtemelen yeni olan kavramlar. Takıldıkça buraya 
 
 ## Açık sorular (sonraki oturum)
 
-1. EVA için hangi API anahtarı? Anthropic mi, Groq adaptörü mü yazılsın?
-2. Docker Desktop kurulacak mı, yoksa bir süre SQLite ile mi devam?
-3. Platform önceliği: önce web mi, mobil (Expo) da başlasın mı?
+1. **EVA için hangi API anahtarı?** Anthropic mi, Groq adaptörü mü yazılsın? Faz 1'in otomatik anı çıkarması ve gerçek gecikme ölçümü buna bağlı.
+2. Embedding (metni vektöre çeviren) sağlayıcı hangisi olsun? Seçilene kadar anlamsal arama kapalı, kelime + önem + yakınlık ile aranıyor.
+3. Docker Desktop kurulacak mı, yoksa bir süre SQLite ile mi devam?
+4. Platform önceliği: önce web mi, mobil (Expo) da başlasın mı?
 
 ## Sıradaki adım önerisi
 
-1. Girişin kalan parçaları: yedek giriş (TOTP + kurtarma kodları), güvenli oturum, step-up, cihaz ekranı.
-2. EVA'yı gerçek modele bağlamak (API anahtarı).
-3. Faz 1: hafıza ve anılar, "EVA ne biliyor" ekranı.
+1. Gerçek model anahtarı → otomatik anı çıkarmayı ve ilk-kelime süresini gerçek modelle doğrulamak.
+2. Girişin kalan parçaları (lansmandan önce zorunlu): passkey ↔ şifre bağlama, kurtarma kodları, güvenli oturum, step-up, cihaz ekranı, hesap silme/dışa aktarma.
+3. Faz 2: sesli görüşme.
 
 Bundan sonra daha küçük adımlarla ilerleyip her adımda yeni kavramları açıklayacağız.

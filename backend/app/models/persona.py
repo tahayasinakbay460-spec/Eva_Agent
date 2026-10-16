@@ -12,12 +12,12 @@ JSONDict = JSON().with_variant(JSONB(), "postgresql")
 
 
 class Persona(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Single abstraction for EVA, characters and legacy personas (CLAUDE.md §4.5)."""
+    """EVA, karakterler ve Miras personaları için tek ortak model (CLAUDE.md §4.5)."""
 
     __tablename__ = "personas"
 
     type: Mapped[str] = mapped_column(String(16), nullable=False)  # eva | character | legacy
-    # NULL owner = system persona available to everyone (the default EVA).
+    # Sahibi NULL = herkesin kullanabildiği sistem personası (varsayılan EVA).
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )

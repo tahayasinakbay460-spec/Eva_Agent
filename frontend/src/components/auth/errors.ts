@@ -4,7 +4,7 @@ import { PasskeyError } from "@/lib/webauthn";
 
 const t = messages();
 
-/** Where the error happened decides how a generic 400 reads to the user. */
+/** Hatanın nerede olduğu, genel bir 400 hatasının kullanıcıya hangi mesajla gösterileceğini belirler. */
 export type ErrorContext = "passkey" | "credentials" | "code" | "form";
 
 export function errorText(err: unknown, context: ErrorContext): string {

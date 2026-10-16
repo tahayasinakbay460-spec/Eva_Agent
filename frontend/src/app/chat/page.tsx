@@ -40,7 +40,7 @@ function Chat() {
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Resume the stored conversation, else the latest, else create one.
+  // Kayıtlı sohbete devam et; yoksa en son sohbeti aç; o da yoksa yeni bir sohbet oluştur.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -48,7 +48,7 @@ function Chat() {
       try {
         id = localStorage.getItem(CONVERSATION_KEY);
       } catch {
-        /* ignore */
+        /* localStorage okunamazsa görmezden gel */
       }
       try {
         if (!id) {
@@ -62,7 +62,7 @@ function Chat() {
         setBubbles(history);
       } catch {
         if (cancelled) return;
-        // stored id may be stale (other user / wiped db): start fresh
+        // kayıtlı ID artık geçersiz olabilir (başka kullanıcı / silinmiş veritabanı): yeniden başla
         try {
           const created = await createConversation();
           localStorage.setItem(CONVERSATION_KEY, created.id);
@@ -153,7 +153,7 @@ function Chat() {
   function submit(e: FormEvent) {
     e.preventDefault();
     const text = draft.trim();
-    // Keep the draft until the conversation is loaded; never drop what the user typed.
+    // Sohbet yüklenene kadar taslağı tut; kullanıcının yazdığı hiçbir şey kaybolmasın.
     if (!text || !conversationId || streaming) return;
     setDraft("");
     void send(text);
@@ -184,7 +184,7 @@ function Chat() {
             {streaming ? t.chat.typing : t.chat.online}
           </span>
         </span>
-        {/* Persistent AI-simulation badge (CLAUDE.md §7): disclosure lives in the product layer. */}
+        {/* Her zaman görünen "AI simülasyonu" rozeti (CLAUDE.md §7): yapay zekâ bildirimi diyalogda değil, arayüzde yapılır. */}
         <span className="rounded-full border border-amber/40 bg-amber/10 px-2 py-0.5 text-[10px] font-medium text-amber">
           {t.app.aiBadge}
         </span>

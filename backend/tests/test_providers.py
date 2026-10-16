@@ -1,4 +1,9 @@
-"""Contract tests every LLMProvider adapter must pass, run here against the mock."""
+"""Her LLMProvider adaptörünün geçmesi gereken sözleşme testleri; burada sahte (mock)
+adaptör üzerinde koşar.
+
+Sözleşme testi: arayüzü uygulayan her adaptörün aynı kurallara uyduğunu kontrol eden
+ortak test paketi.
+"""
 
 from pathlib import Path
 

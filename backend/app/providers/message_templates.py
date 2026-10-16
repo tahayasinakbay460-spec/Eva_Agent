@@ -1,8 +1,8 @@
-"""Fixed, recognisable email/SMS texts (§8.3: no free-form bodies, no persona content).
+"""Sabit, tanınır e-posta/SMS metinleri (§8.3: serbest metin yok, persona içeriği yok).
 
-Adapters that send rendered text (dev mailbox, plain SMTP-style providers) use
-``render``; providers with server-side templates map the template id instead.
-Links, when added, must point only to our own domain.
+Hazır metin gönderen adaptörler (dev mailbox, düz SMTP tarzı sağlayıcılar) ``render``'ı
+kullanır; şablonları kendi sunucusunda tutan sağlayıcılar ise şablon id'sini eşler.
+Link eklenirse yalnızca kendi alan adımıza gitmeli.
 """
 
 from dataclasses import dataclass

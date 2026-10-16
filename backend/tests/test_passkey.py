@@ -1,4 +1,4 @@
-"""Passkey sign-up and sign-in, including every threat in docs/threat-model.md §1."""
+"""Passkey ile kayıt ve giriş; docs/threat-model.md §1'deki her tehdit burada denenir."""
 
 from pathlib import Path
 from typing import Any
@@ -48,7 +48,7 @@ def _bearer(r: httpx.Response) -> dict[str, str]:
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
-# --- happy paths ------------------------------------------------------------------
+# --- her şeyin yolunda gittiği akışlar ---------------------------------------------
 
 
 async def test_sign_up_creates_account_and_session(client: httpx.AsyncClient) -> None:
@@ -87,7 +87,7 @@ async def test_login_options_do_not_ask_for_username(client: httpx.AsyncClient) 
     assert options["userVerification"] == "required"
 
 
-# --- sign-up form (§7, §12) -------------------------------------------------------
+# --- kayıt formu (§7, §12) --------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -110,7 +110,7 @@ async def test_sign_up_requires_declarations_and_valid_form(
     assert r.status_code == 422
 
 
-# --- threat model: spoofing / replay ----------------------------------------------
+# --- tehdit modeli: kimlik taklidi / tekrar oynatma (eski isteği yeniden gönderme) -
 
 
 async def test_flow_cannot_be_reused(client: httpx.AsyncClient) -> None:
@@ -184,9 +184,9 @@ async def test_unknown_passkey_gets_the_same_error(client: httpx.AsyncClient) ->
 async def test_cloned_authenticator_is_rejected(client: httpx.AsyncClient) -> None:
     device = SoftAuthenticator()
     assert (await _sign_up(client, device)).status_code == 200
-    assert (await _login(client, device)).status_code == 200  # counter 1
-    assert (await _login(client, device)).status_code == 200  # counter 2
-    r = await _login(client, device, advance_counter=False)  # counter stays 2: a clone
+    assert (await _login(client, device)).status_code == 200  # sayaç 1
+    assert (await _login(client, device)).status_code == 200  # sayaç 2
+    r = await _login(client, device, advance_counter=False)  # sayaç 2'de kaldı: bu bir kopya
     assert r.status_code == 400 and r.json() == FAILED
 
 
@@ -206,7 +206,7 @@ async def test_passkey_of_another_user_cannot_claim_a_handle(client: httpx.Async
     alice, bob = SoftAuthenticator(), SoftAuthenticator()
     assert (await _sign_up(client, alice)).status_code == 200
     assert (await _sign_up(client, bob)).status_code == 200
-    bob.user_handle = alice.user_handle  # bob's key presenting alice's user handle
+    bob.user_handle = alice.user_handle  # bob'un anahtarı, alice'in kullanıcı kimliğini sunuyor
     r = await _login(client, bob)
     assert r.status_code == 400 and r.json() == FAILED
 
@@ -218,7 +218,7 @@ async def test_same_credential_cannot_register_twice(client: httpx.AsyncClient) 
     assert r.status_code == 400 and r.json() == FAILED
 
 
-# --- denial of service ------------------------------------------------------------
+# --- hizmeti engelleme (sunucuyu istekle boğma) ------------------------------------
 
 
 async def test_passkey_endpoints_are_rate_limited(tmp_path: Path) -> None:

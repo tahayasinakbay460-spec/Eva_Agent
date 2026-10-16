@@ -1,9 +1,11 @@
 /**
- * Thin typed client over the EVA API. Types come from `schema.d.ts`, which is generated
- * from the backend's OpenAPI schema (`npm run gen-client`) - never edit it by hand.
+ * EVA API'sini çağırmak için ince, tipli bir sarmalayıcı. Tipler `schema.d.ts`'ten gelir;
+ * o dosya backend'in OpenAPI şemasından otomatik üretilir (`npm run gen-client`) - elle
+ * asla düzenlenmez.
  *
- * Sign-in is passkey-only (ADR 0002). For now the session token lives in localStorage;
- * moving it to an httpOnly cookie with refresh rotation is the next auth step (§11.2).
+ * Giriş passkey ile ya da e-posta + şifre + e-postaya gelen kodla yapılır (ADR 0002).
+ * Şimdilik oturum token'ı localStorage'da duruyor; bir sonraki adım onu JavaScript'in
+ * okuyamadığı httpOnly bir çereze taşımak ve yenileme token'ını döndürmek (§11.2).
  */
 
 import { readSSE } from "../sse";
@@ -34,14 +36,14 @@ export const tokenStore = {
     try {
       localStorage.setItem(TOKEN_KEY, token);
     } catch {
-      /* private mode */
+      /* gizli sekmede localStorage hata verebilir; görmezden gel */
     }
   },
   clear: () => {
     try {
       localStorage.removeItem(TOKEN_KEY);
     } catch {
-      /* ignore */
+      /* hata olursa görmezden gel */
     }
   },
 };
@@ -83,7 +85,7 @@ async function finishPasskey(
   return out.user;
 }
 
-/** Create the account: the device makes a passkey, the backend verifies it. */
+/** Hesap açar: cihaz bir passkey oluşturur, backend onu doğrular. */
 export async function passkeySignUp(form: SignUpForm): Promise<User> {
   const flow = await request<PasskeyOptions>("/auth/passkey/register/options", {
     method: "POST",
@@ -93,14 +95,17 @@ export async function passkeySignUp(form: SignUpForm): Promise<User> {
   return finishPasskey("/auth/passkey/register/verify", flow, credential);
 }
 
-/** Sign in with any passkey saved on this device (no username needed). */
+/** Bu cihazda kayıtlı herhangi bir passkey ile giriş yapar (kullanıcı adı gerekmez). */
 export async function passkeyLogin(): Promise<User> {
   const flow = await request<PasskeyOptions>("/auth/passkey/login/options", { method: "POST" });
   const credential = await getPasskey(flow.options);
   return finishPasskey("/auth/passkey/login/verify", flow, credential);
 }
 
-/* Email + password: every step that sends a code returns a flow; the code finishes it. */
+/*
+ * E-posta + şifre: kod gönderen her adım bir "akış" (flow) döner; e-postaya gelen kod
+ * girilince o akış tamamlanır.
+ */
 
 export type PasswordSignUpForm = Schemas["PasswordSignUpRequest"];
 export type CodeFlow = Schemas["CodeFlowOut"];

@@ -1,8 +1,9 @@
-"""Authentication primitives: opaque bearer tokens + the current-user dependency.
+"""Kimlik doğrulamanın temel parçaları: opak bearer token'lar + "giriş yapmış kullanıcı"
+bağımlılığı.
 
-Tokens are 256-bit random strings; the database stores only their SHA-256 digest,
-so a database leak does not leak usable tokens. Passkey/MFA login (§11.2) will issue
-the same kind of session; only the *login* step changes.
+Token'lar 256 bitlik rastgele metinlerdir; veritabanında yalnızca SHA-256 özeti tutulur.
+Böylece veritabanı sızsa bile kullanılabilir token sızmaz. Passkey/MFA girişi (§11.2) de
+aynı türde oturum açacak; değişen yalnızca *giriş* adımı.
 """
 
 import hashlib
@@ -31,7 +32,7 @@ def hash_token(token: str) -> str:
 
 
 async def issue_session(db: AsyncSession, user: User, ttl_hours: int) -> str:
-    """Create a session row and return the plaintext token (shown once)."""
+    """Oturum satırı oluşturur ve düz token'ı döndürür (yalnızca bir kez gösterilir)."""
     token = generate_token()
     db.add(
         AuthSession(

@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-# revision identifiers, used by Alembic.
+# Alembic'in migration sırasını izlediği kimlikler (elle değiştirilmez).
 revision: str = "249b113fec82"
 down_revision: str | Sequence[str] | None = "9a2e5ca5b74c"
 branch_labels: str | Sequence[str] | None = None

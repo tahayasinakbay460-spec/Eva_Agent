@@ -1,7 +1,7 @@
-"""Authentication endpoints.
+"""Kimlik doğrulama uç noktaları (giriş, kayıt, çıkış).
 
-Passkey sign-up/sign-in (ADR 0002) issue the same opaque session token as before.
-``/auth/dev-login`` exists only while ``EVA_ENV`` is dev/test.
+Passkey ile kayıt/giriş (ADR 0002) de öncekiyle aynı opak oturum token'ını verir.
+``/auth/dev-login`` yalnızca ``EVA_ENV`` dev/test iken vardır.
 """
 
 from typing import Annotated
@@ -37,7 +37,7 @@ AUTH_LIMIT = [Depends(rate_limited("auth", "rate_limit_auth_per_minute"))]
 
 
 def _auth_failed() -> HTTPException:
-    # One body for every failure: callers learn nothing about which check failed.
+    # Her hatada aynı cevap: saldırgan hangi kontrolün tutmadığını öğrenemez.
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification failed")
 
 
@@ -107,7 +107,7 @@ async def logout(request: Request, user: CurrentUser, db: DB) -> None:
     await revoke_session(db, request.state.session_token)
 
 
-# --- email + password, confirmed by an emailed code (threat model §2) -------------
+# --- e-posta + şifre, e-postayla gelen kodla onaylanır (tehdit modeli §2) ----------
 
 
 def _password_deps(request: Request) -> password_auth_service.Deps:
@@ -189,7 +189,7 @@ async def password_reset(request: Request, body: PasswordResetRequest, db: DB) -
     "/password/reset/verify", status_code=status.HTTP_204_NO_CONTENT, dependencies=AUTH_LIMIT
 )
 async def password_reset_verify(request: Request, body: PasswordResetVerifyRequest, db: DB) -> None:
-    """Sets the new password and signs the user out everywhere; they then sign in again."""
+    """Yeni şifreyi kaydeder ve kullanıcıyı her cihazdan çıkarır; sonra yeniden giriş yapar."""
     try:
         await password_auth_service.finish_reset(
             db, _password_deps(request), body.flow_id, body.code, body.new_password

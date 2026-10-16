@@ -1,7 +1,7 @@
-"""Fixed-window rate limiting.
+"""Sabit pencereli istek sınırı (rate limit): "dakikada en fazla N istek".
 
-In-process for now; the Redis-backed implementation will replace ``MemoryRateLimiter``
-behind the same ``RateLimiter`` protocol once docker-compose is in place.
+Şimdilik sayaçlar süreç belleğinde tutuluyor; docker-compose kurulunca Redis'li sürüm,
+aynı ``RateLimiter`` arayüzünün arkasında ``MemoryRateLimiter``'ın yerini alacak.
 """
 
 import time
@@ -14,7 +14,7 @@ from fastapi import HTTPException, Request, status
 
 class RateLimiter(Protocol):
     async def hit(self, key: str, limit: int, window_s: float) -> bool:
-        """Record a hit; return False when ``key`` exceeded ``limit`` within the window."""
+        """Bir isteği say; ``key`` pencere içinde ``limit``'i aştıysa False döndür."""
 
 
 class MemoryRateLimiter:
@@ -44,7 +44,7 @@ def _client_key(request: Request) -> str:
 
 
 def rate_limited(scope: str, setting: str) -> Callable[[Request], Awaitable[None]]:
-    """Dependency factory. ``setting`` names the per-minute limit on ``Settings``."""
+    """Bağımlılık üretir. ``setting``, ``Settings`` içindeki dakikalık limit alanının adıdır."""
 
     async def dependency(request: Request) -> None:
         settings = request.app.state.settings

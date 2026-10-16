@@ -21,7 +21,8 @@ from app.core.config import Settings
 from app.database import Base
 from app.main import create_app, seed_defaults
 
-# The dev-mailbox adapter is exercised by the contract suite; keep its files out of the repo.
+# Sözleşme testleri geliştirme posta kutusu adaptörünü de çalıştırır; yazdığı dosyalar
+# repoya düşmesin diye geçici bir klasöre yönlendiriyoruz.
 os.environ.setdefault("EVA_DEV_MAILBOX_DIR", tempfile.mkdtemp(prefix="eva-mailbox-"))
 
 TEST_DATABASE_URL = os.environ.get("EVA_TEST_DATABASE_URL")

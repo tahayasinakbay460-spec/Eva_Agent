@@ -28,13 +28,13 @@ class TokenOut(BaseModel):
 class PasskeySignUpRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=80)
     locale: Literal["tr", "en"] = "tr"
-    # Both must be explicitly true (§12 18+, §7 AI disclosure); anything else is a 422.
+    # İkisi de açıkça true olmalı (§12 18+, §7 yapay zekâ bildirimi); başka her değer 422 olur.
     age_confirmed: Literal[True]
     ai_disclosure_accepted: Literal[True]
 
 
 class PasskeyOptionsOut(BaseModel):
-    """Options for ``navigator.credentials.create/get`` plus the flow to finish."""
+    """Tarayıcıdaki ``navigator.credentials.create/get`` için seçenekler + akışın id'si."""
 
     flow_id: uuid.UUID
     options: dict[str, Any]
@@ -42,13 +42,13 @@ class PasskeyOptionsOut(BaseModel):
 
 class PasskeyVerifyRequest(BaseModel):
     flow_id: uuid.UUID
-    # The browser's PublicKeyCredential as JSON; structure is verified by py_webauthn.
+    # Tarayıcının ürettiği PublicKeyCredential (JSON); yapısını py_webauthn doğrular.
     credential: dict[str, Any]
 
 
-# --- email + password (docs/threat-model.md §2) ------------------------------------
+# --- e-posta + şifre (docs/threat-model.md §2) ------------------------------------
 
-# Stored and compared lower-case so "Ali@x.com" and "ali@x.com" are one account.
+# Küçük harfle saklanır ve karşılaştırılır; "Ali@x.com" ile "ali@x.com" aynı hesaptır.
 Email = Annotated[EmailStr, AfterValidator(lambda v: v.lower())]
 NewPassword = Annotated[str, Field(min_length=10, max_length=128)]
 Code = Annotated[str, Field(pattern=r"^\d{6}$")]
@@ -74,7 +74,8 @@ class PasswordResetRequest(BaseModel):
 
 
 class CodeFlowOut(BaseModel):
-    """A code was (or, for unknown emails, appears to have been) sent."""
+    """Kod gönderildi (kayıtlı olmayan e-postalarda ise gönderilmiş *gibi* görünür; böylece
+    hangi e-postanın kayıtlı olduğu dışarıdan anlaşılmaz)."""
 
     flow_id: uuid.UUID
     method: Literal["email_code"] = "email_code"

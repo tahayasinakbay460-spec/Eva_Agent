@@ -1,21 +1,21 @@
-"""Text chat: conversations, messages and the streaming reply turn (CLAUDE.md §10).
+"""Metin sohbeti: konuşmalar, mesajlar ve akışlı cevap turu (CLAUDE.md §10).
 
-Hot path rule (§2.7): one history read, one LLM stream, two writes. No memory
-extraction here; that belongs to the worker.
+Sıcak yol kuralı (§2.7; "sıcak yol" = kullanıcının cevabı beklediği kısım): bir geçmiş
+okuma, bir LLM akışı, iki yazma. Burada anı çıkarma yapılmaz; o iş arka plan işçisinin.
 """
 
 import asyncio
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.telemetry import TurnTimer, record_turn
-from app.database import utcnow
+from app.database import utcnow_after
 from app.models.base import new_id
 from app.models.conversation import Conversation, Message
 from app.models.persona import Persona
@@ -33,7 +33,7 @@ from app.providers.base import (
 from app.providers.registry import ProviderRegistry
 from app.services import memory_extraction, memory_retrieval, persona_service
 
-# --- events emitted to the transport layer --------------------------------------
+# --- iletim katmanına (SSE router'ı) gönderilen olaylar --------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,7 +75,7 @@ class ChatService:
         self._compiler = compiler
         self._settings = settings
 
-    # --- conversations ------------------------------------------------------------
+    # --- konuşmalar ----------------------------------------------------------------
 
     async def create_conversation(
         self, db: AsyncSession, user: User, persona_id: uuid.UUID | None
@@ -100,7 +100,8 @@ class ChatService:
     async def get_conversation(
         self, db: AsyncSession, user: User, conversation_id: uuid.UUID
     ) -> Conversation:
-        """Ownership check happens in the query: other users' conversations do not exist."""
+        """Sahiplik kontrolü sorgunun içinde: başkasının konuşması bizim için "yok" sayılır
+        (IDOR'a karşı, yani başkasının id'sini deneyip verisine ulaşmaya karşı)."""
         result = await db.execute(
             select(Conversation).where(
                 Conversation.id == conversation_id, Conversation.user_id == user.id
@@ -123,7 +124,7 @@ class ChatService:
         )
         return list(result.scalars().all())
 
-    # --- the turn -----------------------------------------------------------------
+    # --- sohbet turu ---------------------------------------------------------------
 
     async def stream_reply(
         self,
@@ -144,11 +145,11 @@ class ChatService:
             return
 
         persona_row = await db.get(Persona, conversation.persona_id)
-        if persona_row is None:  # pragma: no cover - FK guarantees this
+        if persona_row is None:  # pragma: no cover - FK bunu garanti eder
             raise ConversationNotFoundError(str(conversation_id))
         history = await self._load_history(db, conversation)
 
-        user_created_at = _after(history[-1].created_at if history else None)
+        user_created_at = utcnow_after(history[-1].created_at if history else None)
         user_msg = Message(
             id=new_id(),
             conversation_id=conversation.id,
@@ -206,7 +207,7 @@ class ChatService:
         record_turn(timer, outcome="ok", stop_reason=stop_reason, output_tokens=output_tokens)
         yield Done(assistant_id, stop_reason, interrupted)
 
-    # --- helpers ------------------------------------------------------------------
+    # --- yardımcılar ---------------------------------------------------------------
 
     async def _find_replay(
         self, db: AsyncSession, conversation: Conversation, idempotency_key: str
@@ -287,10 +288,10 @@ class ChatService:
                 content="".join(parts),
                 channel="text",
                 interrupted=interrupted,
-                created_at=_after(user_created_at),
+                created_at=utcnow_after(user_created_at),
             )
         )
-        conversation.updated_at = conversation.updated_at  # touch -> onupdate fires
+        conversation.updated_at = conversation.updated_at  # dokun -> onupdate tetiklenir
         db.add(conversation)
         # Sohbet sustuktan sonra anı çıkarma işi; cevapla aynı commit'te (ADR 0003).
         # İlk token'dan SONRA çalışır, yani cevabın başlama hızını etkilemez.
@@ -300,24 +301,11 @@ class ChatService:
         await db.commit()
 
 
-def _after(previous: datetime | None) -> datetime:
-    """Now, but strictly later than ``previous``.
-
-    History is ordered by ``created_at``; on clocks with coarse resolution (Windows
-    ticks ~15 ms) a reply could otherwise share its prompt's timestamp and the order
-    would fall back to the random UUID tiebreak.
-    """
-    now = utcnow()
-    if previous is not None and now <= previous:
-        return previous + timedelta(microseconds=1)
-    return now
-
-
 def _normalize_turns(turns: Sequence[tuple[str, str]]) -> list[LLMMessage]:
-    """Providers require strictly alternating user/assistant turns starting with user.
+    """Sağlayıcılar, user ile başlayıp user/assistant diye sırayla değişen turlar ister.
 
-    Leading assistant turns are dropped; consecutive same-role turns (an interrupted
-    reply, a failed turn that left a lone user message) are merged into one.
+    Baştaki assistant turları atılır; art arda aynı rolden gelen turlar (yarıda kesilmiş
+    bir cevap, tek başına user mesajı bırakan başarısız bir tur) tek turda birleştirilir.
     """
     out: list[LLMMessage] = []
     for role, content in turns:

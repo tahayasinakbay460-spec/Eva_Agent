@@ -1,4 +1,5 @@
-# Local infrastructure only (CLAUDE.md §3). Application services run on the host via uv/npm.
+# Yalnızca lokal altyapı (CLAUDE.md §3): veritabanı, Redis, dosya deposu. Uygulamanın
+# kendisi (backend, frontend) Docker'da değil, bilgisayarda uv/npm ile çalışır.
 #   docker compose -f infra/docker-compose.yml up -d
 services:
   postgres:
@@ -34,7 +35,7 @@ services:
     volumes:
       - miniodata:/data
 
-  # LiveKit is added in Phase 2 (voice).
+  # LiveKit, Faz 2'de (sesli görüşme) eklenecek.
 
 volumes:
   pgdata:

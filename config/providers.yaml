@@ -1,27 +1,28 @@
-# Provider selection per feature. Swapping a provider is a config change, not a code change.
-# Model IDs live ONLY here (CLAUDE.md §4.3). Secrets never live here.
+# Her özellik için hangi sağlayıcının kullanılacağı burada seçilir. Sağlayıcı değiştirmek
+# kod değişikliği değil, bu dosyada ayar değişikliğidir.
+# Model ID'leri YALNIZCA burada durur (CLAUDE.md §4.3). Gizli anahtarlar asla buraya yazılmaz.
 #
-# `provider` must be a registered adapter name (see backend/app/providers/registry.py).
-# EVA_LLM_PROVIDER_OVERRIDE=mock forces every llm.* feature to the mock adapter.
+# `provider`, kayıtlı bir adaptörün adı olmalı (bkz. backend/app/providers/registry.py).
+# EVA_LLM_PROVIDER_OVERRIDE=mock verilirse tüm llm.* özellikleri sahte (mock) adaptörü kullanır.
 
 llm:
-  chat:                      # text chat over SSE
+  chat:                      # SSE ile akan metin sohbeti
     provider: anthropic
     model: claude-sonnet-5-5
     max_tokens: 1024
-    effort: low              # chat is latency-sensitive; raise after evals
-  realtime:                  # voice / video agent turns
+    effort: low              # sohbette hız önemli; eval sonuçlarına göre artırılabilir
+  realtime:                  # sesli / görüntülü görüşmede ajanın cevapları
     provider: anthropic
     model: claude-haiku-5-5
     max_tokens: 400
     effort: low
-  background:                # memory merge, persona synthesis (worker)
+  background:                # anıları birleştirme, persona oluşturma (arka plan işçisi)
     provider: anthropic
     model: claude-sonnet-5-5
     max_tokens: 4096
     effort: high
 
-# Interfaces below have no real adapter yet (CLAUDE.md §15); mock keeps tests green.
+# Aşağıdaki arayüzlerin henüz gerçek adaptörü yok (CLAUDE.md §15); mock sayesinde testler geçiyor.
 stt:
   realtime: { provider: mock }
 tts:
@@ -38,4 +39,4 @@ embedding:
 moderation:
   default: { provider: mock }
 messaging:
-  default: { provider: dev_mailbox }   # writes to backend/dev_mailbox/ until §15 picks a provider
+  default: { provider: dev_mailbox }   # §15'te sağlayıcı seçilene kadar e-postaları backend/dev_mailbox/ klasörüne yazar

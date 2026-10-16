@@ -47,3 +47,22 @@ verified email (§11.2 MFA). The second factor is pluggable (TOTP or SMS later).
 | Denial of service | CPU exhaustion via Argon2 | Hashing runs in a worker thread; per-IP rate limit bounds the rate | rate limit test |
 | Elevation of privilege | Stolen session survives a password reset | Reset revokes every session of the user | old token 401 after reset |
 | Elevation of privilege | Email account takeover → password reset | Residual risk accepted for password users; passkey is recommended in the UI | — |
+
+## 3. Hafıza ve anılar (Faz 1) — 2026-10-16
+
+Varlıklar: kullanıcının anıları ve vektörleri (§6.5: vektörler geri çevrilebilir, metin kadar
+hassastır). Sınırlar: tarayıcı ↔ API, API ↔ model (sohbet ve anı çıkarma), API ↔ işçi.
+
+| STRIDE | Tehdit | Önlem | Test |
+|---|---|---|---|
+| Bilgi sızması | Başka kullanıcının anısına ID ile erişme (IDOR) | Her sorgu `user_id` (+ `persona_id`) ile; yoksa 404 | `test_users_cannot_see_or_touch_each_others_memories` |
+| Bilgi sızması | Başka kullanıcının anısının sohbet prompt'una girmesi | Sıcak yol sorgusu kullanıcı + persona kapsamlı | `test_other_users_memories_never_reach_the_prompt` |
+| Kurcalama | Anıya yazılan metinle modele talimat verme (prompt injection) | Anılar `<memory>` veri bloğunda, `<` `>` kaçışlı; güvenlik çekirdeği veriyi talimat saymaz | `test_memory_text_cannot_inject_instructions` |
+| Kurcalama | Sohbete yazılanla anı çıkarıcıyı yönlendirme | Sohbet `<conversation>` veri bloğunda kaçışlı; çıktı sıkı şemayla doğrulanır, bozuksa hiçbir şey yazılmaz | `test_prompt_marks_conversation_as_data...`, `test_unparseable_reply_saves_nothing` |
+| Yetki yükseltme | Modelin uydurma ID ile kullanıcının ya da başkasının anısını değiştirmesi | Güncelleme sadece bu kullanıcı + persona + `source=auto` anılarda | `test_model_cannot_touch_user_added_or_other_users_memories` |
+| Hizmet engelleme | Anı tablosunu şişirme / pahalı çıkarma | Persona başına 5000 anı, çalıştırma başına 10 yeni anı, 60 mesaj; istek sınırları | `test_memory_limit`, `test_new_memories_per_run_are_capped` |
+| İnkâr / gizlilik | "Unut" sonrası kalıntı (vektör, prompt, yeniden çıkarma) | Anı + vektör aynı işlemde silinir; çıkarma sadece işlenmemiş mesajlara bakar | `test_forget_removes_a_memory_everywhere_for_good` |
+| Bilgi sızması | Loglarda/kuyrukta içerik | İş yükü sadece ID taşır; hata kaydında sadece hata türü; metrikler sayı | `test_failed_job_is_retried...` (last_error) |
+
+Açık maddeler: hesap silme ve veri dışa aktarma (adım-yukarı doğrulama gelince), kullanıcı
+başına veri anahtarıyla şifreleme (§11.4), Postgres Row-Level Security (§11.2).

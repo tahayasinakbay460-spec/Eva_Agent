@@ -1,4 +1,4 @@
-"""Persona definition and relationship state (CLAUDE.md §5.2, §9.2)."""
+"""Persona tanımı ve ilişki durumu (CLAUDE.md §5.2, §9.2)."""
 
 from typing import Literal
 
@@ -17,7 +17,7 @@ class ExampleDialog(BaseModel):
 class PersonaDefinition(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     kind: PersonaKind
-    # "system": authored by us (EVA). "user": authored by a user -> untrusted data block.
+    # "system": biz yazdık (EVA). "user": bir kullanıcı yazdı -> güvenilmez veri bloğu.
     source: Literal["system", "user"] = "user"
     identity: str = Field(max_length=2000)
     personality: str = Field(max_length=4000)

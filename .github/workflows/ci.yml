@@ -1,9 +1,10 @@
-# Quality gate for every push and pull request (CLAUDE.md §3, §11.7, §13).
-# Every job runs offline against mock providers; no secrets are needed or available.
+# Her push ve pull request'te çalışan kalite kapısı (CLAUDE.md §3, §11.7, §13): biri
+# kırmızıysa kod birleştirilmez. Tüm işler sahte (mock) sağlayıcılarla, internete
+# çıkmadan çalışır; hiçbir gizli anahtar gerekmez, zaten erişilebilir de değildir.
 name: CI
 
 on:
-  push:              # every branch, so work in progress is checked too
+  push:              # her dalda (branch) çalışır, böylece yarım işler de kontrol edilir
   pull_request:
     branches: [main]
 
@@ -43,8 +44,8 @@ jobs:
           uv export --frozen --no-dev --no-emit-project --format requirements-txt > /tmp/requirements.txt
           uvx pip-audit --strict -r /tmp/requirements.txt
 
-  # Migrations run against the production engine (Postgres + pgvector), and
-  # `alembic check` fails if a model changed without a migration (§13).
+  # Migration'lar canlıdaki veritabanı motoruyla (Postgres + pgvector) denenir.
+  # Bir model değişip migration'ı yazılmamışsa `alembic check` hata verir (§13).
   migrations:
     runs-on: ubuntu-latest
     defaults:
@@ -135,8 +136,8 @@ jobs:
       - name: Dependency audit
         run: npm audit --omit=dev --audit-level=high
 
-  # The OpenAPI schema is the single source of truth (§13); the committed TS client
-  # must match what the backend currently generates.
+  # API'nin tek gerçek kaynağı OpenAPI şemasıdır (§13); repodaki TS istemcisi, backend'in
+  # şu an ürettiğiyle birebir aynı olmalı.
   api-contract:
     runs-on: ubuntu-latest
     steps:

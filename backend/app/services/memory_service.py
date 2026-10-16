@@ -6,11 +6,12 @@ Başkasının anısının ID'sini bilsen bile ona ulaşamazsın; sistem "böyle 
 
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import utcnow_after
 from app.models.memory import Memory, MemoryEmbedding
 from app.models.persona import Persona
 from app.models.user import User
@@ -57,6 +58,13 @@ class MemoryPatch:
     sensitivity: str | None = None
 
 
+def _as_utc(value: datetime | None) -> datetime | None:
+    """En yeni anının tarihi saat dilimi bilgisi olmadan gelirse (SQLite) UTC kabul et."""
+    if value is None:
+        return None
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
 def legacy_scope_for(sensitivity: str) -> str:
     # Hassas anılar Miras'a varsayılan olarak girmez; sahibi isterse tek tek ekler (§8.1).
     return "excluded" if sensitivity == "sensitive" else "included"
@@ -88,14 +96,19 @@ async def list_memories(
 async def add_memory(
     db: AsyncSession, user: User, persona: Persona, data: MemoryInput, *, source: str
 ) -> Memory:
-    count = await db.scalar(
-        select(func.count())
-        .select_from(Memory)
-        .where(Memory.user_id == user.id, Memory.persona_id == persona.id)
-    )
+    # Tek sorguda: kaç anı var (sınır için) ve en yenisi ne zaman (sıra için).
+    count, newest = (
+        await db.execute(
+            select(func.count(), func.max(Memory.created_at)).where(
+                Memory.user_id == user.id, Memory.persona_id == persona.id
+            )
+        )
+    ).one()
     if (count or 0) >= MAX_MEMORIES_PER_PERSONA:
         raise MemoryLimitError()
     memory = Memory(
+        # "En yeni üstte" sırası arka arkaya eklenen anılarda da doğru kalsın.
+        created_at=utcnow_after(_as_utc(newest)),
         user_id=user.id,
         persona_id=persona.id,
         kind=data.kind,

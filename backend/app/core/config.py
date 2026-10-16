@@ -1,8 +1,8 @@
-"""Application settings.
+"""Uygulama ayarları.
 
-All values come from environment variables (prefix ``EVA_``) or ``backend/.env``.
-Secrets are never defaulted here; provider SDKs read their own keys
-(e.g. ``ANTHROPIC_API_KEY``) straight from the environment.
+Tüm değerler ortam değişkenlerinden (``EVA_`` önekli) ya da ``backend/.env`` dosyasından gelir.
+Sırlara burada asla varsayılan değer verilmez; sağlayıcı SDK'ları kendi anahtarlarını
+(ör. ``ANTHROPIC_API_KEY``) doğrudan ortamdan okur.
 """
 
 from functools import lru_cache
@@ -30,9 +30,9 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
 
     providers_config: Path = _REPO_ROOT / "config" / "providers.yaml"
-    # Force every llm.* feature onto one adapter (tests use "mock").
+    # Tüm llm.* özelliklerini tek bir adaptöre zorlar (testler "mock" kullanır).
     llm_provider_override: str | None = None
-    # Force the email/SMS adapter (tests use "mock"; dev default comes from providers.yaml).
+    # E-posta/SMS adaptörünü zorlar (testler "mock" kullanır; dev varsayılanı providers.yaml'da).
     messaging_provider_override: str | None = None
 
     session_ttl_hours: int = 24 * 7
@@ -40,8 +40,8 @@ class Settings(BaseSettings):
     memory_extract_idle_s: int = 600
     chat_history_turns: int = 20
 
-    # WebAuthn relying party (ADR 0002). The RP ID is the domain passkeys are bound to;
-    # changing it in production invalidates every registered passkey.
+    # WebAuthn "relying party" = passkey'lerin güvendiği site, yani biz (ADR 0002). RP ID,
+    # passkey'lerin bağlandığı alan adıdır; prod'da değişirse kayıtlı tüm passkey'ler bozulur.
     webauthn_rp_id: str = "localhost"
     webauthn_rp_name: str = "EVA"
     webauthn_origins: list[str] = ["http://localhost:3000"]
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     # Arka plan işçisi API'nin içinde de çalışsın mı (ADR 0003)? Boşsa: sadece EVA_ENV=dev iken.
     worker_inprocess: bool | None = None
 
-    # Observability (§3). OTLP endpoint/headers come from the standard OTEL_* env vars.
+    # Gözlemlenebilirlik (§3). OTLP adresi/başlıkları standart OTEL_* ortam değişkenlerinden gelir.
     otel_enabled: bool = False
     sentry_dsn: str | None = None
 

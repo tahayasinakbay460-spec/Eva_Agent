@@ -9,7 +9,7 @@ export type SessionState =
   | { status: "ready"; user: User }
   | { status: "offline"; message: string };
 
-/** Restores the stored session; the auth screen reports a fresh sign-in via `signedIn`. */
+/** Kayıtlı oturumu geri yükler; giriş ekranı yeni bir girişi `signedIn` ile bildirir. */
 export function useSession(): {
   state: SessionState;
   signedIn: (user: User) => void;

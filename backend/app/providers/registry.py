@@ -1,4 +1,4 @@
-"""Loads ``config/providers.yaml`` and hands out adapters per feature."""
+"""``config/providers.yaml``'ı okur ve her özellik için doğru adaptörü verir."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -36,7 +36,7 @@ from app.providers.mock import (
     MockVoiceEnrollmentProvider,
 )
 
-# Non-LLM interfaces, keyed by their section name in providers.yaml.
+# LLM dışındaki arayüzler; anahtar, providers.yaml'daki bölüm adıdır.
 ProviderKind = Literal[
     "stt",
     "tts",
@@ -116,7 +116,7 @@ _LLM_FACTORIES: dict[str, Callable[[], LLMProvider]] = {
     "anthropic": AnthropicLLMProvider,
 }
 
-# Real adapters are added here as each §15 decision lands; until then only mocks exist.
+# Her §15 kararı verildikçe gerçek adaptörler buraya eklenir; o zamana kadar sadece mock var.
 _FACTORIES: dict[ProviderKind, dict[str, Callable[[], object]]] = {
     "stt": {"mock": MockSTTProvider},
     "tts": {"mock": MockTTSProvider},
@@ -150,7 +150,7 @@ class ProviderRegistry:
     ) -> None:
         self._config = config
         self._llm_override = llm_override or None
-        # Force one adapter for every feature of a kind (tests pin messaging to "mock").
+        # Bir türün tüm özelliklerini tek adaptöre zorla (testler messaging'i "mock"a sabitler).
         self._overrides = {k: v for k, v in (overrides or {}).items() if v}
         self._llm_instances: dict[str, LLMProvider] = {}
         self._instances: dict[tuple[ProviderKind, str], object] = {}
@@ -169,7 +169,7 @@ class ProviderRegistry:
         return self._llm_instances[name], feature_cfg
 
     def register_llm(self, name: str, provider: LLMProvider) -> None:
-        """Inject a prebuilt adapter (tests)."""
+        """Hazır kurulmuş bir adaptörü içeri verir (testler için)."""
         self._llm_instances[name] = provider
 
     def provider_name(self, kind: ProviderKind, feature: str) -> str:

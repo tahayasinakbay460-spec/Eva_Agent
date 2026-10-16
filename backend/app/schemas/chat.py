@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConversationCreate(BaseModel):
-    persona_id: uuid.UUID | None = None  # None -> default EVA
+    persona_id: uuid.UUID | None = None  # None -> varsayılan EVA
 
 
 class ConversationOut(BaseModel):
@@ -33,11 +33,12 @@ class MessageOut(BaseModel):
 
 class SendMessageRequest(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
-    # Client-generated; lets a retried request replay instead of double-sending (§10).
+    # İstemci üretir. Aynı istek tekrar gönderilirse (ör. bağlantı koptu) mesaj iki kez
+    # kaydedilmez, ilk sonuç tekrar oynatılır (idempotency, §10).
     idempotency_key: str = Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
 
 
-# --- SSE payloads (documented here so the OpenAPI schema carries them) ----------
+# --- SSE olaylarının içerikleri (OpenAPI şemasında görünsünler diye burada) ------
 
 
 class SSEMessageStart(BaseModel):
@@ -61,8 +62,8 @@ class SSEError(BaseModel):
 
 
 class SSEEnvelope(BaseModel):
-    """Not sent on the wire; registers the SSE payload schemas in OpenAPI so the TS client
-    gets their types. Each event carries exactly one of these as its ``data``."""
+    """Ağ üzerinden hiç gönderilmez; SSE içerik şemalarını OpenAPI'ye kaydeder ki TS istemcisi
+    tiplerini alsın. Her olayın ``data`` alanında bunlardan tam olarak biri bulunur."""
 
     message_start: SSEMessageStart | None = None
     delta: SSEDelta | None = None

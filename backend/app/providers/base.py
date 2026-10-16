@@ -1,6 +1,6 @@
-"""Provider-neutral interfaces and value types.
+"""Sağlayıcıdan bağımsız arayüzler ve veri tipleri.
 
-Every adapter (mock, anthropic, self-hosted, ...) speaks only these types.
+Her adaptör (mock, anthropic, ileride kendi sunucumuz, ...) yalnızca bu tiplerle konuşur.
 """
 
 from collections.abc import AsyncIterable, AsyncIterator, Mapping, Sequence
@@ -13,7 +13,8 @@ StopReason = Literal["end_turn", "max_tokens", "refusal"]
 
 @dataclass(frozen=True, slots=True)
 class SystemBlock:
-    """One segment of the system prompt. ``cacheable`` marks a stable prefix boundary."""
+    """Sistem prompt'unun bir parçası. ``cacheable``, sabit (önbelleğe alınabilir) baş kısmın
+    bittiği yeri işaretler."""
 
     text: str
     cacheable: bool = False
@@ -51,7 +52,8 @@ LLMEvent = TextDelta | StreamEnd
 
 
 class ProviderError(Exception):
-    """Raised by adapters for upstream failures. ``retryable`` guides the caller."""
+    """Sağlayıcı tarafında bir hata olunca adaptörler bunu fırlatır. ``retryable``, çağırana
+    "tekrar denemeye değer mi" bilgisini verir."""
 
     def __init__(self, message: str, *, retryable: bool) -> None:
         super().__init__(message)
@@ -62,18 +64,18 @@ class LLMProvider(Protocol):
     name: str
 
     def stream(self, request: LLMRequest) -> AsyncIterator[LLMEvent]:
-        """Yield ``TextDelta`` items as they are produced, then exactly one ``StreamEnd``."""
+        """Üretildikçe ``TextDelta`` parçaları verir, en sonda tam bir tane ``StreamEnd``."""
         ...
 
 
-# --- audio ----------------------------------------------------------------------
+# --- ses ------------------------------------------------------------------------
 
 AudioEncoding = Literal["pcm_s16le"]
 
 
 @dataclass(frozen=True, slots=True)
 class AudioFormat:
-    """Raw audio shape on the realtime path (docs/contracts will pin the defaults)."""
+    """Gerçek zamanlı yoldaki ham sesin biçimi (varsayılanları docs/contracts sabitleyecek)."""
 
     encoding: AudioEncoding = "pcm_s16le"
     sample_rate: int = 16_000
@@ -86,19 +88,19 @@ class AudioChunk:
     format: AudioFormat = AudioFormat()
 
 
-# --- speech to text -------------------------------------------------------------
+# --- konuşmadan metne (STT) -----------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
 class PartialTranscript:
-    """Interim hypothesis; may be revised by later events."""
+    """Ara tahmin; sonraki olaylarla değişebilir."""
 
     text: str
 
 
 @dataclass(frozen=True, slots=True)
 class FinalTranscript:
-    """Stable text for a segment. ``end_of_turn`` means the user finished speaking."""
+    """Bir bölümün kesinleşmiş metni. ``end_of_turn`` = kullanıcı konuşmasını bitirdi."""
 
     text: str
     end_of_turn: bool
@@ -113,11 +115,11 @@ class STTProvider(Protocol):
     def transcribe(
         self, audio: AsyncIterable[AudioChunk], *, language: str
     ) -> AsyncIterator[TranscriptEvent]:
-        """Consume audio as it arrives; yield partials, then finals as segments settle."""
+        """Sesi geldikçe işler; önce ara tahminleri, bölümler kesinleşince son metinleri verir."""
         ...
 
 
-# --- text to speech -------------------------------------------------------------
+# --- metinden konuşmaya (TTS) ---------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,19 +135,19 @@ class TTSProvider(Protocol):
     def synthesize(
         self, text: AsyncIterable[str], request: TTSRequest
     ) -> AsyncIterator[AudioChunk]:
-        """Consume text fragments (sentence chunks) and yield audio as soon as it exists.
+        """Metin parçalarını (cümle cümle) alır ve ses hazır olur olmaz verir.
 
-        Cancelling the consuming task must stop synthesis (barge-in, §4.3).
+        Tüketen görev iptal edilirse ses üretimi de durmalı (söz kesme / barge-in, §4.3).
         """
         ...
 
 
-# --- enrollment (consented voice / face clones) -----------------------------------
+# --- kayıt (rızalı ses / yüz klonları) --------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
 class EnrollmentSample:
-    """One consented raw sample, read from our own storage (§4.2 "assets are ours")."""
+    """Rızası alınmış tek bir ham örnek; kendi depomuzdan okunur (§4.2 "varlıklar bizimdir")."""
 
     data: bytes
     media_type: str
@@ -153,7 +155,7 @@ class EnrollmentSample:
 
 @dataclass(frozen=True, slots=True)
 class ProviderAssetRef:
-    """The provider-side id of a clone; stored only as a mapping in ``provider_assets``."""
+    """Bir klonun sağlayıcıdaki id'si; ``provider_assets``'te yalnızca eşleme olarak tutulur."""
 
     provider: str
     asset_id: str
@@ -167,7 +169,8 @@ class VoiceEnrollmentProvider(Protocol):
     ) -> ProviderAssetRef: ...
 
     async def delete_voice(self, asset_id: str) -> None:
-        """Idempotent: deleting an unknown or already-deleted voice is not an error."""
+        """İdempotent (kaç kez çağrılırsa çağrılsın sonuç aynı): bilinmeyen ya da zaten
+        silinmiş bir sesi silmek hata değildir."""
         ...
 
 
@@ -179,11 +182,11 @@ class AvatarEnrollmentProvider(Protocol):
     ) -> ProviderAssetRef: ...
 
     async def delete_avatar(self, asset_id: str) -> None:
-        """Idempotent, like ``delete_voice``."""
+        """``delete_voice`` gibi idempotent."""
         ...
 
 
-# --- realtime avatar --------------------------------------------------------------
+# --- gerçek zamanlı avatar --------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,15 +201,15 @@ class AvatarSession(Protocol):
     session_id: str
 
     async def send_audio(self, chunk: AudioChunk) -> None:
-        """Feed TTS audio; the provider renders lip-synced video into the room."""
+        """TTS sesini gönderir; sağlayıcı odaya dudak senkronlu video basar."""
         ...
 
     async def interrupt(self) -> None:
-        """Drop queued audio immediately (barge-in)."""
+        """Sırada bekleyen sesi hemen atar (kullanıcı söz kesti / barge-in)."""
         ...
 
     async def close(self) -> None:
-        """Idempotent; ends billing for the session."""
+        """İdempotent; oturumun ücretlendirmesini bitirir."""
         ...
 
 
@@ -216,7 +219,7 @@ class AvatarProvider(Protocol):
     async def start_session(self, request: AvatarSessionRequest) -> AvatarSession: ...
 
 
-# --- embeddings -----------------------------------------------------------------
+# --- embedding'ler (metni anlam vektörüne çevirme) ------------------------------
 
 EmbeddingPurpose = Literal["document", "query"]
 
@@ -226,11 +229,11 @@ class EmbeddingProvider(Protocol):
     dimensions: int
 
     async def embed(self, texts: Sequence[str], *, purpose: EmbeddingPurpose) -> list[list[float]]:
-        """One vector of length ``dimensions`` per input text, in input order."""
+        """Her girdi metni için ``dimensions`` uzunluğunda bir vektör, girdiyle aynı sırada."""
         ...
 
 
-# --- moderation -----------------------------------------------------------------
+# --- moderasyon (güvenlik sınıflandırması) --------------------------------------
 
 ModerationCategory = Literal[
     "self_harm",
@@ -264,10 +267,10 @@ class ModerationProvider(Protocol):
     ) -> ModerationResult: ...
 
 
-# --- messaging (email / SMS) ----------------------------------------------------
+# --- mesajlaşma (e-posta / SMS) -------------------------------------------------
 
 MessageChannel = Literal["email", "sms"]
-# Fixed, recognisable templates only (§8.3); free-form bodies are not allowed.
+# Yalnızca sabit, tanınır şablonlar (§8.3; oltalamaya karşı); serbest metin gönderilemez.
 MessageTemplate = Literal[
     "signup_code",
     "login_code",

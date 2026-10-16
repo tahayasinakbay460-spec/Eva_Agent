@@ -16,7 +16,7 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-# revision identifiers, used by Alembic.
+# Alembic'in migration sırasını izlediği kimlikler (elle değiştirilmez).
 revision: str = "9a2e5ca5b74c"
 down_revision: str | Sequence[str] | None = "628456363ad0"
 branch_labels: str | Sequence[str] | None = None

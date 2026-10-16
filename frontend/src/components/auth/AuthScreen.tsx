@@ -34,9 +34,9 @@ type Step =
   | { kind: "reset_code"; flowId: string; email: string };
 
 /**
- * Sign-up and sign-in (ADR 0002). Passkey is the recommended path; email + password
- * always continues with a code sent to the email. Sign-up requires the 18+ (§12) and
- * AI-disclosure (§7) declarations on both paths.
+ * Kayıt ve giriş ekranı (ADR 0002). Önerilen yol passkey; e-posta + şifre yolu ise her
+ * zaman e-postaya gönderilen bir kodla devam eder. Kayıtta iki yolda da "18 yaşından
+ * büyüğüm" (§12) ve "yapay zekâyla konuştuğumu biliyorum" (§7) onayları zorunludur.
  */
 export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void }) {
   const [step, setStep] = useState<Step>({ kind: "sign_up" });
@@ -94,7 +94,7 @@ function Card({ onSubmit, children }: { onSubmit?: (e: FormEvent) => void; child
   );
 }
 
-/* ---------------------------------------------------------------- sign-up */
+/* ---------------------------------------------------------------- kayıt */
 
 function SignUp({ busy, error, run, go, onSignedIn }: Shared) {
   const [method, setMethod] = useState<"passkey" | "password">("passkey");
@@ -220,7 +220,7 @@ function MethodToggle({
   );
 }
 
-/* ---------------------------------------------------------------- sign-in */
+/* ---------------------------------------------------------------- giriş */
 
 function SignIn({ busy, error, run, go, onSignedIn, notice }: Shared & { notice?: string }) {
   const [email, setEmail] = useState("");
@@ -285,7 +285,7 @@ function SignIn({ busy, error, run, go, onSignedIn, notice }: Shared & { notice?
   );
 }
 
-/* ---------------------------------------------------------------- codes */
+/* ---------------------------------------------------------------- kodlar */
 
 function CodeInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -341,7 +341,7 @@ function CodeStep({
   );
 }
 
-/* ---------------------------------------------------------------- reset */
+/* ---------------------------------------------------------------- şifre sıfırlama */
 
 function ResetRequest({ busy, error, run, go }: Shared) {
   const [email, setEmail] = useState("");

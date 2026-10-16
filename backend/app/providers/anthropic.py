@@ -1,9 +1,9 @@
-"""Anthropic Claude adapter for ``LLMProvider``.
+"""``LLMProvider`` için Anthropic Claude adaptörü.
 
-Reads ``ANTHROPIC_API_KEY`` from the environment via the SDK. Stable system blocks
-get ``cache_control`` so the persona prefix is served from the prompt cache (§4.3).
-Server-side refusal fallbacks are enabled so a safety decline is re-run on a fallback
-model inside the same request instead of surfacing as an empty reply.
+``ANTHROPIC_API_KEY``'i SDK ortamdan kendisi okur. Sabit sistem bloklarına ``cache_control``
+eklenir; böylece persona'nın baş kısmı prompt cache'ten (önbellekten) gelir (§4.3).
+Sunucu tarafı yedek model (fallback) açıktır: model güvenlik nedeniyle cevap vermeyi
+reddederse, boş cevap dönmek yerine aynı istek içinde yedek bir modelle tekrar denenir.
 """
 
 from collections.abc import AsyncIterator

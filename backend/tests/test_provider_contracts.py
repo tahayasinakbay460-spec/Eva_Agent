@@ -1,8 +1,9 @@
-"""Contract suite for every non-LLM provider interface (CLAUDE.md §4.2).
+"""LLM dışındaki her sağlayıcı arayüzü için sözleşme testleri (CLAUDE.md §4.2).
 
-Each test is parametrized over every adapter registered for that interface, so a
-new adapter (self-hosted included) is exercised automatically. Adapters that need
-the network belong behind an integration marker; mocks run here.
+Her test, o arayüz için kayıtlı bütün adaptörlerle ayrı ayrı çalışır (parametrize).
+Böylece yeni eklenen bir adaptör (kendi sunucumuzdaki dahil) otomatik olarak test
+edilir. İnternete çıkması gereken adaptörler "integration" işaretli testlere aittir;
+burada sadece sahte (mock) adaptörler koşar.
 """
 
 import asyncio
@@ -109,7 +110,7 @@ async def test_tts_cancellation_stops_synthesis(name: str) -> None:
     assert pulled == pulled_at_cancel, "synthesis kept pulling text after barge-in"
 
 
-# --- enrollment ---------------------------------------------------------------
+# --- kayıt (rızalı ses / yüz klonu oluşturma) ---------------------------------
 
 
 @pytest.mark.parametrize("name", registered_adapters("voice_enrollment"))
@@ -120,7 +121,7 @@ async def test_voice_enrollment_contract(name: str) -> None:
     assert a.provider == provider.name
     assert a.asset_id and a.asset_id != b.asset_id
     await provider.delete_voice(a.asset_id)
-    await provider.delete_voice(a.asset_id)  # idempotent
+    await provider.delete_voice(a.asset_id)  # iki kez silmek de hata vermez (idempotent)
     await provider.delete_voice("never-existed")
     with pytest.raises(ValueError):
         await provider.create_voice((), label="owner")
@@ -132,7 +133,7 @@ async def test_avatar_enrollment_contract(name: str) -> None:
     a = await provider.create_avatar(SAMPLES, label="owner")
     assert a.provider == provider.name and a.asset_id
     await provider.delete_avatar(a.asset_id)
-    await provider.delete_avatar(a.asset_id)  # idempotent
+    await provider.delete_avatar(a.asset_id)  # iki kez silmek de hata vermez
     with pytest.raises(ValueError):
         await provider.create_avatar((), label="owner")
 
@@ -152,11 +153,11 @@ async def test_avatar_session_contract(name: str) -> None:
     await session.send_audio(AudioChunk(b"\x00\x00" * 160))
     await session.interrupt()
     await session.close()
-    await session.close()  # idempotent
+    await session.close()  # iki kez kapatmak da hata vermez
     await other.close()
 
 
-# --- embeddings ---------------------------------------------------------------
+# --- embedding (metni sayı vektörüne çevirme) ---------------------------------
 
 
 @pytest.mark.parametrize("name", registered_adapters("embedding"))
@@ -172,7 +173,7 @@ async def test_embedding_contract(name: str) -> None:
     assert await provider.embed([], purpose="query") == []
 
 
-# --- moderation ---------------------------------------------------------------
+# --- moderasyon (içerik güvenlik denetimi) ------------------------------------
 
 
 @pytest.mark.parametrize("name", registered_adapters("moderation"))
@@ -190,7 +191,7 @@ async def test_moderation_contract(name: str) -> None:
     assert "fraud" in fraud.flagged and not fraud.is_crisis
 
 
-# --- messaging ----------------------------------------------------------------
+# --- mesaj gönderme (e-posta / SMS) -------------------------------------------
 
 
 @pytest.mark.parametrize("name", registered_adapters("messaging"))
@@ -212,7 +213,7 @@ async def test_messaging_contract(name: str) -> None:
         )
 
 
-# --- registry -----------------------------------------------------------------
+# --- registry (hangi özellik hangi sağlayıcıyı kullanır) ----------------------
 
 
 def test_repo_config_resolves_every_interface() -> None:
@@ -245,4 +246,4 @@ def test_registry_rejects_bad_feature_config(tmp_path: Path) -> None:
     with pytest.raises(ProviderConfigError):
         registry.stt("realtime")
     with pytest.raises(ProviderConfigError):
-        registry.tts("realtime")  # feature not configured
+        registry.tts("realtime")  # bu özellik ayarlarda tanımlı değil

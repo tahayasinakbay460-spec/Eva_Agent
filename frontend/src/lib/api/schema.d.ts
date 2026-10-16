@@ -236,7 +236,7 @@ export interface paths {
         put?: never;
         /**
          * Password Reset Verify
-         * @description Sets the new password and signs the user out everywhere; they then sign in again.
+         * @description Yeni şifreyi kaydeder ve kullanıcıyı her cihazdan çıkarır; sonra yeniden giriş yapar.
          */
         post: operations["password_reset_verify_auth_password_reset_verify_post"];
         delete?: never;
@@ -357,7 +357,8 @@ export interface components {
     schemas: {
         /**
          * CodeFlowOut
-         * @description A code was (or, for unknown emails, appears to have been) sent.
+         * @description Kod gönderildi (kayıtlı olmayan e-postalarda ise gönderilmiş *gibi* görünür; böylece
+         *     hangi e-postanın kayıtlı olduğu dışarıdan anlaşılmaz).
          */
         CodeFlowOut: {
             /**
@@ -549,7 +550,7 @@ export interface components {
         };
         /**
          * PasskeyOptionsOut
-         * @description Options for ``navigator.credentials.create/get`` plus the flow to finish.
+         * @description Tarayıcıdaki ``navigator.credentials.create/get`` için seçenekler + akışın id'si.
          */
         PasskeyOptionsOut: {
             /**
@@ -695,8 +696,8 @@ export interface components {
         };
         /**
          * SSEEnvelope
-         * @description Not sent on the wire; registers the SSE payload schemas in OpenAPI so the TS client
-         *     gets their types. Each event carries exactly one of these as its ``data``.
+         * @description Ağ üzerinden hiç gönderilmez; SSE içerik şemalarını OpenAPI'ye kaydeder ki TS istemcisi
+         *     tiplerini alsın. Her olayın ``data`` alanında bunlardan tam olarak biri bulunur.
          */
         SSEEnvelope: {
             message_start?: components["schemas"]["SSEMessageStart"] | null;

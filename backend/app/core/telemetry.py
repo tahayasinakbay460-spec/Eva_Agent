@@ -1,13 +1,14 @@
-"""Latency-budget instrumentation and error reporting (CLAUDE.md §3, §4.4).
+"""Gecikme bütçesi ölçümü ve hata raporlama (CLAUDE.md §3, §4.4).
 
-Only numbers and identifiers leave the process, never prompt, message or memory
-content (§2.6).
+Süreçten dışarı yalnızca sayılar ve kimlikler çıkar; prompt, mesaj ya da anı içeriği
+asla çıkmaz (§2.6).
 
-- Metrics and traces go through the OpenTelemetry API. Instruments are created at
-  import time and bind to whatever provider is installed; with none installed they
-  are no-ops. ``setup_telemetry`` installs OTLP exporters when ``EVA_OTEL_ENABLED``
-  is true; endpoint, headers and protocol come from the standard ``OTEL_*`` env vars.
-- Sentry is enabled only when ``EVA_SENTRY_DSN`` is set, with PII stripped.
+- Metrikler ve trace'ler (bir isteğin adım adım zaman çizelgesi) OpenTelemetry API'sinden
+  geçer. Ölçüm araçları import anında oluşturulur ve kurulu olan sağlayıcıya bağlanır;
+  hiçbiri kurulu değilse hiçbir şey yapmazlar. ``EVA_OTEL_ENABLED`` açıksa
+  ``setup_telemetry`` OTLP dışa aktarıcılarını kurar; adres, başlıklar ve protokol
+  standart ``OTEL_*`` ortam değişkenlerinden gelir.
+- Sentry yalnızca ``EVA_SENTRY_DSN`` ayarlıysa açılır ve kişisel veri (PII) temizlenir.
 """
 
 import logging
@@ -56,11 +57,11 @@ TurnOutcome = Literal["ok", "interrupted", "provider_error"]
 
 @dataclass
 class TurnTimer:
-    """Measures one chat turn: time to first token and end-to-end.
+    """Tek bir sohbet turunu ölçer: ilk token'a kadar geçen süre ve baştan sona süre.
 
-    Also owns the turn's span. The span is started without becoming the current
-    span because the turn runs inside an async generator that is resumed in
-    different contexts.
+    Turun span'ini (trace içindeki tek bir zaman dilimi) de o tutar. Span "geçerli span"
+    yapılmadan başlatılır, çünkü tur, farklı bağlamlarda kaldığı yerden devam eden bir
+    async generator içinde çalışır.
     """
 
     provider: str
@@ -133,7 +134,7 @@ def record_turn(
     )
 
 
-# --- setup ----------------------------------------------------------------------
+# --- kurulum --------------------------------------------------------------------
 
 
 def setup_telemetry(settings: Settings) -> None:
@@ -171,12 +172,12 @@ def _setup_otel(settings: Settings) -> None:
     log.info("opentelemetry export enabled")
 
 
-# Request parts that can carry personal data, tokens or message content.
+# İsteğin kişisel veri, token ya da mesaj içeriği taşıyabilecek kısımları.
 _SCRUBBED_REQUEST_KEYS = ("data", "cookies", "query_string", "headers", "env")
 
 
 def scrub_sentry_event(event: Any, hint: Any = None) -> Any:
-    """``before_send`` hook: drop everything that could hold PII or content (§2.6)."""
+    """``before_send`` kancası: kişisel veri ya da içerik taşıyabilecek her şeyi atar (§2.6)."""
     request = event.get("request")
     if isinstance(request, dict):
         for key in _SCRUBBED_REQUEST_KEYS:
@@ -200,7 +201,7 @@ def _setup_sentry(settings: Settings) -> None:
         send_default_pii=False,
         include_local_variables=False,
         max_request_body_size="never",
-        traces_sample_rate=0.0,  # tracing goes through OpenTelemetry
+        traces_sample_rate=0.0,  # trace'ler OpenTelemetry'den gider
         before_send=scrub_sentry_event,
         before_breadcrumb=lambda crumb, hint: None,
     )

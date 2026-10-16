@@ -10,19 +10,19 @@ from app.models.base import TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
-    # Internal identifier (random for passkey sign-ups); not shown as a username.
+    # İç tanımlayıcı (passkey ile kayıtta rastgele); kullanıcı adı olarak gösterilmez.
     handle: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(80), nullable=False)
     locale: Mapped[str] = mapped_column(String(8), nullable=False, default="tr")
-    # WebAuthn user handle: random bytes, no personal data (W3C WebAuthn §14.6.1).
+    # WebAuthn kullanıcı kimliği: rastgele baytlar, kişisel veri yok (W3C WebAuthn §14.6.1).
     webauthn_user_id: Mapped[bytes | None] = mapped_column(
         LargeBinary(64), unique=True, nullable=True
     )
-    # Email + password sign-in (threat model §2). Email is stored normalized (lower-case);
-    # only Argon2id hashes are stored, never the password.
+    # E-posta + şifre ile giriş (tehdit modeli §2). E-posta küçük harfe çevrilip saklanır;
+    # şifrenin kendisi asla saklanmaz, yalnızca Argon2id özeti (hash) tutulur.
     email: Mapped[str | None] = mapped_column(String(254), unique=True, nullable=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # Sign-up declarations (§7 AI disclosure, §12 18+). Null for dev-login users.
+    # Kayıttaki beyanlar (§7 yapay zekâ bildirimi, §12 18+). dev-login kullanıcılarında boş.
     age_confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     ai_disclosure_accepted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

@@ -1,8 +1,9 @@
-"""Fixed safety core: the first, cacheable block of every persona prompt.
+"""Sabit güvenlik çekirdeği: her persona prompt'unun ilk, önbelleğe alınabilir bloğu.
 
-Encodes CLAUDE.md §2 (red lines), §7 (character integrity + its three exceptions)
-and §11.6 (crisis protocol). Any change here requires ``make eval`` (§13).
-Keep it byte-stable: it is the prompt-cache prefix for every conversation.
+CLAUDE.md §2 (kırmızı çizgiler), §7 (karakter bütünlüğü + üç istisnası) ve §11.6 (kriz
+protokolü) kurallarını modele anlatır. Buradaki her değişiklik ``make eval`` gerektirir (§13).
+Metni bayt bayt aynı tut: her konuşmanın prompt cache'inin baş kısmı budur; tek bir harf
+değişirse önbellek boşa gider.
 """
 
 SAFETY_CORE_VERSION = "2026-10-16.1"

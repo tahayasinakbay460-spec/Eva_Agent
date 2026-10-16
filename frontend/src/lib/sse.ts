@@ -1,4 +1,8 @@
-/** Minimal Server-Sent Events parser over a fetch() body stream. */
+/**
+ * fetch() cevabının akışını okuyan küçük bir Server-Sent Events (SSE) çözücü.
+ * SSE: sunucunun tek bir HTTP bağlantısı üzerinden parça parça olay göndermesi;
+ * sohbette EVA'nın cevabı kelime kelime böyle gelir.
+ */
 
 export interface SSEEvent {
   event: string;

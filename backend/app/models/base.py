@@ -14,10 +14,11 @@ def new_id() -> uuid.UUID:
 
 
 class UTCDateTime(TypeDecorator[datetime]):
-    """Timezone-aware UTC datetimes on every backend.
+    """Her veritabanında saat dilimi bilgisi olan (UTC) tarih-saat kolonu.
 
-    PostgreSQL keeps tzinfo natively; SQLite drops it, so we re-attach UTC on load.
-    Naive datetimes are rejected on write to keep the column unambiguous.
+    PostgreSQL saat dilimini kendisi saklar; SQLite atar, o yüzden okurken UTC'yi geri
+    ekliyoruz. Saat dilimi olmayan ("naive") tarihler yazılırken reddedilir; böylece
+    kolondaki değerin hangi saate göre olduğu hiç belirsiz kalmaz.
     """
 
     impl = DateTime(timezone=True)

@@ -1,13 +1,15 @@
-"""Passkey sign-up and sign-in (CLAUDE.md §11.2, ADR 0002, docs/threat-model.md §1).
+"""Passkey ile kayıt ve giriş (CLAUDE.md §11.2, ADR 0002, docs/threat-model.md §1).
 
-Every WebAuthn ceremony is two calls:
+Her WebAuthn "töreni" iki çağrıdan oluşur:
 
-1. ``begin_*`` stores a random single-use challenge and returns browser options.
-2. ``finish_*`` atomically consumes the challenge, then lets py_webauthn verify the
-   browser's response (origin, RP ID, signature, user verification, sign counter).
+1. ``begin_*`` rastgele, tek kullanımlık bir "challenge" (sunucunun tarayıcıya imzalatacağı
+   rastgele bayt dizisi) saklar ve tarayıcıya gereken seçenekleri döndürür.
+2. ``finish_*`` challenge'ı atomik olarak (tek adımda, araya başka istek giremeden) tüketir,
+   sonra tarayıcının cevabını py_webauthn'e doğrulatır (origin, RP ID, imza, kullanıcı
+   doğrulaması, imza sayacı).
 
-Every failure raises the same ``AuthFailedError`` so callers cannot tell which check
-failed (no account or credential enumeration).
+Her hata aynı ``AuthFailedError``'ı fırlatır; böylece dışarıdan hangi kontrolün tutmadığı
+anlaşılmaz (hangi hesap/passkey var diye tarama yapılamaz).
 """
 
 import json
@@ -44,7 +46,7 @@ PURPOSE_LOGIN = "login"
 
 
 class AuthFailedError(Exception):
-    """Generic authentication failure. The message is for tests, never for clients."""
+    """Genel kimlik doğrulama hatası. Mesajı testler içindir, istemciye asla gösterilmez."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,7 +61,7 @@ class SignUpForm:
     locale: str
 
 
-# --- helpers ----------------------------------------------------------------------
+# --- yardımcılar ------------------------------------------------------------------
 
 
 async def _new_challenge(
@@ -71,7 +73,8 @@ async def _new_challenge(
     payload: dict[str, Any] | None = None,
 ) -> uuid.UUID:
     now = utcnow()
-    # Opportunistic cleanup keeps the table small without a scheduled job.
+    # Fırsat bulmuşken süresi dolanları sil; böylece zamanlanmış bir işe gerek kalmadan
+    # tablo küçük kalır.
     await db.execute(delete(AuthChallenge).where(AuthChallenge.expires_at < now))
     row = AuthChallenge(
         purpose=purpose,
@@ -85,7 +88,8 @@ async def _new_challenge(
 
 
 async def _consume_challenge(db: AsyncSession, flow_id: uuid.UUID, purpose: str) -> AuthChallenge:
-    """Mark the flow used, atomically. A second call with the same flow fails."""
+    """Akışı tek adımda (atomik) "kullanıldı" diye işaretler. Aynı akışla ikinci çağrı başarısız
+    olur."""
     now = utcnow()
     result = await db.execute(
         update(AuthChallenge)
@@ -102,7 +106,7 @@ async def _consume_challenge(db: AsyncSession, flow_id: uuid.UUID, purpose: str)
     if result.rowcount != 1:  # type: ignore[attr-defined]
         raise AuthFailedError("unknown, expired, reused or wrong-purpose flow")
     row = await db.get(AuthChallenge, flow_id)
-    if row is None:  # pragma: no cover - just updated
+    if row is None:  # pragma: no cover - az önce güncellendi
         raise AuthFailedError("flow vanished")
     return row
 
@@ -112,13 +116,13 @@ def _options_dict(options: object) -> dict[str, Any]:
     return parsed
 
 
-# --- sign-up ----------------------------------------------------------------------
+# --- kayıt ------------------------------------------------------------------------
 
 
 async def begin_registration(
     db: AsyncSession, settings: Settings, form: SignUpForm
 ) -> CeremonyOptions:
-    """Start sign-up. Nothing is written to ``users`` until the passkey is verified."""
+    """Kaydı başlatır. Passkey doğrulanana kadar ``users`` tablosuna hiçbir şey yazılmaz."""
     webauthn_user_id = secrets.token_bytes(32)
     options = generate_registration_options(
         rp_id=settings.webauthn_rp_id,
@@ -173,7 +177,7 @@ async def finish_registration(
         display_name=str(payload["display_name"]),
         locale=str(payload["locale"]),
         webauthn_user_id=bytes.fromhex(str(payload["webauthn_user_id"])),
-        # Both declarations were required (Literal[True]) to start this flow.
+        # Bu akışı başlatmak için iki beyan da zorunluydu (Literal[True]).
         age_confirmed_at=now,
         ai_disclosure_accepted_at=now,
     )
@@ -196,11 +200,12 @@ async def finish_registration(
     return user
 
 
-# --- sign-in ----------------------------------------------------------------------
+# --- giriş ------------------------------------------------------------------------
 
 
 async def begin_login(db: AsyncSession, settings: Settings) -> CeremonyOptions:
-    """Discoverable-credential login: no username is asked, so none can be enumerated."""
+    """Kullanıcı adı sorulmayan passkey girişi (cihaz hangi hesabın olduğunu kendisi bilir);
+    kullanıcı adı sorulmadığı için hangi adların kayıtlı olduğu da taranamaz."""
     options = generate_authentication_options(
         rp_id=settings.webauthn_rp_id,
         user_verification=UserVerificationRequirement.REQUIRED,
@@ -223,7 +228,7 @@ async def finish_login(
     if passkey is None:
         raise AuthFailedError("unknown credential")
     user = await db.get(User, passkey.user_id)
-    if user is None:  # pragma: no cover - FK cascade
+    if user is None:  # pragma: no cover - FK cascade bunu engeller
         raise AuthFailedError("credential without user")
     if parsed.response.user_handle is not None and parsed.response.user_handle != (
         user.webauthn_user_id

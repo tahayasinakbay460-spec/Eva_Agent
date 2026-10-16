@@ -1,8 +1,9 @@
-"""A software WebAuthn authenticator for tests.
+"""Testler için yazılımla taklit edilmiş bir WebAuthn (passkey) doğrulayıcısı.
 
-It builds the exact byte structures a browser + platform authenticator would send
-(``none`` attestation, ES256 keys), so the server's real py_webauthn verification runs
-end to end. Knobs let tests produce the specific faults the threat model lists.
+Gerçek bir tarayıcı + cihaz doğrulayıcısının (ör. telefondaki parmak izi) göndereceği
+baytları birebir üretir (``none`` attestation, ES256 anahtarlar). Böylece sunucudaki
+gerçek py_webauthn doğrulaması baştan sona çalışır. Ayar düğmeleri sayesinde testler,
+tehdit modelinde sayılan hataları (ör. doğrulanmamış kullanıcı) bilerek üretebilir.
 """
 
 import base64
@@ -17,9 +18,9 @@ import cbor2
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 
-FLAG_UP = 0x01  # user present
-FLAG_UV = 0x04  # user verified (biometric / PIN)
-FLAG_AT = 0x40  # attested credential data included
+FLAG_UP = 0x01  # kullanıcı cihazın başında (dokundu)
+FLAG_UV = 0x04  # kullanıcı doğrulandı (biyometrik / PIN)
+FLAG_AT = 0x40  # yeni anahtar bilgisi (attested credential data) ekte
 
 
 def b64url(data: bytes) -> str:
@@ -64,11 +65,11 @@ class SoftAuthenticator:
         )
 
     def create(self, options: dict[str, Any]) -> dict[str, Any]:
-        """Answer ``navigator.credentials.create(options)``."""
+        """Tarayıcıdaki ``navigator.credentials.create(options)`` çağrısının cevabını üretir."""
         self.user_handle = b64url_decode(options["user"]["id"])
         client_data = self._client_data("webauthn.create", options["challenge"])
         attested = (
-            bytes(16)  # AAGUID (all zero, like many platform authenticators with "none")
+            bytes(16)  # AAGUID (tamamen sıfır; "none" kullanan çoğu cihaz da böyle gönderir)
             + struct.pack(">H", len(self.credential_id))
             + self.credential_id
             + self._cose_public_key()
@@ -93,7 +94,7 @@ class SoftAuthenticator:
         }
 
     def get(self, options: dict[str, Any], *, advance_counter: bool = True) -> dict[str, Any]:
-        """Answer ``navigator.credentials.get(options)``."""
+        """Tarayıcıdaki ``navigator.credentials.get(options)`` çağrısının cevabını üretir."""
         if advance_counter:
             self.sign_count += 1
         client_data = self._client_data("webauthn.get", options["challenge"])

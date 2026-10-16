@@ -10,7 +10,7 @@ from app.models.user import User
 
 
 class AuthSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """An issued access token. Only the SHA-256 digest of the token is stored."""
+    """Verilmiş bir erişim token'ı (giriş oturumu). Token'ın yalnızca SHA-256 özeti saklanır."""
 
     __tablename__ = "sessions"
 

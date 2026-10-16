@@ -1,3 +1,3 @@
-"""EVA backend package."""
+"""EVA backend paketi."""
 
 __version__ = "0.1.0"

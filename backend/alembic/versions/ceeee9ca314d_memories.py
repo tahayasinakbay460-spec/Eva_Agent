@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-# revision identifiers, used by Alembic.
+# Alembic'in migration sırasını izlediği kimlikler (elle değiştirilmez).
 revision: str = "ceeee9ca314d"
 down_revision: str | Sequence[str] | None = "94eea96a255b"
 branch_labels: str | Sequence[str] | None = None

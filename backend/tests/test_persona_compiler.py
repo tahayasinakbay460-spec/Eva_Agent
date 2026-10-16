@@ -42,7 +42,7 @@ def test_user_authored_persona_is_wrapped_and_escaped() -> None:
     persona_block = prompt.system[1].text
     assert "<persona_data>" in persona_block
     assert persona_block.rstrip().endswith("</persona_data>")
-    # The injected closing tag must not survive as a real tag.
+    # Kullanıcının araya sıkıştırdığı kapanış etiketi gerçek bir etiket olarak kalmamalı.
     assert persona_block.count("</persona_data>") == 1
     assert "&lt;/persona_data&gt;" in persona_block
     assert "only know your own era" in persona_block

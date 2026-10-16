@@ -1,7 +1,9 @@
 /**
- * Bridges the backend's WebAuthn options (JSON, base64url) and the browser's
- * `navigator.credentials` API (ArrayBuffers). No cryptography happens here: the
- * authenticator signs, the backend verifies (ADR 0002).
+ * Backend'in gönderdiği WebAuthn (passkey ile giriş standardı) ayarlarını tarayıcının
+ * `navigator.credentials` API'sine çevirir ve cevabı geri çevirir. Backend veriyi
+ * JSON içinde base64url metni (URL'de sorun çıkarmayan base64 türü) olarak yollar,
+ * tarayıcı ise ham bayt (ArrayBuffer) ister. Burada hiç şifreleme işi yapılmaz:
+ * imzayı cihaz (telefon, parmak izi okuyucu vb.) atar, doğrulamayı backend yapar (ADR 0002).
  */
 
 type Json = Record<string, unknown>;
@@ -49,7 +51,7 @@ async function run<T>(op: () => Promise<T | null>): Promise<T> {
     return result;
   } catch (err) {
     if (err instanceof PasskeyError) throw err;
-    // NotAllowedError covers both "user cancelled" and "timed out" by design.
+    // NotAllowedError hem "kullanıcı vazgeçti" hem "süre doldu" demek; tarayıcı bilerek ayırmıyor.
     if (err instanceof DOMException && err.name === "NotAllowedError") {
       throw new PasskeyError("cancelled");
     }
@@ -57,7 +59,7 @@ async function run<T>(op: () => Promise<T | null>): Promise<T> {
   }
 }
 
-/** `navigator.credentials.create` for sign-up; returns the JSON the backend verifies. */
+/** Kayıt için `navigator.credentials.create` çağırır; backend'in doğrulayacağı JSON'u döner. */
 export async function createPasskey(options: Json): Promise<Json> {
   const o = options as Json & {
     challenge: string;
@@ -90,7 +92,7 @@ export async function createPasskey(options: Json): Promise<Json> {
   };
 }
 
-/** `navigator.credentials.get` for sign-in; returns the JSON the backend verifies. */
+/** Giriş için `navigator.credentials.get` çağırır; backend'in doğrulayacağı JSON'u döner. */
 export async function getPasskey(options: Json): Promise<Json> {
   const o = options as Json & { challenge: string; allowCredentials?: unknown };
   const credential = await run(

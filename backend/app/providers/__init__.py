@@ -1,5 +1,5 @@
-"""Provider boundary (CLAUDE.md §4.2).
+"""Sağlayıcı sınırı (CLAUDE.md §4.2).
 
-Domain code imports only from ``app.providers.base`` and obtains adapters through
-``app.providers.registry``. No vendor SDK type may cross this boundary.
+Uygulamanın geri kalanı yalnızca ``app.providers.base``'ten import eder ve adaptörleri
+``app.providers.registry`` üzerinden alır. Hiçbir sağlayıcı SDK'sının tipi bu sınırı geçemez.
 """

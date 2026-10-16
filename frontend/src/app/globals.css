@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
-/* EVA design tokens: deep night-sky base, pink→violet accent, cyan highlights. */
+/*
+ * EVA tasarım değişkenleri (renkler vb. tek yerde): koyu gece mavisi zemin,
+ * pembeden mora geçen vurgu rengi, camgöbeği parlamalar.
+ */
 :root {
   --bg-0: #07061a;
   --bg-1: #120c33;

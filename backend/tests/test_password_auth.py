@@ -1,4 +1,5 @@
-"""Email + password sign-up/sign-in/reset with emailed codes (docs/threat-model.md §2)."""
+"""E-posta + şifreyle kayıt, giriş ve şifre sıfırlama; e-postayla gelen kodlarla
+(docs/threat-model.md §2)."""
 
 import logging
 import re
@@ -76,7 +77,7 @@ def _bearer(r: httpx.Response) -> dict[str, str]:
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
-# --- happy paths ------------------------------------------------------------------
+# --- her şeyin yolunda gittiği akışlar ---------------------------------------------
 
 
 async def test_sign_up_creates_account_only_after_code(
@@ -127,7 +128,7 @@ async def test_email_is_case_insensitive(app: FastAPI, client: httpx.AsyncClient
     assert (await _login(app, client, email="TAHA@example.com")).status_code == 200
 
 
-# --- enumeration ------------------------------------------------------------------
+# --- hesap tespiti (saldırgan cevaptan "bu e-posta kayıtlı mı" anlamamalı) ----------
 
 
 async def test_wrong_password_and_unknown_email_look_the_same(
@@ -166,7 +167,7 @@ async def test_reset_for_unknown_email_looks_successful(
     assert _templates(app, "kimse@example.com") == []
 
 
-# --- code guessing / replay -------------------------------------------------------
+# --- kod tahmini / tekrar kullanma -------------------------------------------------
 
 
 async def test_code_attempts_are_capped(app: FastAPI, client: httpx.AsyncClient) -> None:
@@ -225,7 +226,7 @@ async def test_code_cannot_cross_flows(app: FastAPI, client: httpx.AsyncClient) 
     assert v.json() == FAILED
 
 
-# --- password policy --------------------------------------------------------------
+# --- şifre kuralları --------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -251,7 +252,7 @@ async def test_password_equal_to_email_is_weak(client: httpx.AsyncClient) -> Non
     assert r.status_code == 422 and r.json() == {"detail": "Weak password"}
 
 
-# --- reset ------------------------------------------------------------------------
+# --- şifre sıfırlama --------------------------------------------------------------
 
 
 async def test_reset_changes_password_and_signs_out_everywhere(
@@ -280,7 +281,7 @@ async def test_reset_changes_password_and_signs_out_everywhere(
     assert (await _login(app, client, password=new_password)).status_code == 200
 
 
-# --- abuse ------------------------------------------------------------------------
+# --- kötüye kullanım --------------------------------------------------------------
 
 
 async def test_mail_bombing_is_capped_per_email(app: FastAPI, client: httpx.AsyncClient) -> None:

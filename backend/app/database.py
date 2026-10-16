@@ -1,7 +1,7 @@
-"""Async SQLAlchemy engine, session factory and the declarative base."""
+"""Async SQLAlchemy motoru (engine), oturum fabrikası ve tüm modellerin ortak tabanı (Base)."""
 
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import Request
@@ -21,6 +21,19 @@ class Base(DeclarativeBase):
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def utcnow_after(previous: datetime | None) -> datetime:
+    """Şu an, ama ``previous``'tan kesinlikle daha sonra.
+
+    Mesajlar ve anılar ``created_at``'e göre sıralanır. Windows'ta saat ~15 ms'de bir
+    ilerlediği için arka arkaya iki kayıt aynı zaman damgasını alabilir; o zaman sıra
+    rastgele UUID'ye kalır ve karışırdı. Bu fonksiyon gerekirse 1 mikrosaniye ekler.
+    """
+    now = utcnow()
+    if previous is not None and now <= previous:
+        return previous + timedelta(microseconds=1)
+    return now
 
 
 def create_engine(database_url: str) -> AsyncEngine:
@@ -45,7 +58,7 @@ def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSessi
 
 
 async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency: one session per request, taken from ``app.state``."""
+    """FastAPI bağımlılığı: her isteğe bir DB oturumu verir (fabrika ``app.state``'ten gelir)."""
     factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
     async with factory() as session:
         yield session

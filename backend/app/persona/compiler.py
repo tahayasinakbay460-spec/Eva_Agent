@@ -1,14 +1,17 @@
-"""PersonaCompiler: persona definition -> ordered system prompt blocks (CLAUDE.md §9.3).
+"""PersonaCompiler: persona tanımı -> sıralı sistem prompt blokları (CLAUDE.md §9.3).
 
-Block order is fixed from stable to dynamic so the prompt cache keeps the prefix:
-  1. safety core            (cacheable)
-  2. persona definition     (cacheable)
-  3. canon memories         (cacheable)
-  4. relationship state     (dynamic)
-  5. retrieved memories     (dynamic)
-The conversation itself is passed as messages, not as a system block.
+Blokların sırası sabitten değişkene doğru sabittir. Sebep "prompt cache": sağlayıcı,
+prompt'un her istekte aynı kalan baş kısmını önbelleğe alır; baş kısım değişmezse
+hem daha hızlı hem daha ucuz olur.
+  1. güvenlik çekirdeği     (önbelleğe alınabilir)
+  2. persona tanımı         (önbelleğe alınabilir)
+  3. kanon anılar           (önbelleğe alınabilir)
+  4. ilişki durumu          (değişken)
+  5. getirilen anılar       (değişken)
+Konuşmanın kendisi sistem bloğu olarak değil, mesajlar olarak gönderilir.
 
-User-authored text is escaped and wrapped in data tags; it can never become instructions.
+Kullanıcının yazdığı metin kaçışlanır (escape) ve veri etiketlerine sarılır; asla talimata
+dönüşemez.
 """
 
 from collections.abc import Sequence
@@ -37,7 +40,8 @@ _STAGE_NOTES: dict[str, str] = {
 
 
 def escape_untrusted(text: str) -> str:
-    """Neutralise tag-like syntax so data blocks cannot close themselves early."""
+    """Etikete benzeyen işaretleri (< >) etkisiz hale getirir; böylece kullanıcı metni
+    veri bloğunu erkenden kapatıp kendi talimatını yazamaz."""
     return text.replace("<", "&lt;").replace(">", "&gt;")
 
 
@@ -65,7 +69,7 @@ class PersonaCompiler:
             blocks.append(SystemBlock(self._retrieved_block(retrieved_memories)))
         return CompiledPrompt(system=tuple(blocks))
 
-    # --- blocks -------------------------------------------------------------
+    # --- bloklar ------------------------------------------------------------
 
     def _persona_block(self, persona: PersonaDefinition) -> str:
         untrusted = persona.source == "user"

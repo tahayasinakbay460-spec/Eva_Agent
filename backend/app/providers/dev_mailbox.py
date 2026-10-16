@@ -1,8 +1,8 @@
-"""Development-only messaging adapter: writes each email/SMS as a text file.
+"""Yalnızca geliştirme için mesaj adaptörü: her e-posta/SMS'i bir metin dosyasına yazar.
 
-Until an email provider is chosen (§15), local sign-up and sign-in codes land in
-``backend/dev_mailbox/`` (git-ignored) so they can be read without a mail server.
-``create_app`` refuses this adapter outside dev/test.
+E-posta sağlayıcısı seçilene kadar (§15) lokal kayıt ve giriş kodları
+``backend/dev_mailbox/`` klasörüne düşer (git'e girmez); böylece mail sunucusu olmadan
+okunabilir. ``create_app`` bu adaptörü dev/test dışında kabul etmez.
 """
 
 import asyncio

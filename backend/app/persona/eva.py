@@ -1,4 +1,4 @@
-"""The default EVA companion persona (CLAUDE.md §5)."""
+"""Varsayılan EVA yoldaş personası (CLAUDE.md §5)."""
 
 from app.persona.types import ExampleDialog, PersonaDefinition
 

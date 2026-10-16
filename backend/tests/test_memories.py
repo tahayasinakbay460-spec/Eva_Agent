@@ -130,7 +130,7 @@ async def test_invalid_memory_is_rejected(
     assert r.status_code == 422
 
 
-# --- yetkisiz erişim (IDOR) --------------------------------------------------------
+# --- yetkisiz erişim (IDOR: başkasının kaydına ID'siyle ulaşmaya çalışmak) ----------
 
 
 async def test_requires_login(client: httpx.AsyncClient) -> None:
@@ -172,3 +172,16 @@ async def test_memory_limit(
     await _add(client, auth_headers)
     r = await client.post("/memories", json=MEMORY, headers=auth_headers)
     assert r.status_code == 409
+
+
+async def test_newest_first_survives_a_frozen_clock(
+    client: httpx.AsyncClient, auth_headers: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows saati ~15 ms'de bir ilerler; arka arkaya eklenen anıların sırası karışmamalı."""
+    from datetime import UTC, datetime
+
+    frozen = datetime(2026, 10, 16, 12, 0, tzinfo=UTC)
+    monkeypatch.setattr("app.database.utcnow", lambda: frozen)
+    ids = [(await _add(client, auth_headers, content=f"Anı {i}"))["id"] for i in range(5)]
+    listed = (await client.get("/memories", headers=auth_headers)).json()
+    assert [m["id"] for m in listed] == list(reversed(ids))

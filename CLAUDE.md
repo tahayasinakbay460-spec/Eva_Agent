@@ -73,30 +73,33 @@ Klasör adları sahibin alıştığı düzene göredir (ADR 0001); mimari aynıd
 ```
 eva/
 ├── CLAUDE.md
-├── .github/workflows/   # ci.yml: lint, tip, test, migration (Postgres), build, audit, OpenAPI drift, gitleaks
+├── .github/workflows/   # ci.yml: lint, tip, test (SQLite + Postgres), migration, build, audit, OpenAPI drift, gitleaks
 ├── backend/                 # FastAPI – auth, persona, karakter, Miras, anı, metin sohbet (SSE)
 │   ├── app/
-│   │   ├── main.py          # create_app(); app.state üzerinden bağımlılıklar
-│   │   ├── database.py      # async engine, session, Base
+│   │   ├── main.py          # create_app(); app.state üzerinden bağımlılıklar; dev'de işçiyi de başlatır
+│   │   ├── database.py      # async engine, session, Base (SQLite'ta yabancı anahtarlar açık)
 │   │   ├── core/            # config (Settings), security (token/auth), ratelimit, middleware, telemetry
-│   │   ├── models/          # SQLAlchemy modelleri (users, sessions, personas, conversations, messages)
+│   │   ├── models/          # users, sessions, passkeys, auth_challenges, auth_codes, personas,
+│   │   │                    # conversations, messages, memories, memory_embeddings, jobs
 │   │   ├── schemas/         # Pydantic istek/cevap şemaları (SSE payload'ları dahil)
-│   │   ├── routers/         # health, auth, personas, chat
-│   │   ├── services/        # iş mantığı: persona_service, chat_service (akışlı tur)
+│   │   ├── routers/         # health, auth (passkey + şifre), personas, chat, memories
+│   │   ├── services/        # iş mantığı: auth, password_auth, persona, chat (akışlı tur),
+│   │   │                    # memory (CRUD), memory_retrieval (sıcak yol), memory_extraction (işçi)
 │   │   ├── persona/         # domain çekirdeği: PersonaDefinition, safety_core, eva, PersonaCompiler
-│   │   └── providers/       # sağlayıcı sınırı: base (9 arayüz), mock (hepsi), anthropic, registry
+│   │   ├── providers/       # sağlayıcı sınırı: base (9 arayüz), mock, anthropic, dev_mailbox, registry
+│   │   └── worker/          # arka plan işçisi (ADR 0001 eşlemesiyle `worker/` burada): queue, runner,
+│   │                        # handlers, jobs; `uv run python -m app.worker`
 │   ├── alembic/             # migration'lar
 │   ├── scripts/             # export_openapi.py
-│   └── tests/
+│   └── tests/               # soft_authenticator.py: testler için yazılımsal passkey cihazı
 ├── frontend/                # Next.js (App Router, Tailwind v4) – mobil-öncelikli web
 │   └── src/
-│       ├── app/             # sayfalar: / (ana sayfa), /chat, /analiz, /kesfet, /profil
-│       ├── components/      # BottomNav, Onboarding, ComingSoon, icons
+│       ├── app/             # sayfalar: / (ana sayfa), /chat, /anilar, /analiz, /kesfet, /profil
+│       ├── components/      # auth/ (giriş ekranı), memories/ (anı formu/kartı), ui.tsx, BottomNav, icons
 │       ├── hooks/           # useSession
 │       ├── i18n/            # tr.ts (varsayılan), en.ts – UI metinleri koda gömülmez
-│       └── lib/api/         # openapi.json + üretilen schema.d.ts + client.ts (ince sarmalayıcı)
+│       └── lib/             # api/ (openapi.json + üretilen schema.d.ts + client.ts), webauthn.ts, sse.ts
 ├── realtime/                # (Faz 2) LiveKit Agents – VAD → STT → LLM → TTS → avatar
-├── worker/                  # (Faz 1) kuyruk işleri – hafıza, Miras teslimi, silme
 ├── mobile/                  # (§15 kararı sonrası) Expo
 ├── config/                  # providers.yaml, sensitive_figures.yaml, blocked_franchises.yaml
 ├── evals/                   # persona kalitesi, karakter bütünlüğü, red-team
@@ -115,7 +118,8 @@ cd backend && uv sync && cp .env.example .env     # .env'yi doldur
 cd frontend && npm install && cp .env.local.example .env.local
 
 make infra        # docker compose -f infra/docker-compose.yml up -d  (postgres+pgvector, redis, minio)
-make api          # cd backend && uv run uvicorn app.main:app --reload --port 8000
+make api          # cd backend && uv run uvicorn app.main:app --reload --port 8000  (dev'de işçi de içinde döner)
+                  # ayrı işçi: cd backend && uv run python -m app.worker  (EVA_WORKER_INPROCESS=false ile)
 make web          # cd frontend && npm run dev   (http://localhost:3000)
 make test         # backend: uv run pytest  ·  frontend: npm run typecheck
 make lint         # backend: ruff format --check, ruff check, mypy  ·  frontend: prettier --check, eslint, tsc
@@ -129,7 +133,8 @@ make eval         # (henüz yok) karakter bütünlüğü + red-team
 Lokal geliştirmede veritabanı varsayılan olarak SQLite'tır (`backend/eva_dev.db`); Docker kurulunca
 `EVA_DATABASE_URL=postgresql+asyncpg://eva:eva@localhost:5432/eva` ile Postgres'e geçilir.
 `EVA_LLM_PROVIDER_OVERRIDE=mock` ağsız çalıştırır; gerçek cevap için `ANTHROPIC_API_KEY` gerekir.
-Giriş: passkey (`/auth/passkey/{register,login}/{options,verify}`, ADR 0002). WebAuthn RP ayarları `EVA_WEBAUTHN_RP_ID` ve `EVA_WEBAUTHN_ORIGINS`; frontend başka porttan açılırsa origin listesine eklenmeli. `POST /auth/dev-login` yalnızca `EVA_ENV=dev|test` için ve testlerde kalır; frontend kullanmaz. Testlerde passkey için `backend/tests/soft_authenticator.py` kullanılır.
+Arka plan işleri veritabanındaki `jobs` tablosunda (ADR 0003); Redis gelince `app/worker/queue.py` değişir. E-posta sağlayıcısı seçilene kadar mailler `backend/dev_mailbox/` klasörüne yazılır (staging/prod bu adaptörle açılmaz). Testler `EVA_TEST_DATABASE_URL` verilirse Postgres'te koşar (CI'da `backend-postgres` işi).
+Giriş: passkey (`/auth/passkey/{register,login}/{options,verify}`) veya e-posta + şifre + e-postaya gelen kod (`/auth/password/...`), ADR 0002 ve eki. WebAuthn RP ayarları `EVA_WEBAUTHN_RP_ID` ve `EVA_WEBAUTHN_ORIGINS`; frontend başka porttan açılırsa origin listesine eklenmeli. `POST /auth/dev-login` yalnızca `EVA_ENV=dev|test` için ve testlerde kalır; frontend kullanmaz. Testlerde passkey için `backend/tests/soft_authenticator.py` kullanılır.
 
 ### Ortam değişkenleri
 

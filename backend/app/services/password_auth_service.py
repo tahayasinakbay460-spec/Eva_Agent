@@ -1,14 +1,14 @@
-"""Email + password sign-up, sign-in and reset, each confirmed by an emailed code.
+"""E-posta + şifre ile kayıt, giriş ve şifre sıfırlama; her biri e-postayla gelen kodla onaylanır.
 
-See docs/threat-model.md §2. The shape of every flow is the same:
+Bkz. docs/threat-model.md §2. Her akışın şekli aynıdır:
 
-1. ``start_*`` checks what it can, stores a hashed 6-digit code bound to a new flow
-   id, emails the code and returns the flow id.
-2. ``finish_*`` checks the code (attempt-limited, single use) and completes the flow.
+1. ``start_*`` kontrol edebildiğini kontrol eder, yeni bir akış id'sine bağlı 6 haneli
+   kodun özetini (hash) saklar, kodu e-postayla gönderir ve akış id'sini döndürür.
+2. ``finish_*`` kodu kontrol eder (deneme sayısı sınırlı, tek kullanımlık) ve akışı bitirir.
 
-Sign-up and reset answer identically whether or not the email has an account, and
-sign-in has one error for "unknown email" and "wrong password" (with equal timing),
-so none of them reveal who is registered. Every failure raises ``AuthFailedError``.
+Kayıt ve sıfırlama, e-postanın hesabı olsa da olmasa da aynı cevabı verir; giriş de
+"bilinmeyen e-posta" ve "yanlış şifre" için tek bir hata verir (üstelik aynı sürede).
+Böylece hiçbiri kimin kayıtlı olduğunu ele vermez. Her hata ``AuthFailedError`` fırlatır.
 """
 
 import asyncio
@@ -37,11 +37,12 @@ Purpose = Literal["signup", "login", "reset"]
 
 CODE_TTL = timedelta(minutes=10)
 MAX_ATTEMPTS = 5
-# Per-email send limit against mail bombing (on top of per-IP request limits).
+# Birinin e-postasını kodlarla doldurmayı (mail bombing) önleyen, adres başına gönderim
+# sınırı (IP başına istek sınırına ek olarak).
 MAIL_LIMIT = 5
 MAIL_WINDOW_S = 600.0
 
-_hasher = PasswordHasher()  # Argon2id, RFC 9106 parameters (argon2-cffi defaults)
+_hasher = PasswordHasher()  # Argon2id, RFC 9106 parametreleri (argon2-cffi varsayılanları)
 _dummy_hash: str | None = None
 
 
@@ -60,10 +61,11 @@ class Deps:
 
 
 class WeakPasswordError(ValueError):
-    """The password breaks the policy; safe to tell the user (says nothing about accounts)."""
+    """Şifre kurallara uymuyor; bunu kullanıcıya söylemek güvenli (hesaplar hakkında bilgi
+    vermez)."""
 
 
-# --- password hashing --------------------------------------------------------------
+# --- şifre özetleme (hash) ---------------------------------------------------------
 
 
 def check_password_policy(password: str, email: str) -> None:
@@ -74,7 +76,8 @@ def check_password_policy(password: str, email: str) -> None:
 
 
 async def hash_password(password: str) -> str:
-    # Argon2 is deliberately slow (~50 ms, 64 MiB); keep it off the event loop.
+    # Argon2 bilerek yavaştır (~50 ms, 64 MiB); event loop'u kilitlemesin diye ayrı
+    # bir thread'de çalıştırılır.
     return await asyncio.to_thread(_hasher.hash, password)
 
 
@@ -89,14 +92,15 @@ async def _verify_password(stored_hash: str, password: str) -> bool:
 
 
 async def _dummy() -> str:
-    """A real Argon2 hash to verify against when the email is unknown (equal timing)."""
+    """E-posta bilinmiyorsa karşılaştırma için gerçek bir Argon2 özeti (cevap süresi aynı
+    kalsın, süreden hesabın var olup olmadığı anlaşılmasın)."""
     global _dummy_hash
     if _dummy_hash is None:
         _dummy_hash = await hash_password(secrets.token_urlsafe(16))
     return _dummy_hash
 
 
-# --- codes ------------------------------------------------------------------------
+# --- kodlar -----------------------------------------------------------------------
 
 
 def _digest(flow_id: uuid.UUID, code: str) -> str:
@@ -118,9 +122,10 @@ async def _issue(
     payload: dict[str, Any] | None = None,
     template: MessageTemplate | None,
 ) -> uuid.UUID:
-    """Store a fresh code (older open codes for the same email+purpose die) and send it.
+    """Yeni bir kod saklar (aynı e-posta+amaç için açık eski kodlar geçersiz olur) ve gönderir.
 
-    ``template=None`` creates a decoy flow that can never succeed (unknown email).
+    ``template=None`` asla başarılı olamayacak sahte (yem) bir akış oluşturur (bilinmeyen
+    e-posta için; dışarıdan gerçek akıştan ayırt edilemez).
     """
     now = utcnow()
     await db.execute(
@@ -141,7 +146,7 @@ async def _issue(
             purpose=purpose,
             email=email,
             user_id=user_id,
-            # Decoy flows store a digest of nothing anyone was sent.
+            # Sahte akışlar, kimseye gönderilmemiş rastgele bir şeyin özetini saklar.
             code_hash=_digest(flow_id, code if template else secrets.token_hex(16)),
             payload=payload or {},
             created_at=now,
@@ -163,10 +168,11 @@ async def _send(
     params: dict[str, str] | None = None,
     limited: bool = True,
 ) -> None:
-    # Anything an anonymous caller can trigger is capped per address; notices that need
-    # a valid code first (password changed) are not, so they never crowd out real codes.
+    # Giriş yapmamış birinin tetikleyebildiği her gönderim adres başına sınırlanır; önce
+    # geçerli kod gerektiren bildirimler (şifre değişti) sınırlanmaz, gerçek kodların
+    # önünü tıkamasınlar.
     if limited and not await deps.limiter.hit(f"mail:{email}", MAIL_LIMIT, MAIL_WINDOW_S):
-        return  # silently skipped: the response must not differ
+        return  # sessizce atlanır: cevap farklı olmamalı
     await deps.messaging.send(
         OutboundMessage(
             channel="email", to=email, template=template, locale=locale, params=params or {}
@@ -182,7 +188,7 @@ async def _check(db: AsyncSession, flow_id: uuid.UUID, purpose: Purpose, code: s
         AuthCode.consumed_at.is_(None),
         AuthCode.expires_at > now,
     )
-    # Count the attempt first, atomically, so parallel guesses cannot exceed the cap.
+    # Önce denemeyi tek adımda (atomik) say; böylece aynı anda yapılan tahminler sınırı aşamaz.
     counted = await db.execute(
         update(AuthCode)
         .where(*open_flow, AuthCode.attempts < MAX_ATTEMPTS)
@@ -212,12 +218,12 @@ async def _user_by_email(db: AsyncSession, email: str) -> User | None:
     return result.scalar_one_or_none()
 
 
-# --- sign-up ----------------------------------------------------------------------
+# --- kayıt ------------------------------------------------------------------------
 
 
 async def start_signup(db: AsyncSession, deps: Deps, form: SignUpForm) -> uuid.UUID:
     check_password_policy(form.password, form.email)
-    # Hash even when the email is taken so both branches cost the same.
+    # E-posta alınmış olsa bile hash'le; iki dal da aynı sürede bitsin.
     password_hash = await hash_password(form.password)
     if await _user_by_email(db, form.email) is not None:
         await _send(deps, email=form.email, locale=form.locale, template="account_exists")
@@ -252,7 +258,7 @@ async def finish_signup(db: AsyncSession, flow_id: uuid.UUID, code: str) -> User
         email=flow.email,
         email_verified_at=now,
         password_hash=str(payload["password_hash"]),
-        # Both declarations were required (Literal[True]) to start this flow.
+        # Bu akışı başlatmak için iki beyan da zorunluydu (Literal[True]).
         age_confirmed_at=now,
         ai_disclosure_accepted_at=now,
     )
@@ -261,7 +267,7 @@ async def finish_signup(db: AsyncSession, flow_id: uuid.UUID, code: str) -> User
     return user
 
 
-# --- sign-in ----------------------------------------------------------------------
+# --- giriş ------------------------------------------------------------------------
 
 
 async def start_login(db: AsyncSession, deps: Deps, email: str, password: str) -> uuid.UUID:
@@ -292,7 +298,7 @@ async def finish_login(db: AsyncSession, flow_id: uuid.UUID, code: str) -> User:
     return user
 
 
-# --- password reset ---------------------------------------------------------------
+# --- şifre sıfırlama --------------------------------------------------------------
 
 
 async def start_reset(db: AsyncSession, deps: Deps, email: str, locale: str) -> uuid.UUID:
@@ -315,7 +321,7 @@ async def finish_reset(
 ) -> None:
     row = await db.get(AuthCode, flow_id)
     if row is not None:
-        # Policy first, so a weak password does not burn the code.
+        # Önce şifre kuralları; zayıf şifre yüzünden kod boşa harcanmasın.
         check_password_policy(new_password, row.email)
     flow = await _check(db, flow_id, "reset", code)
     user = await db.get(User, flow.user_id) if flow.user_id else None

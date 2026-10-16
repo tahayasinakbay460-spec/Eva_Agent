@@ -1,5 +1,6 @@
-# Local secret scan before every commit (CLAUDE.md §3, §11.7). CI runs the same scan.
-# One-time setup:  uvx pre-commit install
+# Her commit'ten önce bilgisayarında gizli anahtar taraması yapar (CLAUDE.md §3, §11.7):
+# yanlışlıkla bir API anahtarı commit'lenirse durdurur. CI de aynı taramayı çalıştırır.
+# Bir kez kurmak yeterli:  uvx pre-commit install
 repos:
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.28.0
