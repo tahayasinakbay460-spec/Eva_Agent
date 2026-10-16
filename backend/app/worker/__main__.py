@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.telemetry import setup_telemetry
 from app.database import create_engine, create_session_factory
 from app.providers.registry import build_registry
+from app.storage.factory import build_encrypted_store
 from app.worker import handlers  # noqa: F401 - işleyicileri kaydeder
 from app.worker.runner import WorkerContext, run_forever
 
@@ -25,6 +26,7 @@ async def main() -> None:
         session_factory=create_session_factory(engine),
         registry=build_registry(settings),
         settings=settings,
+        store=build_encrypted_store(settings),
     )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

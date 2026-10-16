@@ -6,6 +6,7 @@ from app.models.job import Job
 from app.models.memory import Memory, MemoryEmbedding
 from app.models.persona import Persona
 from app.models.session import AuthSession
+from app.models.storage import UserDataKey
 from app.models.user import User
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "Passkey",
     "Persona",
     "User",
+    "UserDataKey",
 ]

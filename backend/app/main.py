@@ -22,6 +22,7 @@ from app.providers.registry import ProviderRegistry, build_registry
 from app.routers import auth, chat, health, memories, personas
 from app.services import persona_service
 from app.services.chat_service import ChatService
+from app.storage.factory import build_encrypted_store, check_storage
 from app.worker import handlers  # noqa: F401 - iş işleyicilerini kaydeder
 from app.worker.runner import WorkerContext, run_forever
 
@@ -42,6 +43,7 @@ def check_production_providers(app: FastAPI) -> None:
     registry: ProviderRegistry = app.state.registry
     if not settings.is_dev and registry.provider_name("messaging", "default") in DEV_ONLY_MESSAGING:
         raise RuntimeError("a real messaging provider is required outside dev/test")
+    check_storage(app.state.store)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -80,8 +82,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_factory = create_session_factory(engine)
     app.state.rate_limiter = MemoryRateLimiter()
     app.state.registry = registry
+    app.state.store = build_encrypted_store(settings)
     app.state.worker_context = WorkerContext(
-        session_factory=app.state.session_factory, registry=registry, settings=settings
+        session_factory=app.state.session_factory,
+        registry=registry,
+        settings=settings,
+        store=app.state.store,
     )
     app.state.chat_service = ChatService(
         registry=registry, compiler=PersonaCompiler(), settings=settings

@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 Environment = Literal["dev", "test", "staging", "prod"]
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+_BACKEND_ROOT = _REPO_ROOT / "backend"
 
 
 class Settings(BaseSettings):
@@ -52,6 +53,11 @@ class Settings(BaseSettings):
     rate_limit_auth_per_minute: int = 10
     rate_limit_chat_per_minute: int = 30
     rate_limit_default_per_minute: int = 120
+
+    # Şifreli dosya deposu (§11.3). Lokalde bir klasör; ana anahtar dev'de yerel dosyada durur.
+    # Staging/prod'da yerel ana anahtar kabul edilmez, KMS gerekir (KMS_KEY_ID).
+    storage_dir: Path = _BACKEND_ROOT / "storage"
+    dev_master_key_file: Path = _BACKEND_ROOT / ".dev_master_key"
 
     # Arka plan işçisi API'nin içinde de çalışsın mı (ADR 0003)? Boşsa: sadece EVA_ENV=dev iken.
     worker_inprocess: bool | None = None

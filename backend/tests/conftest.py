@@ -37,6 +37,8 @@ def make_settings(tmp_path: Path, **overrides: Any) -> Settings:
         "llm_provider_override": "mock",
         "messaging_provider_override": "mock",
         "cors_origins": ["http://localhost:3000"],
+        "storage_dir": tmp_path / "storage",
+        "dev_master_key_file": tmp_path / "dev_master_key",
     }
     base.update(overrides)
     return Settings(_env_file=None, **base)

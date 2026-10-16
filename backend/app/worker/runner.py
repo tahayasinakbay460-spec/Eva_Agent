@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
 from app.providers.registry import ProviderRegistry
+from app.storage.encrypted import EncryptedStore
 from app.worker import queue
 
 log = logging.getLogger("eva.worker")
@@ -26,6 +27,7 @@ class WorkerContext:
     session_factory: async_sessionmaker[AsyncSession]
     registry: ProviderRegistry
     settings: Settings
+    store: EncryptedStore
 
 
 Handler = Callable[[WorkerContext, dict[str, Any]], Awaitable[None]]
