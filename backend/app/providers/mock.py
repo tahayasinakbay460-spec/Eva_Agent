@@ -1,9 +1,36 @@
-"""Zero-cost, network-free LLM adapter used by tests and offline development."""
+"""Zero-cost, network-free adapters used by tests and offline development (§4.2).
+
+They are deterministic so tests can assert on their output. None of them is a
+real safety or quality implementation; the mock moderation keyword list in
+particular exists only to exercise crisis/fraud code paths in tests.
+"""
 
 import asyncio
-from collections.abc import AsyncIterator
+import hashlib
+import itertools
+import math
+from collections.abc import AsyncIterable, AsyncIterator, Sequence
 
-from app.providers.base import LLMEvent, LLMRequest, StreamEnd, TextDelta
+from app.providers.base import (
+    AudioChunk,
+    AvatarSessionRequest,
+    EmbeddingPurpose,
+    EnrollmentSample,
+    FinalTranscript,
+    LLMEvent,
+    LLMRequest,
+    MessageReceipt,
+    ModerationCategory,
+    ModerationDirection,
+    ModerationResult,
+    OutboundMessage,
+    PartialTranscript,
+    ProviderAssetRef,
+    StreamEnd,
+    TextDelta,
+    TranscriptEvent,
+    TTSRequest,
+)
 
 
 class MockLLMProvider:
@@ -26,3 +53,176 @@ class MockLLMProvider:
             input_tokens=sum(len(m.content) for m in request.messages) // 4,
             output_tokens=len(words),
         )
+
+
+class MockSTTProvider:
+    """Treats each audio chunk's bytes as UTF-8 text; the stream end is the end of turn."""
+
+    name = "mock"
+
+    async def transcribe(
+        self, audio: AsyncIterable[AudioChunk], *, language: str
+    ) -> AsyncIterator[TranscriptEvent]:
+        words: list[str] = []
+        async for chunk in audio:
+            words.extend(chunk.data.decode("utf-8", errors="ignore").split())
+            yield PartialTranscript(" ".join(words))
+        yield FinalTranscript(" ".join(words), end_of_turn=True)
+
+
+class MockTTSProvider:
+    """Yields 10 ms of silence per input character, one chunk per text fragment."""
+
+    name = "mock"
+
+    async def synthesize(
+        self, text: AsyncIterable[str], request: TTSRequest
+    ) -> AsyncIterator[AudioChunk]:
+        fmt = request.output
+        bytes_per_10ms = fmt.sample_rate // 100 * 2 * fmt.channels
+        async for fragment in text:
+            if fragment:
+                yield AudioChunk(b"\x00" * bytes_per_10ms * len(fragment), fmt)
+
+
+class _MockEnrollmentStore:
+    def __init__(self, prefix: str) -> None:
+        self._prefix = prefix
+        self._ids = itertools.count(1)
+        self.assets: dict[str, str] = {}
+
+    def create(self, samples: Sequence[EnrollmentSample], label: str) -> ProviderAssetRef:
+        if not samples:
+            raise ValueError("at least one sample is required")
+        asset_id = f"{self._prefix}_{next(self._ids)}"
+        self.assets[asset_id] = label
+        return ProviderAssetRef(provider="mock", asset_id=asset_id)
+
+    def delete(self, asset_id: str) -> None:
+        self.assets.pop(asset_id, None)
+
+
+class MockVoiceEnrollmentProvider:
+    name = "mock"
+
+    def __init__(self) -> None:
+        self._store = _MockEnrollmentStore("voice")
+
+    @property
+    def assets(self) -> dict[str, str]:
+        return self._store.assets
+
+    async def create_voice(
+        self, samples: Sequence[EnrollmentSample], *, label: str
+    ) -> ProviderAssetRef:
+        return self._store.create(samples, label)
+
+    async def delete_voice(self, asset_id: str) -> None:
+        self._store.delete(asset_id)
+
+
+class MockAvatarEnrollmentProvider:
+    name = "mock"
+
+    def __init__(self) -> None:
+        self._store = _MockEnrollmentStore("avatar")
+
+    @property
+    def assets(self) -> dict[str, str]:
+        return self._store.assets
+
+    async def create_avatar(
+        self, samples: Sequence[EnrollmentSample], *, label: str
+    ) -> ProviderAssetRef:
+        return self._store.create(samples, label)
+
+    async def delete_avatar(self, asset_id: str) -> None:
+        self._store.delete(asset_id)
+
+
+class MockAvatarSession:
+    def __init__(self, session_id: str) -> None:
+        self.session_id = session_id
+        self.audio_bytes = 0
+        self.interrupts = 0
+        self.closed = False
+
+    async def send_audio(self, chunk: AudioChunk) -> None:
+        if self.closed:
+            raise RuntimeError("avatar session is closed")
+        self.audio_bytes += len(chunk.data)
+
+    async def interrupt(self) -> None:
+        self.interrupts += 1
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+class MockAvatarProvider:
+    name = "mock"
+
+    def __init__(self) -> None:
+        self._ids = itertools.count(1)
+
+    async def start_session(self, request: AvatarSessionRequest) -> MockAvatarSession:
+        return MockAvatarSession(f"avatar_session_{next(self._ids)}")
+
+
+class MockEmbeddingProvider:
+    """Deterministic unit vectors derived from a hash; equal texts give equal vectors."""
+
+    name = "mock"
+
+    def __init__(self, dimensions: int = 64) -> None:
+        self.dimensions = dimensions
+
+    async def embed(self, texts: Sequence[str], *, purpose: EmbeddingPurpose) -> list[list[float]]:
+        return [self._vector(t) for t in texts]
+
+    def _vector(self, text: str) -> list[float]:
+        digest = b""
+        counter = 0
+        while len(digest) < self.dimensions:
+            digest += hashlib.sha256(f"{counter}:{text}".encode()).digest()
+            counter += 1
+        raw = [b / 255.0 - 0.5 for b in digest[: self.dimensions]]
+        norm = math.sqrt(sum(x * x for x in raw)) or 1.0
+        return [x / norm for x in raw]
+
+
+_MOCK_MODERATION_KEYWORDS: dict[ModerationCategory, tuple[str, ...]] = {
+    "self_harm": ("intihar", "kendimi öldür", "suicide", "kill myself"),
+    "fraud": ("şifreni", "doğrulama kodu", "kart numaran", "iban", "password"),
+}
+
+
+class MockModerationProvider:
+    name = "mock"
+
+    async def classify(
+        self, text: str, *, direction: ModerationDirection, language: str
+    ) -> ModerationResult:
+        lowered = text.casefold()
+        flagged = frozenset(
+            category
+            for category, words in _MOCK_MODERATION_KEYWORDS.items()
+            if any(w in lowered for w in words)
+        )
+        return ModerationResult(flagged=flagged)
+
+
+class MockMessagingProvider:
+    """Keeps sent messages in memory (``outbox``) for tests; nothing leaves the process."""
+
+    name = "mock"
+
+    def __init__(self) -> None:
+        self._ids = itertools.count(1)
+        self.outbox: list[OutboundMessage] = []
+
+    async def send(self, message: OutboundMessage) -> MessageReceipt:
+        if not message.to:
+            raise ValueError("recipient is required")
+        self.outbox.append(message)
+        return MessageReceipt(provider="mock", message_id=f"msg_{next(self._ids)}")

@@ -27,8 +27,12 @@ stt:
 tts:
   realtime: { provider: mock }
   preview: { provider: mock }
+voice_enrollment:
+  default: { provider: mock }
 avatar:
   realtime: { provider: mock }
+avatar_enrollment:
+  default: { provider: mock }
 embedding:
   memory: { provider: mock }
 moderation:
