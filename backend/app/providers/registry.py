@@ -1,7 +1,7 @@
 """``config/providers.yaml``'ı okur ve her özellik için doğru adaptörü verir."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 
@@ -24,6 +24,7 @@ from app.providers.base import (
     VoiceEnrollmentProvider,
 )
 from app.providers.dev_mailbox import DevMailboxMessagingProvider
+from app.providers.elevenlabs import ElevenLabsTTSProvider, ElevenLabsVoiceEnrollmentProvider
 from app.providers.mock import (
     MockAvatarEnrollmentProvider,
     MockAvatarProvider,
@@ -36,6 +37,7 @@ from app.providers.mock import (
     MockVoiceEnrollmentProvider,
 )
 from app.providers.openai_llm import OpenAILLMProvider
+from app.providers.openai_stt import OpenAISTTProvider
 
 # LLM dışındaki arayüzler; anahtar, providers.yaml'daki bölüm adıdır.
 ProviderKind = Literal[
@@ -61,6 +63,8 @@ class LLMFeatureConfig:
 @dataclass(frozen=True, slots=True)
 class FeatureConfig:
     provider: str
+    # Adaptöre verilen ayarlar (ör. ``model_id``); model ID'leri yalnızca config'de durur.
+    options: dict[str, str | int | float | bool] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +111,11 @@ def load_provider_config(path: Path) -> ProviderConfig:
         for feature, item in section.items():
             if not isinstance(item, dict) or "provider" not in item:
                 raise ProviderConfigError(f"{kind}.{feature}: needs 'provider'")
-            parsed[str(feature)] = FeatureConfig(provider=str(item["provider"]))
+            options = {str(k): v for k, v in item.items() if k != "provider"}
+            for key, value in options.items():
+                if not isinstance(value, str | int | float | bool):
+                    raise ProviderConfigError(f"{kind}.{feature}.{key}: must be a scalar")
+            parsed[str(feature)] = FeatureConfig(provider=str(item["provider"]), options=options)
         features[kind] = parsed
     return ProviderConfig(llm=_parse_llm(raw.get("llm"), path), features=features)
 
@@ -118,11 +126,14 @@ _LLM_FACTORIES: dict[str, Callable[[], LLMProvider]] = {
     "openai": OpenAILLMProvider,
 }
 
-# Her §15 kararı verildikçe gerçek adaptörler buraya eklenir; o zamana kadar sadece mock var.
-_FACTORIES: dict[ProviderKind, dict[str, Callable[[], object]]] = {
-    "stt": {"mock": MockSTTProvider},
-    "tts": {"mock": MockTTSProvider},
-    "voice_enrollment": {"mock": MockVoiceEnrollmentProvider},
+# Gerçek adaptörler eklendikçe buraya yazılır. Hangisinin kullanılacağını providers.yaml seçer.
+_FACTORIES: dict[ProviderKind, dict[str, Callable[..., object]]] = {
+    "stt": {"mock": MockSTTProvider, "openai": OpenAISTTProvider},
+    "tts": {"mock": MockTTSProvider, "elevenlabs": ElevenLabsTTSProvider},
+    "voice_enrollment": {
+        "mock": MockVoiceEnrollmentProvider,
+        "elevenlabs": ElevenLabsVoiceEnrollmentProvider,
+    },
     "avatar": {"mock": MockAvatarProvider},
     "avatar_enrollment": {"mock": MockAvatarEnrollmentProvider},
     "embedding": {"mock": MockEmbeddingProvider},
@@ -131,15 +142,24 @@ _FACTORIES: dict[ProviderKind, dict[str, Callable[[], object]]] = {
 }
 
 
-def registered_adapters(kind: ProviderKind) -> list[str]:
-    return sorted(_FACTORIES[kind])
+# İnternete çıkan (gerçek sağlayıcı) adaptörler. Ortak sözleşme testleri bunları ağsız
+# çalıştıramaz; onlar kendi sahte bağlantılı testlerinden ve anahtarla çalışan "integration"
+# testlerinden geçer.
+_NETWORK_ADAPTERS: frozenset[str] = frozenset({"openai", "elevenlabs", "liveavatar"})
 
 
-def create_adapter(kind: ProviderKind, name: str) -> object:
+def registered_adapters(kind: ProviderKind, *, offline_only: bool = False) -> list[str]:
+    names = sorted(_FACTORIES[kind])
+    if offline_only:
+        return [n for n in names if n not in _NETWORK_ADAPTERS]
+    return names
+
+
+def create_adapter(kind: ProviderKind, name: str, **options: object) -> object:
     factory = _FACTORIES[kind].get(name)
     if factory is None:
         raise ProviderConfigError(f"unknown {kind} provider {name!r}")
-    return factory()
+    return factory(**options)
 
 
 class ProviderRegistry:
@@ -155,7 +175,7 @@ class ProviderRegistry:
         # Bir türün tüm özelliklerini tek adaptöre zorla (testler messaging'i "mock"a sabitler).
         self._overrides = {k: v for k, v in (overrides or {}).items() if v}
         self._llm_instances: dict[str, LLMProvider] = {}
-        self._instances: dict[tuple[ProviderKind, str], object] = {}
+        self._instances: dict[tuple[ProviderKind, str, str], object] = {}
 
     def llm(self, feature: str) -> tuple[LLMProvider, LLMFeatureConfig]:
         try:
@@ -183,9 +203,13 @@ class ProviderRegistry:
 
     def _resolve(self, kind: ProviderKind, feature: str) -> object:
         name = self.provider_name(kind, feature)
-        key = (kind, name)
+        # Zorlanmış (override) adaptöre o özelliğin ayarları verilmez; ayarlar asıl adaptör içindir.
+        configured = self._config.features[kind][feature]
+        options = configured.options if configured.provider == name else {}
+        # Aynı adaptör + aynı ayarlar = tek nesne (ör. mock'ların içindeki kayıtlar paylaşılsın).
+        key = (kind, name, repr(sorted(options.items())))
         if key not in self._instances:
-            self._instances[key] = create_adapter(kind, name)
+            self._instances[key] = create_adapter(kind, name, **options)
         return self._instances[key]
 
     def stt(self, feature: str) -> STTProvider:

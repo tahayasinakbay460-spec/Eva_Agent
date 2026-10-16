@@ -23,6 +23,8 @@ dependencies = [
     "email-validator>=2.2",
     "pgvector>=0.4",
     "cryptography>=44",
+    "httpx>=0.27",
+    "websockets>=14",
     "openai>=3.31,<4",
 ]
 

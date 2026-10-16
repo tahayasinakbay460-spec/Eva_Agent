@@ -24,7 +24,11 @@ llm:
     max_tokens: 4096
     effort: medium
 
-# Aşağıdaki arayüzlerin henüz gerçek adaptörü yok (CLAUDE.md §15); mock sayesinde testler geçiyor.
+# Ses. Gerçek adaptörler yazıldı ama anahtar gelene kadar mock seçili. Anahtar gelince:
+#   stt.realtime  -> { provider: openai, model: gpt-live-transcribe }     (OPENAI_API_KEY)
+#   tts.*         -> { provider: elevenlabs, model_id: eleven_flash_v2_5 } (ELEVENLABS_API_KEY)
+#   voice_enrollment.default -> { provider: elevenlabs }
+# STT'nin kesin seçimi Türkçe doğruluk + gecikme testiyle yapılacak (§15).
 stt:
   realtime: { provider: mock }
 tts:

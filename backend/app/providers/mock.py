@@ -14,6 +14,7 @@ from collections.abc import AsyncIterable, AsyncIterator, Sequence
 
 from app.providers.base import (
     AudioChunk,
+    AudioFormat,
     AvatarSessionRequest,
     EmbeddingPurpose,
     EnrollmentSample,
@@ -27,7 +28,9 @@ from app.providers.base import (
     OutboundMessage,
     PartialTranscript,
     ProviderAssetRef,
+    SpeechBoundary,
     StreamEnd,
+    STTInput,
     TextDelta,
     TranscriptEvent,
     TTSRequest,
@@ -56,23 +59,40 @@ class MockLLMProvider:
         )
 
 
+# Gerçek mikrofon sesi metne çevrilemeyince sahte STT'nin "duyduğu" cümle; böylece
+# anahtarsız geliştirmede de sesli görüşmenin bütün hattı uçtan uca çalışır.
+MOCK_HEARD_TEXT = "(mock) Sesini duydum."
+
+
 class MockSTTProvider:
-    """Her ses parçasının baytlarını UTF-8 metin sayar; akışın bitişi turun bitişidir."""
+    """Ses parçası UTF-8 metinse onu "duyar" (testler için); gerçek ses (mikrofon) gelirse
+    sabit bir cümle duymuş sayılır. Her ``SpeechBoundary`` ve akışın bitişi bölümü kapatır."""
 
     name = "mock"
+    input_format = AudioFormat()
 
     async def transcribe(
-        self, audio: AsyncIterable[AudioChunk], *, language: str
+        self, audio: AsyncIterable[STTInput], *, language: str
     ) -> AsyncIterator[TranscriptEvent]:
         words: list[str] = []
-        async for chunk in audio:
-            words.extend(chunk.data.decode("utf-8", errors="ignore").split())
-            yield PartialTranscript(" ".join(words))
-        yield FinalTranscript(" ".join(words), end_of_turn=True)
+        heard_audio = False
+        async for item in audio:
+            if isinstance(item, SpeechBoundary):
+                if words or heard_audio:
+                    yield FinalTranscript(" ".join(words) or MOCK_HEARD_TEXT, end_of_turn=True)
+                words, heard_audio = [], False
+                continue
+            try:
+                words.extend(item.data.decode("utf-8").split())
+                yield PartialTranscript(" ".join(words))
+            except UnicodeDecodeError:
+                heard_audio = True
+        yield FinalTranscript(" ".join(words) or (MOCK_HEARD_TEXT if heard_audio else ""), True)
 
 
 class MockTTSProvider:
-    """Girdideki her karakter için 10 ms sessizlik üretir; her metin parçasına bir ses parçası."""
+    """Her metin parçası için kısık bir "bip" sesi üretir (karakter başına 10 ms, en fazla
+    1,5 sn). Anahtarsız geliştirmede EVA'nın konuştuğu kulakla duyulsun diye sessizlik değil."""
 
     name = "mock"
 
@@ -80,10 +100,23 @@ class MockTTSProvider:
         self, text: AsyncIterable[str], request: TTSRequest
     ) -> AsyncIterator[AudioChunk]:
         fmt = request.output
-        bytes_per_10ms = fmt.sample_rate // 100 * 2 * fmt.channels
         async for fragment in text:
             if fragment:
-                yield AudioChunk(b"\x00" * bytes_per_10ms * len(fragment), fmt)
+                yield AudioChunk(_beep(fmt, min(len(fragment), 150) * 10), fmt)
+
+
+def _beep(fmt: AudioFormat, duration_ms: int) -> bytes:
+    """440 Hz, düşük sesli bir sinüs dalgası (pcm_s16le)."""
+    frames = fmt.sample_rate * duration_ms // 1000
+    mono = b"".join(
+        int(2000 * math.sin(2 * math.pi * 440 * i / fmt.sample_rate)).to_bytes(
+            2, "little", signed=True
+        )
+        for i in range(frames)
+    )
+    if fmt.channels == 1:
+        return mono
+    return b"".join(mono[i : i + 2] * fmt.channels for i in range(0, len(mono), 2))
 
 
 class _MockEnrollmentStore:

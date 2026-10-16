@@ -27,6 +27,8 @@ from app.providers.base import (
     ModerationProvider,
     OutboundMessage,
     PartialTranscript,
+    SpeechBoundary,
+    STTInput,
     STTProvider,
     TTSProvider,
     TTSRequest,
@@ -57,7 +59,7 @@ async def _text(parts: Sequence[str]) -> AsyncIterator[str]:
 # --- STT ----------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("name", registered_adapters("stt"))
+@pytest.mark.parametrize("name", registered_adapters("stt", offline_only=True))
 async def test_stt_contract(name: str) -> None:
     stt = cast(STTProvider, create_adapter("stt", name))
     events = [e async for e in stt.transcribe(_audio(["merhaba", "eva"]), language="tr")]
@@ -67,12 +69,33 @@ async def test_stt_contract(name: str) -> None:
     assert finals, "stream must settle into at least one final transcript"
     assert finals[-1].end_of_turn, "end of audio must close the turn"
     assert events[-1] is finals[-1], "nothing may follow the end-of-turn final"
+    assert stt.input_format.encoding == "pcm_s16le"
+
+
+@pytest.mark.parametrize("name", registered_adapters("stt", offline_only=True))
+async def test_stt_boundary_closes_each_segment(name: str) -> None:
+    """Kullanıcı susunca (VAD) gelen işaret o bölümü hemen kesinleştirir."""
+    stt = cast(STTProvider, create_adapter("stt", name))
+
+    async def audio() -> AsyncIterator[STTInput]:
+        yield AudioChunk(b"merhaba")
+        yield SpeechBoundary()
+        yield AudioChunk(b"nasilsin")
+        yield SpeechBoundary()
+
+    finals = [
+        e
+        async for e in stt.transcribe(audio(), language="tr")
+        if isinstance(e, FinalTranscript) and e.text
+    ]
+    assert [f.text for f in finals] == ["merhaba", "nasilsin"]
+    assert all(f.end_of_turn for f in finals)
 
 
 # --- TTS ----------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("name", registered_adapters("tts"))
+@pytest.mark.parametrize("name", registered_adapters("tts", offline_only=True))
 async def test_tts_contract(name: str) -> None:
     tts = cast(TTSProvider, create_adapter("tts", name))
     fmt = AudioFormat(sample_rate=24_000)
@@ -83,7 +106,7 @@ async def test_tts_contract(name: str) -> None:
     assert all(len(c.data) % 2 == 0 for c in chunks), "pcm_s16le is 2 bytes per sample"
 
 
-@pytest.mark.parametrize("name", registered_adapters("tts"))
+@pytest.mark.parametrize("name", registered_adapters("tts", offline_only=True))
 async def test_tts_cancellation_stops_synthesis(name: str) -> None:
     tts = cast(TTSProvider, create_adapter("tts", name))
     request = TTSRequest(voice_id="v1", language="tr")
@@ -113,7 +136,7 @@ async def test_tts_cancellation_stops_synthesis(name: str) -> None:
 # --- kayıt (rızalı ses / yüz klonu oluşturma) ---------------------------------
 
 
-@pytest.mark.parametrize("name", registered_adapters("voice_enrollment"))
+@pytest.mark.parametrize("name", registered_adapters("voice_enrollment", offline_only=True))
 async def test_voice_enrollment_contract(name: str) -> None:
     provider = cast(VoiceEnrollmentProvider, create_adapter("voice_enrollment", name))
     a = await provider.create_voice(SAMPLES, label="owner")
@@ -127,7 +150,7 @@ async def test_voice_enrollment_contract(name: str) -> None:
         await provider.create_voice((), label="owner")
 
 
-@pytest.mark.parametrize("name", registered_adapters("avatar_enrollment"))
+@pytest.mark.parametrize("name", registered_adapters("avatar_enrollment", offline_only=True))
 async def test_avatar_enrollment_contract(name: str) -> None:
     provider = cast(AvatarEnrollmentProvider, create_adapter("avatar_enrollment", name))
     a = await provider.create_avatar(SAMPLES, label="owner")
@@ -141,7 +164,7 @@ async def test_avatar_enrollment_contract(name: str) -> None:
 # --- avatar -------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("name", registered_adapters("avatar"))
+@pytest.mark.parametrize("name", registered_adapters("avatar", offline_only=True))
 async def test_avatar_session_contract(name: str) -> None:
     provider = cast(AvatarProvider, create_adapter("avatar", name))
     request = AvatarSessionRequest(
@@ -160,7 +183,7 @@ async def test_avatar_session_contract(name: str) -> None:
 # --- embedding (metni sayı vektörüne çevirme) ---------------------------------
 
 
-@pytest.mark.parametrize("name", registered_adapters("embedding"))
+@pytest.mark.parametrize("name", registered_adapters("embedding", offline_only=True))
 async def test_embedding_contract(name: str) -> None:
     provider = cast(EmbeddingProvider, create_adapter("embedding", name))
     texts = ["kahve severim", "kedim Tarçın", "kahve severim"]
@@ -176,7 +199,7 @@ async def test_embedding_contract(name: str) -> None:
 # --- moderasyon (içerik güvenlik denetimi) ------------------------------------
 
 
-@pytest.mark.parametrize("name", registered_adapters("moderation"))
+@pytest.mark.parametrize("name", registered_adapters("moderation", offline_only=True))
 async def test_moderation_contract(name: str) -> None:
     provider = cast(ModerationProvider, create_adapter("moderation", name))
     clean = await provider.classify("Bugün hava çok güzel.", direction="input", language="tr")
@@ -194,7 +217,7 @@ async def test_moderation_contract(name: str) -> None:
 # --- mesaj gönderme (e-posta / SMS) -------------------------------------------
 
 
-@pytest.mark.parametrize("name", registered_adapters("messaging"))
+@pytest.mark.parametrize("name", registered_adapters("messaging", offline_only=True))
 async def test_messaging_contract(name: str) -> None:
     provider = cast(MessagingProvider, create_adapter("messaging", name))
     msg = OutboundMessage(

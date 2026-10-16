@@ -110,13 +110,31 @@ class FinalTranscript:
 TranscriptEvent = PartialTranscript | FinalTranscript
 
 
+@dataclass(frozen=True, slots=True)
+class SpeechBoundary:
+    """Ses akışına konan işaret: "kullanıcı sustu, bu bölümü kesinleştir".
+
+    Tur sonunu (VAD + tur sonu modeli) gerçek zamanlı katman tespit eder; STT kendi tur
+    tespitini yapamıyorsa (ör. OpenAI gpt-live-transcribe) bu işaretle bölümü kapatır.
+    """
+
+
+STTInput = AudioChunk | SpeechBoundary
+
+
 class STTProvider(Protocol):
     name: str
+    # Sağlayıcının istediği ses biçimi; gerçek zamanlı katman sesi buna çevirip (resample) verir.
+    input_format: AudioFormat
 
     def transcribe(
-        self, audio: AsyncIterable[AudioChunk], *, language: str
+        self, audio: AsyncIterable[STTInput], *, language: str
     ) -> AsyncIterator[TranscriptEvent]:
-        """Sesi geldikçe işler; önce ara tahminleri, bölümler kesinleşince son metinleri verir."""
+        """Sesi geldikçe işler; önce ara tahminleri, bölümler kesinleşince son metinleri verir.
+
+        Her ``SpeechBoundary``'den sonra o bölüm için ``end_of_turn=True`` olan bir son
+        metin gelir; akışın bitişi de son bölümü kapatır.
+        """
         ...
 
 
