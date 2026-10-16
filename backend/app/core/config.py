@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     messaging_provider_override: str | None = None
 
     session_ttl_hours: int = 24 * 7
+    # Sohbet bu kadar saniye sessiz kalınca konuşmadan anı çıkarılır (§6.2).
+    memory_extract_idle_s: int = 600
     chat_history_turns: int = 20
 
     # WebAuthn relying party (ADR 0002). The RP ID is the domain passkeys are bound to;

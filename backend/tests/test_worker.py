@@ -15,7 +15,7 @@ from app.database import utcnow
 from app.models.job import Job
 from app.models.memory import MemoryEmbedding
 from app.worker import queue
-from app.worker.handlers import EMBED_MEMORY
+from app.worker.jobs import EMBED_MEMORY
 from app.worker.runner import WorkerContext, drain, handler, run_forever, run_once
 from tests.conftest import build_app, make_settings
 

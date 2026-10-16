@@ -8,9 +8,9 @@ from typing import Any
 from sqlalchemy import delete
 
 from app.models.memory import Memory, MemoryEmbedding
+from app.services import memory_extraction
+from app.worker.jobs import EMBED_MEMORY, EXTRACT_MEMORIES
 from app.worker.runner import WorkerContext, handler
-
-EMBED_MEMORY = "embed_memory"
 
 
 def embedding_text(memory: Memory) -> str:
@@ -41,3 +41,11 @@ async def embed_memory(ctx: WorkerContext, payload: dict[str, Any]) -> None:
             )
         )
         await db.commit()
+
+
+@handler(EXTRACT_MEMORIES)
+async def extract_memories(ctx: WorkerContext, payload: dict[str, Any]) -> None:
+    """Sohbetin işlenmemiş kısmından anı çıkarır (bkz. services/memory_extraction.py)."""
+    conversation_id = uuid.UUID(str(payload["conversation_id"]))
+    async with ctx.session_factory() as db:
+        await memory_extraction.extract(db, ctx.registry, conversation_id)

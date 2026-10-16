@@ -19,6 +19,9 @@ class Conversation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     channel: Mapped[str] = mapped_column(String(8), nullable=False, default="text")
     title: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Bu tarihe kadarki mesajlardan anı çıkarıldı (Faz 1, adım 4). Sonraki çıkarma
+    # sadece bundan yeni mesajlara bakar; aynı şey iki kez anı olmaz.
+    memories_extracted_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
 class Message(UUIDPrimaryKeyMixin, Base):

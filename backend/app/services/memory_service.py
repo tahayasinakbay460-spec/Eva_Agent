@@ -16,7 +16,7 @@ from app.models.persona import Persona
 from app.models.user import User
 from app.services import persona_service
 from app.worker import queue
-from app.worker.handlers import EMBED_MEMORY
+from app.worker.jobs import EMBED_MEMORY
 
 # Bir kullanıcının bir persona için tutabileceği en fazla anı sayısı (kötüye kullanıma karşı).
 MAX_MEMORIES_PER_PERSONA = 5000
@@ -57,7 +57,7 @@ class MemoryPatch:
     sensitivity: str | None = None
 
 
-def _legacy_scope_for(sensitivity: str) -> str:
+def legacy_scope_for(sensitivity: str) -> str:
     # Hassas anılar Miras'a varsayılan olarak girmez; sahibi isterse tek tek ekler (§8.1).
     return "excluded" if sensitivity == "sensitive" else "included"
 
@@ -106,7 +106,7 @@ async def add_memory(
         importance=USER_ADDED_IMPORTANCE if source == "user_added" else 0.5,
         source=source,
         sensitivity=data.sensitivity,
-        legacy_scope=_legacy_scope_for(data.sensitivity),
+        legacy_scope=legacy_scope_for(data.sensitivity),
     )
     db.add(memory)
     await db.flush()
@@ -147,7 +147,7 @@ async def update_memory(
         memory.emotion = patch.emotion
     if patch.sensitivity is not None:
         memory.sensitivity = patch.sensitivity
-        memory.legacy_scope = _legacy_scope_for(patch.sensitivity)
+        memory.legacy_scope = legacy_scope_for(patch.sensitivity)
     if patch.content is not None or patch.people is not None:
         # Metin değişti: eski vektör artık yanlış; yenisini üret.
         await queue.enqueue(db, EMBED_MEMORY, {"memory_id": str(memory.id)})

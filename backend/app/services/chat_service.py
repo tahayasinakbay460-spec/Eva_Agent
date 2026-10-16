@@ -31,7 +31,7 @@ from app.providers.base import (
     TextDelta,
 )
 from app.providers.registry import ProviderRegistry
-from app.services import memory_retrieval, persona_service
+from app.services import memory_extraction, memory_retrieval, persona_service
 
 # --- events emitted to the transport layer --------------------------------------
 
@@ -292,6 +292,11 @@ class ChatService:
         )
         conversation.updated_at = conversation.updated_at  # touch -> onupdate fires
         db.add(conversation)
+        # Sohbet sustuktan sonra anı çıkarma işi; cevapla aynı commit'te (ADR 0003).
+        # İlk token'dan SONRA çalışır, yani cevabın başlama hızını etkilemez.
+        await memory_extraction.schedule(
+            db, conversation, idle_s=self._settings.memory_extract_idle_s
+        )
         await db.commit()
 
 
