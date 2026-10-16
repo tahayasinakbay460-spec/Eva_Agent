@@ -40,3 +40,6 @@ Thumbs.db
 
 # Local databases anywhere (may contain chat history)
 *.db
+
+# LiveKit sunucu programı (indirilir, repoya girmez)
+infra/livekit/bin/

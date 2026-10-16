@@ -229,18 +229,14 @@ npm run lint; npm run typecheck; npm run format:check
 
 **Sesli görüşmeyi denemek için (3 terminal daha):**
 
-1. LiveKit sunucusu (bir kere indir): https://github.com/livekit/livekit/releases adresinden
-   `livekit_..._windows_amd64.zip` dosyasını indir, içindeki `livekit-server.exe`'yi bir klasöre çıkar.
+1. LiveKit sunucusu (kuruldu; program yoksa betik kendisi indirir):
    ```powershell
-   .\livekit-server.exe --dev
+   cd C:\Users\HYPER\Desktop\EVA
+   powershell -ExecutionPolicy Bypass -File infra\livekit\start.ps1
    ```
-2. `backend\.env` dosyasına ekle (lokal sunucunun hazır anahtarları):
-   ```
-   LIVEKIT_URL=ws://localhost:7880
-   LIVEKIT_API_KEY=devkey
-   LIVEKIT_API_SECRET=secret
-   ```
-   Backend'i yeniden başlat.
+2. `backend\.env`'de LiveKit satırları hazır (`LIVEKIT_URL=ws://localhost:7880`, `devkey` / `secret`;
+   bunlar sadece bu bilgisayardaki geliştirme sunucusunun herkesçe bilinen anahtarları).
+   Backend açıksa yeniden başlat.
 3. Ses ajanı:
    ```powershell
    cd C:\Users\HYPER\Desktop\EVA\realtime

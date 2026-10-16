@@ -131,7 +131,8 @@ make infra        # docker compose -f infra/docker-compose.yml up -d  (postgres+
 make api          # cd backend && uv run uvicorn app.main:app --reload --port 8000  (dev'de işçi de içinde döner)
                   # ayrı işçi: cd backend && uv run python -m app.worker  (EVA_WORKER_INPROCESS=false ile)
 make web          # cd frontend && npm run dev   (http://localhost:3000)
-                  # sesli görüşme: livekit-server --dev (ws://localhost:7880, devkey/secret) +
+                  # sesli görüşme: powershell -File infra/livekit/start.ps1 (livekit-server --dev;
+                  #   ws://localhost:7880, devkey/secret) +
                   # cd realtime && uv run python -m livekit.agents download-files  (bir kez)
                   #             && uv run python -m eva_realtime dev
                   # admin yapmak: cd backend && uv run python scripts/make_admin.py <e-posta|ad>
