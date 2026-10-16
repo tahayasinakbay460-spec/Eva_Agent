@@ -8,7 +8,7 @@ aynı türde oturum açacak; değişen yalnızca *giriş* adımı.
 
 import hashlib
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
@@ -78,7 +78,39 @@ async def get_current_user(
     if session is None or session.revoked_at is not None or session.expires_at <= now:
         raise _unauthorized()
     request.state.session_token = credentials.credentials
+    request.state.auth_session_id = session.id
     return session.user
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def step_up_valid_until(session: AuthSession, ttl_s: int) -> datetime | None:
+    """Adım-yukarı doğrulamanın bittiği an; hiç yapılmadıysa ya da süresi geçtiyse None."""
+    if session.step_up_at is None:
+        return None
+    until = session.step_up_at + timedelta(seconds=ttl_s)
+    return until if until > utcnow() else None
+
+
+async def current_auth_session(request: Request, db: AsyncSession) -> AuthSession:
+    session = await db.get(AuthSession, request.state.auth_session_id, populate_existing=True)
+    if session is None:  # pragma: no cover - get_current_user az önce buldu
+        raise _unauthorized()
+    return session
+
+
+async def require_step_up(
+    request: Request,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> User:
+    """Hassas işlemler için (§11.2): bu oturumda kimlik yakın zamanda yeniden doğrulanmış
+    olmalı. Değilse 403 + ``step_up_required``; istemci doğrulama ekranını açar."""
+    session = await current_auth_session(request, db)
+    if step_up_valid_until(session, request.app.state.settings.step_up_ttl_s) is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="step_up_required")
+    return user
+
+
+SteppedUpUser = Annotated[User, Depends(require_step_up)]

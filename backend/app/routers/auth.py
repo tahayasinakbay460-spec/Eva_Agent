@@ -4,15 +4,22 @@ Passkey ile kayıt/giriş (ADR 0002) de öncekiyle aynı opak oturum token'ını
 ``/auth/dev-login`` yalnızca ``EVA_ENV`` dev/test iken vardır.
 """
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ratelimit import rate_limited
-from app.core.security import CurrentUser, issue_session, revoke_session
-from app.database import get_db
+from app.core.security import (
+    CurrentUser,
+    current_auth_session,
+    issue_session,
+    revoke_session,
+    step_up_valid_until,
+)
+from app.database import get_db, utcnow
+from app.models.auth import Passkey
 from app.models.user import User
 from app.schemas.auth import (
     CodeFlowOut,
@@ -25,6 +32,8 @@ from app.schemas.auth import (
     PasswordResetRequest,
     PasswordResetVerifyRequest,
     PasswordSignUpRequest,
+    StepUpPasswordRequest,
+    StepUpStatusOut,
     TokenOut,
     UserOut,
 )
@@ -198,3 +207,81 @@ async def password_reset_verify(request: Request, body: PasswordResetVerifyReque
         raise _weak_password() from exc
     except auth_service.AuthFailedError as exc:
         raise _auth_failed() from exc
+
+
+# --- adım-yukarı doğrulama (§11.2) ------------------------------------------------
+# Hassas işlemden önce (ses/yüz kaydı, rıza değişikliği, Miras anahtarı...) kullanıcı bu
+# oturumda kimliğini yeniden doğrular. Başarılı olunca oturuma bir zaman damgası yazılır;
+# ``require_step_up`` bağımlılığı o damganın taze olmasını ister.
+
+
+async def _step_up_status(request: Request, user: User, db: AsyncSession) -> StepUpStatusOut:
+    session = await current_auth_session(request, db)
+    has_passkey = await db.scalar(select(Passkey.id).where(Passkey.user_id == user.id).limit(1))
+    methods: list[Literal["passkey", "password"]] = []
+    if has_passkey is not None:
+        methods.append("passkey")
+    if user.email is not None and user.password_hash is not None:
+        methods.append("password")
+    return StepUpStatusOut(
+        valid_until=step_up_valid_until(session, request.app.state.settings.step_up_ttl_s),
+        methods=methods,
+    )
+
+
+async def _mark_stepped_up(request: Request, user: User, db: AsyncSession) -> StepUpStatusOut:
+    session = await current_auth_session(request, db)
+    session.step_up_at = utcnow()
+    await db.commit()
+    return await _step_up_status(request, user, db)
+
+
+@router.get("/step-up", response_model=StepUpStatusOut)
+async def step_up_status(request: Request, user: CurrentUser, db: DB) -> StepUpStatusOut:
+    return await _step_up_status(request, user, db)
+
+
+@router.post("/step-up/passkey/options", response_model=PasskeyOptionsOut, dependencies=AUTH_LIMIT)
+async def step_up_passkey_options(request: Request, user: CurrentUser, db: DB) -> PasskeyOptionsOut:
+    try:
+        ceremony = await auth_service.begin_step_up(db, request.app.state.settings, user)
+    except auth_service.AuthFailedError as exc:
+        raise _auth_failed() from exc
+    return PasskeyOptionsOut(flow_id=ceremony.flow_id, options=ceremony.options)
+
+
+@router.post("/step-up/passkey/verify", response_model=StepUpStatusOut, dependencies=AUTH_LIMIT)
+async def step_up_passkey_verify(
+    request: Request, body: PasskeyVerifyRequest, user: CurrentUser, db: DB
+) -> StepUpStatusOut:
+    try:
+        await auth_service.finish_step_up(
+            db, request.app.state.settings, user, body.flow_id, body.credential
+        )
+    except auth_service.AuthFailedError as exc:
+        raise _auth_failed() from exc
+    return await _mark_stepped_up(request, user, db)
+
+
+@router.post("/step-up/password", response_model=CodeFlowOut, dependencies=AUTH_LIMIT)
+async def step_up_password(
+    request: Request, body: StepUpPasswordRequest, user: CurrentUser, db: DB
+) -> CodeFlowOut:
+    try:
+        flow_id = await password_auth_service.start_step_up(
+            db, _password_deps(request), user, body.password
+        )
+    except auth_service.AuthFailedError as exc:
+        raise _auth_failed() from exc
+    return CodeFlowOut(flow_id=flow_id)
+
+
+@router.post("/step-up/password/verify", response_model=StepUpStatusOut, dependencies=AUTH_LIMIT)
+async def step_up_password_verify(
+    request: Request, body: CodeVerifyRequest, user: CurrentUser, db: DB
+) -> StepUpStatusOut:
+    try:
+        await password_auth_service.finish_step_up(db, user, body.flow_id, body.code)
+    except auth_service.AuthFailedError as exc:
+        raise _auth_failed() from exc
+    return await _mark_stepped_up(request, user, db)

@@ -33,7 +33,7 @@ from app.models.user import User
 from app.providers.base import MessageTemplate, MessagingProvider, OutboundMessage
 from app.services.auth_service import AuthFailedError
 
-Purpose = Literal["signup", "login", "reset"]
+Purpose = Literal["signup", "login", "reset", "step_up"]
 
 CODE_TTL = timedelta(minutes=10)
 MAX_ATTEMPTS = 5
@@ -338,3 +338,32 @@ async def finish_reset(
     await _send(
         deps, email=flow.email, locale=user.locale, template="password_changed", limited=False
     )
+
+
+# --- adım-yukarı doğrulama (§11.2) ------------------------------------------------
+
+
+async def start_step_up(db: AsyncSession, deps: Deps, user: User, password: str) -> uuid.UUID:
+    """Giriş yapmış kullanıcının şifresini yeniden sorar, sonra e-postasına kod gönderir
+    (yani hassas işlem için yine iki kilit: şifre + e-posta)."""
+    if user.email is None or user.password_hash is None:
+        raise AuthFailedError("user has no password")
+    if not await _verify_password(user.password_hash, password):
+        raise AuthFailedError("wrong password")
+    return await _issue(
+        db,
+        deps,
+        purpose="step_up",
+        email=user.email,
+        locale=user.locale,
+        user_id=user.id,
+        template="step_up_code",
+    )
+
+
+async def finish_step_up(db: AsyncSession, user: User, flow_id: uuid.UUID, code: str) -> None:
+    row = await db.get(AuthCode, flow_id)
+    # Başkasının akışına kod denemek, o akışın deneme hakkını bile harcamasın.
+    if row is None or row.user_id != user.id:
+        raise AuthFailedError("flow belongs to another user")
+    await _check(db, flow_id, "step_up", code)

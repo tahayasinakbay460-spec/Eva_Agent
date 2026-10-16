@@ -34,6 +34,12 @@ _TEXTS: dict[str, dict[MessageTemplate, tuple[str, str]]] = {
             "Kod 10 dakika geçerli. Bu isteği sen yapmadıysan bu e-postayı yok say; "
             "şifren değişmez.",
         ),
+        "step_up_code": (
+            "EVA onay kodun: {code}",
+            "Hassas bir işlem için kimliğini doğrulaman istendi (ör. ses ya da yüz kaydı). "
+            "Onaylamak için bu kodu gir: {code}\n\n"
+            "Kod 10 dakika geçerli. Bunu sen yapmadıysan şifreni hemen değiştir.",
+        ),
         "account_exists": (
             "EVA hesabın zaten var",
             "Bu e-posta adresiyle yeni bir EVA hesabı açılmak istendi, ama zaten bir hesabın "
@@ -62,6 +68,12 @@ _TEXTS: dict[str, dict[MessageTemplate, tuple[str, str]]] = {
             "Enter this code to reset your password: {code}\n\n"
             "The code is valid for 10 minutes. If you did not ask for this, ignore this "
             "email; your password stays the same.",
+        ),
+        "step_up_code": (
+            "Your EVA confirmation code: {code}",
+            "You were asked to confirm it's you for a sensitive action (such as voice or face "
+            "enrollment). Enter this code to confirm: {code}\n\n"
+            "The code is valid for 10 minutes. If this wasn't you, change your password now.",
         ),
         "account_exists": (
             "You already have an EVA account",

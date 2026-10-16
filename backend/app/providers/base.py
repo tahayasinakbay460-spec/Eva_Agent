@@ -277,6 +277,7 @@ MessageTemplate = Literal[
     "password_reset_code",
     "account_exists",
     "password_changed",
+    "step_up_code",
     "legacy_key_delivery",
     "legacy_key_used",
 ]

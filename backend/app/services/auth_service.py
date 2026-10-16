@@ -32,6 +32,7 @@ from webauthn.helpers import parse_authentication_credential_json
 from webauthn.helpers.exceptions import WebAuthnException
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
+    PublicKeyCredentialDescriptor,
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
@@ -43,6 +44,7 @@ from app.models.user import User
 
 PURPOSE_REGISTER = "register"
 PURPOSE_LOGIN = "login"
+PURPOSE_STEP_UP = "step_up"
 
 
 class AuthFailedError(Exception):
@@ -71,6 +73,7 @@ async def _new_challenge(
     purpose: str,
     challenge: bytes,
     payload: dict[str, Any] | None = None,
+    user_id: uuid.UUID | None = None,
 ) -> uuid.UUID:
     now = utcnow()
     # Fırsat bulmuşken süresi dolanları sil; böylece zamanlanmış bir işe gerek kalmadan
@@ -79,6 +82,7 @@ async def _new_challenge(
     row = AuthChallenge(
         purpose=purpose,
         challenge=challenge,
+        user_id=user_id,
         payload=payload or {},
         expires_at=now + timedelta(seconds=settings.auth_challenge_ttl_s),
     )
@@ -253,3 +257,61 @@ async def finish_login(
     passkey.last_used_at = utcnow()
     await db.commit()
     return user
+
+
+# --- adım-yukarı doğrulama (§11.2) ------------------------------------------------
+
+
+async def begin_step_up(db: AsyncSession, settings: Settings, user: User) -> CeremonyOptions:
+    """Giriş yapmış kullanıcıdan passkey'iyle yeniden onay ister. Akış bu kullanıcıya
+    bağlanır; başka birinin passkey'i bu akışı bitiremez."""
+    result = await db.execute(select(Passkey.credential_id).where(Passkey.user_id == user.id))
+    credential_ids = list(result.scalars().all())
+    if not credential_ids:
+        raise AuthFailedError("user has no passkey")
+    options = generate_authentication_options(
+        rp_id=settings.webauthn_rp_id,
+        allow_credentials=[PublicKeyCredentialDescriptor(id=cid) for cid in credential_ids],
+        user_verification=UserVerificationRequirement.REQUIRED,
+    )
+    flow_id = await _new_challenge(
+        db, settings, purpose=PURPOSE_STEP_UP, challenge=options.challenge, user_id=user.id
+    )
+    return CeremonyOptions(flow_id, _options_dict(options))
+
+
+async def finish_step_up(
+    db: AsyncSession,
+    settings: Settings,
+    user: User,
+    flow_id: uuid.UUID,
+    credential: dict[str, Any],
+) -> None:
+    flow = await _consume_challenge(db, flow_id, PURPOSE_STEP_UP)
+    if flow.user_id != user.id:
+        raise AuthFailedError("flow belongs to another user")
+    try:
+        parsed = parse_authentication_credential_json(credential)
+    except WebAuthnException as exc:
+        raise AuthFailedError("malformed credential") from exc
+    result = await db.execute(
+        select(Passkey).where(Passkey.credential_id == parsed.raw_id, Passkey.user_id == user.id)
+    )
+    passkey = result.scalar_one_or_none()
+    if passkey is None:
+        raise AuthFailedError("credential is not this user's")
+    try:
+        verified = verify_authentication_response(
+            credential=parsed,
+            expected_challenge=flow.challenge,
+            expected_rp_id=settings.webauthn_rp_id,
+            expected_origin=settings.webauthn_origins,
+            credential_public_key=passkey.public_key,
+            credential_current_sign_count=passkey.sign_count,
+            require_user_verification=True,
+        )
+    except WebAuthnException as exc:
+        raise AuthFailedError(f"assertion rejected: {type(exc).__name__}") from exc
+    passkey.sign_count = verified.new_sign_count
+    passkey.last_used_at = utcnow()
+    await db.commit()

@@ -20,5 +20,8 @@ class AuthSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Kullanıcı bu oturumda en son ne zaman kimliğini yeniden doğruladı (adım-yukarı, §11.2).
+    # Hassas işlemler (ses/yüz kaydı, rıza değişikliği...) bunun yakın zamanda olmasını ister.
+    step_up_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
     user: Mapped[User] = relationship(lazy="joined")

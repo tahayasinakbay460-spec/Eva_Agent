@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field
@@ -90,3 +91,17 @@ class PasswordResetVerifyRequest(BaseModel):
     flow_id: uuid.UUID
     code: Code
     new_password: NewPassword
+
+
+# --- adım-yukarı doğrulama (§11.2) ------------------------------------------------
+
+
+class StepUpStatusOut(BaseModel):
+    """Bu oturumda hassas işlem yapılabilir mi, ve kullanıcı hangi yöntemlerle onaylayabilir."""
+
+    valid_until: datetime | None
+    methods: list[Literal["passkey", "password"]]
+
+
+class StepUpPasswordRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=128)

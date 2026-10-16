@@ -496,6 +496,196 @@
         }
       }
     },
+    "/auth/step-up": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Step Up Status",
+        "operationId": "step_up_status_auth_step_up_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepUpStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/step-up/passkey/options": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Step Up Passkey Options",
+        "operationId": "step_up_passkey_options_auth_step_up_passkey_options_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptionsOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/step-up/passkey/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Step Up Passkey Verify",
+        "operationId": "step_up_passkey_verify_auth_step_up_passkey_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepUpStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/step-up/password": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Step Up Password",
+        "operationId": "step_up_password_auth_step_up_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepUpPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeFlowOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/step-up/password/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Step Up Password Verify",
+        "operationId": "step_up_password_verify_auth_step_up_password_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepUpStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/personas": {
       "get": {
         "tags": [
@@ -1906,6 +2096,55 @@
           "idempotency_key"
         ],
         "title": "SendMessageRequest"
+      },
+      "StepUpPasswordRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "StepUpPasswordRequest"
+      },
+      "StepUpStatusOut": {
+        "properties": {
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "methods": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "passkey",
+                "password"
+              ]
+            },
+            "type": "array",
+            "title": "Methods"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid_until",
+          "methods"
+        ],
+        "title": "StepUpStatusOut",
+        "description": "Bu oturumda hassas işlem yapılabilir mi, ve kullanıcı hangi yöntemlerle onaylayabilir."
       },
       "TokenOut": {
         "properties": {

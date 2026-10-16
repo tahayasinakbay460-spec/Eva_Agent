@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     webauthn_rp_name: str = "EVA"
     webauthn_origins: list[str] = ["http://localhost:3000"]
     auth_challenge_ttl_s: int = 300
+    # Adım-yukarı doğrulama (§11.2) bu kadar saniye geçerli, sonra yeniden sorulur.
+    step_up_ttl_s: int = 600
 
     rate_limit_auth_per_minute: int = 10
     rate_limit_chat_per_minute: int = 30

@@ -66,3 +66,21 @@ hassastır). Sınırlar: tarayıcı ↔ API, API ↔ model (sohbet ve anı çık
 
 Açık maddeler: hesap silme ve veri dışa aktarma (adım-yukarı doğrulama gelince), kullanıcı
 başına veri anahtarıyla şifreleme (§11.4), Postgres Row-Level Security (§11.2).
+
+## 4. Adım-yukarı doğrulama (step-up) — 2026-10-16
+
+Hassas işlemlerden önce (ses/yüz kaydı, rıza değişikliği, Miras anahtarı, veri dışa aktarma,
+hesap silme; §11.2) kullanıcı **o oturumda** kimliğini yeniden doğrular. Başarılı olunca
+oturum satırına `step_up_at` yazılır; `require_step_up` 10 dakikadan (`EVA_STEP_UP_TTL_S`)
+eski onayı kabul etmez. Yöntemler: passkey (yalnızca kullanıcının kendi passkey'leri
+`allowCredentials` ile istenir) ya da şifre + e-postaya gelen kod.
+
+| STRIDE | Tehdit | Önlem | Test |
+|---|---|---|---|
+| Kimlik sahtekârlığı | Çalınmış oturum token'ıyla hassas işlem | Token tek başına yetmez; passkey (UV zorunlu) ya da şifre + e-posta kodu gerekir | `test_sensitive_endpoint_requires_fresh_step_up` |
+| Kimlik sahtekârlığı | Başka bir cihazdaki onayı kullanmak | Onay oturuma bağlı, kullanıcıya değil | `test_step_up_is_per_session` |
+| Kimlik sahtekârlığı | Başkasının passkey'iyle onay | Akış kullanıcıya bağlı; passkey `user_id` ile aranır | `test_another_users_passkey_cannot_step_up`, `test_step_up_flow_cannot_be_used_by_another_user` |
+| Kurcalama | Giriş akışını adım-yukarı için kullanmak / akışı tekrar oynatmak | Akış amacı (`step_up`) saklanır; tek kullanımlık | `test_login_flow_cannot_be_used_for_step_up`, `test_step_up_flow_is_single_use` |
+| Kurcalama | Başkasının kod akışına deneme yapıp hakkını harcamak | Akış sahibi kontrolü deneme sayılmadan önce | `test_password_step_up_code_is_bound_to_the_user` |
+| Yetki yükseltme | Eski bir onayın süresiz geçerli kalması | 10 dk sonra yeniden sorulur | `test_step_up_expires` |
+| Hizmet engelleme | Kod/passkey denemeleriyle kaba kuvvet | Tüm uçlarda auth istek sınırı; kodda 5 deneme | (mevcut testler) |
