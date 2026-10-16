@@ -1,14 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  me,
-  passkeyLogin,
-  passkeySignUp,
-  tokenStore,
-  type SignUpForm,
-  type User,
-} from "@/lib/api/client";
+import { me, tokenStore, type User } from "@/lib/api/client";
 
 export type SessionState =
   | { status: "loading" }
@@ -16,11 +9,10 @@ export type SessionState =
   | { status: "ready"; user: User }
   | { status: "offline"; message: string };
 
-/** Restores the stored session, or lets the user sign up / sign in with a passkey. */
+/** Restores the stored session; the auth screen reports a fresh sign-in via `signedIn`. */
 export function useSession(): {
   state: SessionState;
-  signUp: (form: SignUpForm) => Promise<void>;
-  signIn: () => Promise<void>;
+  signedIn: (user: User) => void;
   retry: () => void;
 } {
   const [state, setState] = useState<SessionState>({ status: "loading" });
@@ -52,17 +44,8 @@ export function useSession(): {
     };
   }, [attempt]);
 
-  const signUp = useCallback(async (form: SignUpForm) => {
-    const user = await passkeySignUp(form);
-    setState({ status: "ready", user });
-  }, []);
-
-  const signIn = useCallback(async () => {
-    const user = await passkeyLogin();
-    setState({ status: "ready", user });
-  }, []);
-
+  const signedIn = useCallback((user: User) => setState({ status: "ready", user }), []);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
-  return { state, signUp, signIn, retry };
+  return { state, signedIn, retry };
 }

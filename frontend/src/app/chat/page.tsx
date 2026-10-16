@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Onboarding } from "@/components/Onboarding";
+import { AuthScreen } from "@/components/auth/AuthScreen";
 import { ArrowLeft, SendIcon } from "@/components/icons";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
@@ -21,8 +21,8 @@ const CONVERSATION_KEY = "eva.conversation";
 type Bubble = Pick<Message, "id" | "role" | "content" | "interrupted"> & { pending?: boolean };
 
 export default function ChatPage() {
-  const { state, signUp, signIn } = useSession();
-  if (state.status === "needs_onboarding") return <Onboarding signUp={signUp} signIn={signIn} />;
+  const { state, signedIn } = useSession();
+  if (state.status === "needs_onboarding") return <AuthScreen onSignedIn={signedIn} />;
   if (state.status !== "ready") return null;
   return <Chat />;
 }

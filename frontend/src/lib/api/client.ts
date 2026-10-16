@@ -100,6 +100,39 @@ export async function passkeyLogin(): Promise<User> {
   return finishPasskey("/auth/passkey/login/verify", flow, credential);
 }
 
+/* Email + password: every step that sends a code returns a flow; the code finishes it. */
+
+export type PasswordSignUpForm = Schemas["PasswordSignUpRequest"];
+export type CodeFlow = Schemas["CodeFlowOut"];
+
+const post = <T>(path: string, body: unknown) =>
+  request<T>(path, { method: "POST", body: JSON.stringify(body) });
+
+async function finishWithCode(path: string, flowId: string, code: string): Promise<User> {
+  const out = await post<Schemas["TokenOut"]>(path, { flow_id: flowId, code });
+  tokenStore.set(out.access_token);
+  return out.user;
+}
+
+export const passwordSignUpStart = (form: PasswordSignUpForm) =>
+  post<CodeFlow>("/auth/password/register", form);
+export const passwordSignUpFinish = (flowId: string, code: string) =>
+  finishWithCode("/auth/password/register/verify", flowId, code);
+
+export const passwordLoginStart = (email: string, password: string) =>
+  post<CodeFlow>("/auth/password/login", { email, password });
+export const passwordLoginFinish = (flowId: string, code: string) =>
+  finishWithCode("/auth/password/login/verify", flowId, code);
+
+export const passwordResetStart = (email: string, locale: PasswordSignUpForm["locale"]) =>
+  post<CodeFlow>("/auth/password/reset", { email, locale });
+export const passwordResetFinish = (flowId: string, code: string, newPassword: string) =>
+  post<void>("/auth/password/reset/verify", {
+    flow_id: flowId,
+    code,
+    new_password: newPassword,
+  });
+
 export const me = () => request<User>("/auth/me");
 export const listConversations = () => request<Conversation[]>("/chat/conversations");
 export const createConversation = () =>

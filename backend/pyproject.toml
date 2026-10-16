@@ -19,7 +19,6 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1.30",
     "sentry-sdk>=2.20",
     "webauthn>=2.5",
-    "pyotp>=2.9",
     "argon2-cffi>=23.1",
     "email-validator>=2.2",
 ]

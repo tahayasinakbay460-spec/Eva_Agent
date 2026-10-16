@@ -20,11 +20,26 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 
 **Testler:** 41 → 63, hepsi geçiyor.
 
+### Sonra: e-posta + şifre ile giriş (senin kararın)
+
+Kayıt ekranında artık iki seçenek var: **Passkey (önerilen)** ya da **E-posta + şifre**.
+
+- Şifreyle girişte, şifreden sonra **e-postana 6 haneli bir kod** geliyor. Çünkü tek başına şifre tek kilit; CLAUDE.md iki kilit istiyor. İleride bu ikinci adım doğrulama uygulaması ya da SMS ile değiştirilebilir, sistem buna göre kuruldu.
+- Hesap, e-postadaki kod girilince açılıyor; böylece kimse başkasının e-postasıyla hesap açamıyor.
+- **Şifremi unuttum:** e-postana kod gelir, yeni şifreni belirlersin, tüm cihazlardaki oturumların kapanır.
+- Şifreler veritabanında **Argon2id** ile saklanıyor: şifrenin kendisi değil, geri çevrilemeyen bir özeti.
+- Kötü niyetli birine "bu e-posta kayıtlı mı" bilgisi verilmiyor: kayıtlı e-postayla tekrar kayıt olunmaya çalışılırsa ekran aynı görünüyor, gerçek sahibine "hesabın zaten var" maili gidiyor.
+- Kod tahminine karşı: kod 10 dakika geçerli, en fazla 5 deneme hakkı var, tek kullanımlık.
+
+**E-posta servisi henüz seçilmedi**, o yüzden mailler gerçekten gitmiyor. Bilgisayarında `backend\dev_mailbox\` klasörüne dosya olarak düşüyor. Kod lazım olunca o klasördeki **en yeni dosyayı** aç. Ekranda da bu ipucu yazıyor (sadece geliştirme modunda).
+
+**Testler:** 63 → 86. Tarayıcıda da baştan sona denendi: şifreyle kayıt, yanlış kod, yanlış şifre, kodla giriş, şifre sıfırlama, yeni şifreyle giriş. Passkey akışı da tekrar denendi, bozulmadı.
+
 ### Faz 0'ın durumu
 
 Çıkış kriteri ("CI yeşil; mock'larla uçtan uca sohbet çalışıyor") **karşılandı**. Giriş tarafında kalanlar, sırayla:
 
-1. Telefon/bilgisayar değişirse diye **yedek giriş**: doğrulama uygulaması kodu (TOTP) + kurtarma kodları.
+1. ~~Yedek giriş~~ → kısmen çözüldü: artık e-posta + şifre ve "Şifremi unuttum" var. Kalan: passkey'li hesaba sonradan şifre eklemek (ve tersi), kurtarma kodları.
 2. Oturum anahtarının daha güvenli saklanması (kısa ömürlü anahtar + yenileme, httpOnly çerez).
 3. Hassas işlemlerde (Miras, ses kaydı vb.) tekrar parmak izi isteme (step-up).
 4. "Açık oturumlarım / cihazlarım" ekranı.

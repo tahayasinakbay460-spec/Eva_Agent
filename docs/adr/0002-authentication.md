@@ -50,6 +50,8 @@ later with TOTP or SMS without changing the flow shape: the API answers
 - Email is the login name, stored lower-case; the account is created only after the
   emailed code is entered.
 - Passwords: 10–128 characters, Argon2id via `argon2-cffi`.
+- `pyotp` is not used for now (the second factor is the emailed code); it returns if
+  TOTP is added as a second-factor option.
 - Until an email provider is chosen (§15), dev emails are written to
   `backend/dev_mailbox/`; the app refuses to start in staging/prod with that adapter.
 - Threats and mitigations: docs/threat-model.md §2. Residual risk: whoever controls the

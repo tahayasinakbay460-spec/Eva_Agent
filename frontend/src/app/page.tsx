@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
-import { Onboarding } from "@/components/Onboarding";
+import { AuthScreen } from "@/components/auth/AuthScreen";
 import {
   ChatIcon,
   ChevronRight,
@@ -22,10 +22,10 @@ import { listConversations, listMessages, type Message } from "@/lib/api/client"
 const t = messages();
 
 export default function HomePage() {
-  const { state, signUp, signIn, retry } = useSession();
+  const { state, signedIn, retry } = useSession();
 
   if (state.status === "loading") return <Splash />;
-  if (state.status === "needs_onboarding") return <Onboarding signUp={signUp} signIn={signIn} />;
+  if (state.status === "needs_onboarding") return <AuthScreen onSignedIn={signedIn} />;
   if (state.status === "offline") return <Offline message={state.message} onRetry={retry} />;
 
   const firstName = state.user.display_name.split(" ")[0];
