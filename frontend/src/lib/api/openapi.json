@@ -1194,10 +1194,331 @@
           }
         }
       }
+    },
+    "/voice/calls": {
+      "post": {
+        "tags": [
+          "voice"
+        ],
+        "summary": "Start Call",
+        "operationId": "start_call_voice_calls_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "voice_not_configured"
+          },
+          "429": {
+            "description": "quota"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/voice/calls/{call_id}": {
+      "get": {
+        "tags": [
+          "voice"
+        ],
+        "summary": "Get Call",
+        "operationId": "get_call_voice_calls__call_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Call Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/voice/calls/{call_id}/end": {
+      "post": {
+        "tags": [
+          "voice"
+        ],
+        "summary": "End Call",
+        "operationId": "end_call_voice_calls__call_id__end_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Call Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/voice/latency": {
+      "get": {
+        "tags": [
+          "voice"
+        ],
+        "summary": "Latency Report",
+        "operationId": "latency_report_voice_latency_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LatencyReportOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
     "schemas": {
+      "CallCreate": {
+        "properties": {
+          "persona_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "video"
+            ],
+            "title": "Mode",
+            "default": "voice"
+          }
+        },
+        "type": "object",
+        "title": "CallCreate"
+      },
+      "CallOut": {
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Call Id"
+          },
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Conversation Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "video"
+            ],
+            "title": "Mode"
+          },
+          "livekit_url": {
+            "type": "string",
+            "title": "Livekit Url"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "max_duration_s": {
+            "type": "integer",
+            "title": "Max Duration S"
+          },
+          "idle_timeout_s": {
+            "type": "integer",
+            "title": "Idle Timeout S"
+          }
+        },
+        "type": "object",
+        "required": [
+          "call_id",
+          "conversation_id",
+          "mode",
+          "livekit_url",
+          "token",
+          "max_duration_s",
+          "idle_timeout_s"
+        ],
+        "title": "CallOut",
+        "description": "Tarayıcının LiveKit odasına katılması için gereken her şey. Token kısa ömürlü ve\nyalnızca bu odaya, yalnızca mikrofon yayınına izin verir."
+      },
+      "CallStatusOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "video"
+            ],
+            "title": "Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "active",
+              "ended"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "mode",
+          "status",
+          "created_at",
+          "started_at",
+          "ended_at",
+          "end_reason"
+        ],
+        "title": "CallStatusOut"
+      },
       "CodeFlowOut": {
         "properties": {
           "flow_id": {
@@ -1364,6 +1685,42 @@
           "version"
         ],
         "title": "HealthOut"
+      },
+      "LatencyReportOut": {
+        "properties": {
+          "stages": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StageSummaryOut"
+            },
+            "type": "object",
+            "title": "Stages"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/TurnLatencyOut"
+            },
+            "type": "array",
+            "title": "Turns"
+          },
+          "targets_ms": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Targets Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stages",
+          "turns",
+          "targets_ms"
+        ],
+        "title": "LatencyReportOut",
+        "description": "Gecikme panosu (§4.4): son turların aşama süreleri ve p50/p95 özetleri."
       },
       "MemoryCreate": {
         "properties": {
@@ -2097,6 +2454,43 @@
         ],
         "title": "SendMessageRequest"
       },
+      "StageSummaryOut": {
+        "properties": {
+          "p50": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P50"
+          },
+          "p95": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "p50",
+          "p95",
+          "count"
+        ],
+        "title": "StageSummaryOut"
+      },
       "StepUpPasswordRequest": {
         "properties": {
           "password": {
@@ -2167,6 +2561,103 @@
           "user"
         ],
         "title": "TokenOut"
+      },
+      "TurnLatencyOut": {
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Call Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "interrupted": {
+            "type": "boolean",
+            "title": "Interrupted"
+          },
+          "e2e_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "E2E Ms"
+          },
+          "end_of_turn_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Of Turn Ms"
+          },
+          "stt_final_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stt Final Ms"
+          },
+          "llm_ttft_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Ttft Ms"
+          },
+          "tts_ttfb_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Ttfb Ms"
+          },
+          "avatar_first_frame_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar First Frame Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "call_id",
+          "created_at",
+          "interrupted",
+          "e2e_ms",
+          "end_of_turn_ms",
+          "stt_final_ms",
+          "llm_ttft_ms",
+          "tts_ttfb_ms",
+          "avatar_first_frame_ms"
+        ],
+        "title": "TurnLatencyOut"
       },
       "UserOut": {
         "properties": {

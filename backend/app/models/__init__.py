@@ -1,6 +1,7 @@
 """ORM modelleri. Alembic autogenerate tüm tabloları görsün diye hepsi burada import edilir."""
 
 from app.models.auth import AuthChallenge, AuthCode, Passkey
+from app.models.call import CallSession, TurnLatency
 from app.models.conversation import Conversation, Message
 from app.models.job import Job
 from app.models.memory import Memory, MemoryEmbedding
@@ -13,6 +14,7 @@ __all__ = [
     "AuthChallenge",
     "AuthCode",
     "AuthSession",
+    "CallSession",
     "Conversation",
     "Job",
     "Memory",
@@ -20,6 +22,7 @@ __all__ = [
     "Message",
     "Passkey",
     "Persona",
+    "TurnLatency",
     "User",
     "UserDataKey",
 ]

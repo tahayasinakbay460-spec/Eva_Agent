@@ -19,7 +19,7 @@ from app.core.telemetry import setup_telemetry
 from app.database import create_engine, create_session_factory
 from app.persona.compiler import PersonaCompiler
 from app.providers.registry import ProviderRegistry, build_registry
-from app.routers import auth, chat, health, memories, personas
+from app.routers import auth, chat, health, memories, personas, voice
 from app.services import persona_service
 from app.services.chat_service import ChatService
 from app.storage.factory import build_encrypted_store, check_storage
@@ -107,6 +107,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(personas.router)
     app.include_router(chat.router)
     app.include_router(memories.router)
+    app.include_router(voice.router)
     return app
 
 

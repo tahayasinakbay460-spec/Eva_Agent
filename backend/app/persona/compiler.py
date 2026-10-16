@@ -6,8 +6,9 @@ hem daha hızlı hem daha ucuz olur.
   1. güvenlik çekirdeği     (önbelleğe alınabilir)
   2. persona tanımı         (önbelleğe alınabilir)
   3. kanon anılar           (önbelleğe alınabilir)
-  4. ilişki durumu          (değişken)
-  5. getirilen anılar       (değişken)
+  4. kanal notu             (önbelleğe alınabilir; sesli görüşmede "konuşur gibi kısa cevap")
+  5. ilişki durumu          (değişken)
+  6. getirilen anılar       (değişken)
 Konuşmanın kendisi sistem bloğu olarak değil, mesajlar olarak gönderilir.
 
 Kullanıcının yazdığı metin kaçışlanır (escape) ve veri etiketlerine sarılır; asla talimata
@@ -16,6 +17,7 @@ dönüşemez.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from app.persona.safety_core import SAFETY_CORE
 from app.persona.types import PersonaDefinition, RelationshipState
@@ -39,6 +41,18 @@ _STAGE_NOTES: dict[str, str] = {
 }
 
 
+Channel = Literal["text", "voice"]
+
+# Sesli/görüntülü görüşmede cevap TTS ile sesli okunur (§4.3, §5.3).
+_VOICE_NOTE = (
+    "# Channel: live voice call\n"
+    "You are on a live voice call; your words are spoken aloud by text-to-speech. Reply like "
+    "a person talking: usually one to three short sentences. No markdown, no emoji, no lists, "
+    "no links, no stage directions. Prefer words over symbols. If the user interrupted you, "
+    "do not repeat what you already said; just continue the conversation naturally."
+)
+
+
 def escape_untrusted(text: str) -> str:
     """Etikete benzeyen işaretleri (< >) etkisiz hale getirir; böylece kullanıcı metni
     veri bloğunu erkenden kapatıp kendi talimatını yazamaz."""
@@ -57,6 +71,7 @@ class PersonaCompiler:
         *,
         relationship: RelationshipState,
         retrieved_memories: Sequence[str] = (),
+        channel: Channel = "text",
     ) -> CompiledPrompt:
         blocks = [
             SystemBlock(SAFETY_CORE, cacheable=True),
@@ -64,6 +79,8 @@ class PersonaCompiler:
         ]
         if persona.canon_memories:
             blocks.append(SystemBlock(self._canon_block(persona), cacheable=True))
+        if channel == "voice":
+            blocks.append(SystemBlock(_VOICE_NOTE, cacheable=True))
         blocks.append(SystemBlock(self._relationship_block(relationship)))
         if retrieved_memories:
             blocks.append(SystemBlock(self._retrieved_block(retrieved_memories)))

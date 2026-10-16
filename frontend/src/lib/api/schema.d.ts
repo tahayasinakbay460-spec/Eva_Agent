@@ -436,10 +436,148 @@ export interface paths {
         patch: operations["update_memory_memories__memory_id__patch"];
         trace?: never;
     };
+    "/voice/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Call */
+        post: operations["start_call_voice_calls_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/voice/calls/{call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Call */
+        get: operations["get_call_voice_calls__call_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/voice/calls/{call_id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End Call */
+        post: operations["end_call_voice_calls__call_id__end_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/voice/latency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latency Report */
+        get: operations["latency_report_voice_latency_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CallCreate */
+        CallCreate: {
+            /** Persona Id */
+            persona_id?: string | null;
+            /**
+             * Mode
+             * @default voice
+             * @enum {string}
+             */
+            mode: "voice" | "video";
+        };
+        /**
+         * CallOut
+         * @description Tarayıcının LiveKit odasına katılması için gereken her şey. Token kısa ömürlü ve
+         *     yalnızca bu odaya, yalnızca mikrofon yayınına izin verir.
+         */
+        CallOut: {
+            /**
+             * Call Id
+             * Format: uuid
+             */
+            call_id: string;
+            /**
+             * Conversation Id
+             * Format: uuid
+             */
+            conversation_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "voice" | "video";
+            /** Livekit Url */
+            livekit_url: string;
+            /** Token */
+            token: string;
+            /** Max Duration S */
+            max_duration_s: number;
+            /** Idle Timeout S */
+            idle_timeout_s: number;
+        };
+        /** CallStatusOut */
+        CallStatusOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "voice" | "video";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "created" | "active" | "ended";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** End Reason */
+            end_reason: string | null;
+        };
         /**
          * CodeFlowOut
          * @description Kod gönderildi (kayıtlı olmayan e-postalarda ise gönderilmiş *gibi* görünür; böylece
@@ -520,6 +658,24 @@ export interface components {
             env: string;
             /** Version */
             version: string;
+        };
+        /**
+         * LatencyReportOut
+         * @description Gecikme panosu (§4.4): son turların aşama süreleri ve p50/p95 özetleri.
+         */
+        LatencyReportOut: {
+            /** Stages */
+            stages: {
+                [key: string]: components["schemas"]["StageSummaryOut"];
+            };
+            /** Turns */
+            turns: components["schemas"]["TurnLatencyOut"][];
+            /** Targets Ms */
+            targets_ms: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
         };
         /** MemoryCreate */
         MemoryCreate: {
@@ -820,6 +976,15 @@ export interface components {
             /** Idempotency Key */
             idempotency_key: string;
         };
+        /** StageSummaryOut */
+        StageSummaryOut: {
+            /** P50 */
+            p50: number | null;
+            /** P95 */
+            p95: number | null;
+            /** Count */
+            count: number;
+        };
         /** StepUpPasswordRequest */
         StepUpPasswordRequest: {
             /** Password */
@@ -845,6 +1010,33 @@ export interface components {
              */
             token_type: string;
             user: components["schemas"]["UserOut"];
+        };
+        /** TurnLatencyOut */
+        TurnLatencyOut: {
+            /**
+             * Call Id
+             * Format: uuid
+             */
+            call_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Interrupted */
+            interrupted: boolean;
+            /** E2E Ms */
+            e2e_ms: number | null;
+            /** End Of Turn Ms */
+            end_of_turn_ms: number | null;
+            /** Stt Final Ms */
+            stt_final_ms: number | null;
+            /** Llm Ttft Ms */
+            llm_ttft_ms: number | null;
+            /** Tts Ttfb Ms */
+            tts_ttfb_ms: number | null;
+            /** Avatar First Frame Ms */
+            avatar_first_frame_ms: number | null;
         };
         /** UserOut */
         UserOut: {
@@ -1727,6 +1919,133 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_call_voice_calls_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description quota */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description voice_not_configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_call_voice_calls__call_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_call_voice_calls__call_id__end_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    latency_report_voice_latency_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LatencyReportOut"];
                 };
             };
         };

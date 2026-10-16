@@ -1,0 +1,15 @@
+# Sistem personalarının (şimdilik sadece EVA) sesi ve yüzü: sağlayıcı adı -> o sağlayıcıdaki id.
+# Gizli bilgi değildir. Sağlayıcı providers.yaml'da değişince burada karşılığı olmalı.
+#
+# Sahibin kararı (2026-10-16): EVA'nın özgün sesi/yüzü sonra tasarlanacak; o zamana kadar
+# sağlayıcının hazır (stok) bir sesi ve avatarı kullanılır. Ses: genç yetişkin, sıcak bir
+# kadın sesi. Boş olanlar anahtar gelince seçilecek:
+#   ElevenLabs:  GET /v1/voices  (Türkçe'yi iyi okuyan, sıcak bir kadın sesi)
+#   LiveAvatar:  GET /v1/avatars/public
+eva:
+  voice:
+    mock: eva-mock
+    elevenlabs: ""
+  avatar:
+    mock: eva-mock
+    liveavatar: ""

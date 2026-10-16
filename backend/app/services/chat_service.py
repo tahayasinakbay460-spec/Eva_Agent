@@ -20,7 +20,7 @@ from app.models.base import new_id
 from app.models.conversation import Conversation, Message
 from app.models.persona import Persona
 from app.models.user import User
-from app.persona.compiler import PersonaCompiler
+from app.persona.compiler import Channel, PersonaCompiler
 from app.persona.types import RelationshipState
 from app.providers.base import (
     LLMMessage,
@@ -147,7 +147,7 @@ class ChatService:
         persona_row = await db.get(Persona, conversation.persona_id)
         if persona_row is None:  # pragma: no cover - FK bunu garanti eder
             raise ConversationNotFoundError(str(conversation_id))
-        history = await self._load_history(db, conversation)
+        history = await self.load_history(db, conversation)
 
         user_created_at = utcnow_after(history[-1].created_at if history else None)
         user_msg = Message(
@@ -169,7 +169,7 @@ class ChatService:
         memories = await memory_retrieval.retrieve(
             db, user_id=user.id, persona_id=persona_row.id, query_text=content
         )
-        request = self._build_request(persona_row, user, history, content, memories)
+        request = self.build_request(persona_row, user, history, content, memories)
         provider, feature_cfg = self._registry.llm("chat")
         timer = TurnTimer(provider=provider.name, model=feature_cfg.model)
         parts: list[str] = []
@@ -236,7 +236,7 @@ class ChatService:
             return None
         return user_msg, assistant_msg
 
-    async def _load_history(self, db: AsyncSession, conversation: Conversation) -> list[Message]:
+    async def load_history(self, db: AsyncSession, conversation: Conversation) -> list[Message]:
         limit = self._settings.chat_history_turns * 2
         result = await db.execute(
             select(Message)
@@ -246,20 +246,25 @@ class ChatService:
         )
         return list(reversed(result.scalars().all()))
 
-    def _build_request(
+    def build_request(
         self,
         persona_row: Persona,
         user: User,
         history: Sequence[Message],
         content: str,
         memories: Sequence[str] = (),
+        *,
+        feature: str = "chat",
+        channel: Channel = "text",
     ) -> LLMRequest:
+        """Persona + ilişki + anılar + geçmiş + yeni mesaj -> LLM isteği. Sesli görüşme de
+        aynı yolu kullanır (``feature="realtime"``, ``channel="voice"``)."""
         definition = persona_service.definition_of(persona_row)
         relationship = RelationshipState(stage="introduction", user_display_name=user.display_name)
         prompt = self._compiler.compile(
-            definition, relationship=relationship, retrieved_memories=memories
+            definition, relationship=relationship, retrieved_memories=memories, channel=channel
         )
-        _, feature_cfg = self._registry.llm("chat")
+        _, feature_cfg = self._registry.llm(feature)
         turns = [(m.role, m.content) for m in history]
         turns.append(("user", content))
         messages = _normalize_turns(turns)
