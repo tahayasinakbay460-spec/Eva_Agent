@@ -129,7 +129,7 @@ make eval         # (henüz yok) karakter bütünlüğü + red-team
 Lokal geliştirmede veritabanı varsayılan olarak SQLite'tır (`backend/eva_dev.db`); Docker kurulunca
 `EVA_DATABASE_URL=postgresql+asyncpg://eva:eva@localhost:5432/eva` ile Postgres'e geçilir.
 `EVA_LLM_PROVIDER_OVERRIDE=mock` ağsız çalıştırır; gerçek cevap için `ANTHROPIC_API_KEY` gerekir.
-Dev girişi: `POST /auth/dev-login` (yalnızca `EVA_ENV=dev|test`); passkey+MFA gelince kalkar.
+Giriş: passkey (`/auth/passkey/{register,login}/{options,verify}`, ADR 0002). WebAuthn RP ayarları `EVA_WEBAUTHN_RP_ID` ve `EVA_WEBAUTHN_ORIGINS`; frontend başka porttan açılırsa origin listesine eklenmeli. `POST /auth/dev-login` yalnızca `EVA_ENV=dev|test` için ve testlerde kalır; frontend kullanmaz. Testlerde passkey için `backend/tests/soft_authenticator.py` kullanılır.
 
 ### Ortam değişkenleri
 

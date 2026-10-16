@@ -4,6 +4,43 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 
 ---
 
+## 16 Ekim 2026 (3. oturum) — CI yeşil, passkey ile giriş
+
+### Ne yapıldı
+
+- **Kod GitHub'a gönderildi (push) ve CI ilk kez çalıştı.** İlk denemede frontend'in tip kontrolü düştü: Next.js bazı tipleri `.next/` klasöründe kendisi üretiyor, temiz makinede o klasör yok. Düzeltildi; artık **6 işin 6'sı yeşil**.
+- **Giriş kararı: A (kendimiz yazıyoruz).** `docs/adr/0002-authentication.md` dosyasına yazıldı. Önce `docs/threat-model.md` içinde "saldırgan ne yapabilir, biz nasıl engelliyoruz" tablosu yazıldı, sonra kod.
+- **Passkey ile hesap açma ve giriş (backend + ekran).** Artık isim yazıp girmek yok:
+  1. İsmini yaz, "yapay zekâ olduğunu anladım" ve "18 yaşından büyüğüm" kutularını işaretle.
+  2. "Passkey ile hesap oluştur"a bas → Windows Hello / parmak izi / PIN penceresi çıkar → onayla.
+  3. Bir dahaki sefere "Zaten hesabım var" → "Passkey ile giriş yap". Kullanıcı adı bile sorulmuyor.
+- **22 yeni güvenlik testi.** Gerçek bir parmak izi okuyucuyu taklit eden test cihazıyla: sahte siteden giriş, aynı isteği tekrar gönderme, süresi geçmiş istek, parmak izi doğrulanmadan giriş, kopyalanmış cihaz, bozuk imza, başkasının kimliğine bürünme... Hepsi reddediliyor, hepsi aynı hata mesajıyla (saldırgan hangi kontrolün tuttuğunu öğrenemesin diye).
+- **Gerçek tarayıcıda uçtan uca denendi** (Chromium'un sanal parmak izi okuyucusuyla): hesap oluşturma, çıkıp tekrar girme, iptal edilince hata mesajı, ardından sohbet. Hepsi çalıştı, konsolda hata yok.
+- **Denerken bulunan 2 hata düzeltildi:** sohbet sayfası yüklenmeden gönderilen mesaj sessizce kayboluyordu; Karakter Stüdyosu kartının görünümü bozulmuştu (bir önceki oturumda benim yüzümden).
+
+**Testler:** 41 → 63, hepsi geçiyor.
+
+### Faz 0'ın durumu
+
+Çıkış kriteri ("CI yeşil; mock'larla uçtan uca sohbet çalışıyor") **karşılandı**. Giriş tarafında kalanlar, sırayla:
+
+1. Telefon/bilgisayar değişirse diye **yedek giriş**: doğrulama uygulaması kodu (TOTP) + kurtarma kodları.
+2. Oturum anahtarının daha güvenli saklanması (kısa ömürlü anahtar + yenileme, httpOnly çerez).
+3. Hassas işlemlerde (Miras, ses kaydı vb.) tekrar parmak izi isteme (step-up).
+4. "Açık oturumlarım / cihazlarım" ekranı.
+
+### Senin yapman gereken (bir kere)
+
+Veritabanına yeni tablolar eklendi. Backend'i başlatmadan önce:
+```powershell
+cd C:\Users\HYPER\Desktop\EVA\backend
+uv sync
+uv run alembic upgrade head
+```
+Eski `venv` ile değil, `uv run` ile çalıştır; yeni kütüphaneler (`webauthn`) sadece orada kurulu. Tarayıcıda eski giriş unutulacak, karşına yeni kayıt ekranı çıkacak; Windows Hello ile hesap aç.
+
+---
+
 ## 16 Ekim 2026 (2. oturum) — Faz 0'ın kalanı
 
 Faz 0'ın çıkış kriteri: "CI yeşil; mock'larla uçtan uca sohbet çalışıyor". Eksikler tamamlandı, **tek istisna gerçek giriş (passkey + MFA)**: hangi çözümün kullanılacağı senin kararın (aşağıda açık sorular).
@@ -63,6 +100,7 @@ Ayrıca: Prettier (kod biçimlendirici) frontend'e eklendi, `frontend/.env.local
 **Terminal 1 — backend:**
 ```powershell
 cd C:\Users\HYPER\Desktop\EVA\backend
+uv run alembic upgrade head      # yeni migration varsa veritabanını günceller
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
@@ -135,6 +173,11 @@ Kodda karşına çıkacak, muhtemelen yeni olan kavramlar. Takıldıkça buraya 
 - **OpenAPI:** Backend'in kendi uç noktalarını tarif eden dosya. Frontend tiplerini bundan otomatik üretiyoruz.
 - **uv:** pip ve venv'in yerine geçen hızlı Python paket yöneticisi. `uv run` doğru ortamı kendisi bulur.
 - **ADR:** Mimari karar kaydı. "Neden böyle yaptık" sorusunun cevabı `docs/adr/` içinde.
+- **Passkey:** Şifresiz giriş. Cihazın bir anahtar çifti üretir; gizli olan yarısı cihazdan hiç çıkmaz, sunucu sadece açık yarısını saklar. Girişte cihaz parmak izi/PIN ile kilidi açıp imza atar.
+- **WebAuthn:** Tarayıcıların passkey için kullandığı standart.
+- **Challenge:** Sunucunun her girişte ürettiği tek kullanımlık rastgele sayı. Cihaz onu imzalar; böylece eski bir imza tekrar kullanılamaz.
+- **RP ID:** Passkey'in bağlı olduğu alan adı (şu an `localhost`). Sahte bir sitede passkey çalışmaz çünkü alan adı tutmaz.
+- **Tehdit modeli (threat model):** "Saldırgan neler deneyebilir, nasıl engelliyoruz, hangi test kanıtlıyor" tablosu. `docs/threat-model.md`.
 - **CI (Continuous Integration):** Her push'ta GitHub'ın kodu kendi makinesinde test etmesi. Bir şey bozulursa kırmızı olur.
 - **Sözleşme testi (contract test):** Bir arayüzün "olmazsa olmaz" davranışlarını test eder. Her yeni adaptör aynı testlerden geçmek zorunda.
 - **STT / TTS:** Speech-to-text (konuşmayı yazıya çevirme) / text-to-speech (yazıyı sese çevirme).
@@ -148,14 +191,13 @@ Kodda karşına çıkacak, muhtemelen yeni olan kavramlar. Takıldıkça buraya 
 
 ## Açık sorular (sonraki oturum)
 
-1. **Gerçek giriş (passkey + MFA) için hangi çözüm?** Faz 0'ın kapanmayan tek maddesi bu.
-2. EVA için hangi API anahtarı? Anthropic mi, Groq adaptörü mü yazılsın?
-3. Docker Desktop kurulacak mı, yoksa bir süre SQLite ile mi devam?
-4. Platform önceliği: önce web mi, mobil (Expo) da başlasın mı?
+1. EVA için hangi API anahtarı? Anthropic mi, Groq adaptörü mü yazılsın?
+2. Docker Desktop kurulacak mı, yoksa bir süre SQLite ile mi devam?
+3. Platform önceliği: önce web mi, mobil (Expo) da başlasın mı?
 
 ## Sıradaki adım önerisi
 
-1. Giriş kararı verilince passkey + MFA → Faz 0 tamamen kapanır.
+1. Girişin kalan parçaları: yedek giriş (TOTP + kurtarma kodları), güvenli oturum, step-up, cihaz ekranı.
 2. EVA'yı gerçek modele bağlamak (API anahtarı).
 3. Faz 1: hafıza ve anılar, "EVA ne biliyor" ekranı.
 
