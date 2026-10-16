@@ -82,7 +82,7 @@ async def test_successful_turn_records_latency_and_span(
     points = _collect()
     turns = points["eva.chat.turns"]
     assert [dict(p.attributes) for p in turns] == [
-        {"llm.provider": "mock", "llm.model": "claude-sonnet-5-5", "outcome": "ok"}
+        {"llm.provider": "mock", "llm.model": "gpt-6-luna", "outcome": "ok"}
     ]
     assert turns[0].value == 1
     for name in ("eva.chat.llm_ttft", "eva.chat.e2e"):

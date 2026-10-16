@@ -7,7 +7,8 @@ from collections.abc import AsyncIterable, AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
-Effort = Literal["low", "medium", "high", "xhigh", "max"]
+# "none": akıl yürütme yok, en hızlı cevap (yalnızca destekleyen modellerde; ör. GPT-6 Luna).
+Effort = Literal["none", "low", "medium", "high", "xhigh", "max"]
 StopReason = Literal["end_turn", "max_tokens", "refusal"]
 
 

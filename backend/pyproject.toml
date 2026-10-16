@@ -23,6 +23,7 @@ dependencies = [
     "email-validator>=2.2",
     "pgvector>=0.4",
     "cryptography>=44",
+    "openai>=3.31,<4",
 ]
 
 [dependency-groups]

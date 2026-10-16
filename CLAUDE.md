@@ -132,7 +132,7 @@ make eval         # (henüz yok) karakter bütünlüğü + red-team
 
 Lokal geliştirmede veritabanı varsayılan olarak SQLite'tır (`backend/eva_dev.db`); Docker kurulunca
 `EVA_DATABASE_URL=postgresql+asyncpg://eva:eva@localhost:5432/eva` ile Postgres'e geçilir.
-`EVA_LLM_PROVIDER_OVERRIDE=mock` ağsız çalıştırır; gerçek cevap için `ANTHROPIC_API_KEY` gerekir.
+`EVA_LLM_PROVIDER_OVERRIDE=mock` ağsız çalıştırır; gerçek cevap için `OPENAI_API_KEY` gerekir (ADR 0004).
 Arka plan işleri veritabanındaki `jobs` tablosunda (ADR 0003); Redis gelince `app/worker/queue.py` değişir. E-posta sağlayıcısı seçilene kadar mailler `backend/dev_mailbox/` klasörüne yazılır (staging/prod bu adaptörle açılmaz). Testler `EVA_TEST_DATABASE_URL` verilirse Postgres'te koşar (CI'da `backend-postgres` işi).
 Giriş: passkey (`/auth/passkey/{register,login}/{options,verify}`) veya e-posta + şifre + e-postaya gelen kod (`/auth/password/...`), ADR 0002 ve eki. WebAuthn RP ayarları `EVA_WEBAUTHN_RP_ID` ve `EVA_WEBAUTHN_ORIGINS`; frontend başka porttan açılırsa origin listesine eklenmeli. `POST /auth/dev-login` yalnızca `EVA_ENV=dev|test` için ve testlerde kalır; frontend kullanmaz. Testlerde passkey için `backend/tests/soft_authenticator.py` kullanılır.
 
@@ -164,7 +164,7 @@ Domain kodu sağlayıcıları yalnızca `libs/eva_providers` arayüzleriyle kull
 
 | Arayüz | Görev | İlk adaptör | İleride |
 |---|---|---|---|
-| `LLMProvider` | akışlı metin üretimi | Anthropic Claude | — |
+| `LLMProvider` | akışlı metin üretimi | OpenAI GPT (ADR 0004) | — |
 | `STTProvider` | akışlı konuşma → metin + tur sonu tespiti | Türkçe testiyle seçilecek (§15) | kendi STT sunucumuz |
 | `TTSProvider` | akışlı metin → ses | ElevenLabs (WebSocket, düşük gecikmeli Flash ailesi) | kendi ses sunucumuz |
 | `VoiceEnrollmentProvider` | rızalı ses klonu oluştur / sil | ElevenLabs | kendi ses sunucumuz |
@@ -194,7 +194,7 @@ Mikrofon → WebRTC → VAD + tur sonu tespiti → akışlı STT → akışlı L
 - **Prompt cache:** sabit bloklar (güvenlik çekirdeği, persona tanımı) prompt'un başında, dinamik bloklar (getirilen anılar, son turlar) sonunda (§9.3).
 - **Sıcak yolda tek hafıza sorgusu;** ağır işler worker'da.
 - **Bölge:** sunucular ve sağlayıcı bölgeleri kullanıcıya yakın seçilir (Türkiye için AB/Frankfurt ya da İstanbul — §15).
-- **Model yönlendirme:** model ID'leri yalnızca config'de. Başlangıç varsayımı: gerçek zamanlı ses → `claude-haiku-5-5`, metin sohbet → `claude-sonnet-5-5`, arka plan (hafıza birleştirme, persona sentezi) → `claude-sonnet-5-5` / `claude-opus-5-5`. Kesin seçim eval + gecikme ölçümüyle yapılır.
+- **Model yönlendirme:** model ID'leri yalnızca config'de. Başlangıç varsayımı (ADR 0004): gerçek zamanlı ses ve metin sohbet → `gpt-6-luna`, arka plan (hafıza birleştirme, persona sentezi) → `gpt-6.1-sol`. Kesin seçim eval + gecikme ölçümüyle yapılır.
 - **Avatar maliyeti:** boşta kalma zaman aşımı, oturum süre limiti ve plan bazlı kota zorunlu.
 
 ### 4.4 Gecikme bütçesi

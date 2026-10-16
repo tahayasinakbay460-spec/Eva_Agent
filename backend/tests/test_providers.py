@@ -54,7 +54,7 @@ async def test_mock_provider_fixed_reply() -> None:
 def test_repo_provider_config_loads() -> None:
     cfg = load_provider_config(REPO_ROOT / "config" / "providers.yaml")
     assert {"chat", "realtime", "background"} <= cfg.llm.keys()
-    assert cfg.llm["chat"].provider == "anthropic"
+    assert cfg.llm["chat"].provider == "openai"
 
 
 def test_registry_override_forces_mock() -> None:

@@ -5,22 +5,24 @@
 # `provider`, kayıtlı bir adaptörün adı olmalı (bkz. backend/app/providers/registry.py).
 # EVA_LLM_PROVIDER_OVERRIDE=mock verilirse tüm llm.* özellikleri sahte (mock) adaptörü kullanır.
 
+# LLM sağlayıcısı OpenAI (sahibin kararı, ADR 0004). Modeller başlangıç tahminidir; kesin
+# seçim eval + gecikme ölçümüyle yapılır. max_tokens akıl yürütme token'larını da kapsar.
 llm:
   chat:                      # SSE ile akan metin sohbeti
-    provider: anthropic
-    model: claude-sonnet-5-5
+    provider: openai
+    model: gpt-6-luna
     max_tokens: 1024
     effort: low              # sohbette hız önemli; eval sonuçlarına göre artırılabilir
   realtime:                  # sesli / görüntülü görüşmede ajanın cevapları
-    provider: anthropic
-    model: claude-haiku-5-5
+    provider: openai
+    model: gpt-6-luna
     max_tokens: 400
-    effort: low
+    effort: none             # sesli görüşmede her milisaniye önemli
   background:                # anıları birleştirme, persona oluşturma (arka plan işçisi)
-    provider: anthropic
-    model: claude-sonnet-5-5
+    provider: openai
+    model: gpt-6.1-sol
     max_tokens: 4096
-    effort: high
+    effort: medium
 
 # Aşağıdaki arayüzlerin henüz gerçek adaptörü yok (CLAUDE.md §15); mock sayesinde testler geçiyor.
 stt:

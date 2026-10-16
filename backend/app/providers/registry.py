@@ -35,6 +35,7 @@ from app.providers.mock import (
     MockTTSProvider,
     MockVoiceEnrollmentProvider,
 )
+from app.providers.openai_llm import OpenAILLMProvider
 
 # LLM dışındaki arayüzler; anahtar, providers.yaml'daki bölüm adıdır.
 ProviderKind = Literal[
@@ -114,6 +115,7 @@ def load_provider_config(path: Path) -> ProviderConfig:
 _LLM_FACTORIES: dict[str, Callable[[], LLMProvider]] = {
     "mock": MockLLMProvider,
     "anthropic": AnthropicLLMProvider,
+    "openai": OpenAILLMProvider,
 }
 
 # Her §15 kararı verildikçe gerçek adaptörler buraya eklenir; o zamana kadar sadece mock var.

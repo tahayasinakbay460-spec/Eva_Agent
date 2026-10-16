@@ -47,7 +47,12 @@ class AnthropicLLMProvider:
                 max_tokens=request.max_tokens,
                 system=system,
                 messages=messages,
-                output_config={"effort": request.effort} if request.effort else anthropic.omit,
+                # Claude'da "none" seviyesi yok; o durumda effort hiç gönderilmez.
+                output_config=(
+                    {"effort": request.effort}
+                    if request.effort and request.effort != "none"
+                    else anthropic.omit
+                ),
                 betas=[_FALLBACK_BETA] if self._fallbacks else anthropic.omit,
                 fallbacks="default" if self._fallbacks else anthropic.omit,
             ) as stream:
