@@ -4,6 +4,30 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 
 ---
 
+## 16 Ekim 2026 (2. oturum) — Faz 0'ın kalanı
+
+Faz 0'ın çıkış kriteri: "CI yeşil; mock'larla uçtan uca sohbet çalışıyor". Eksikler tamamlandı, **tek istisna gerçek giriş (passkey + MFA)**: hangi çözümün kullanılacağı senin kararın (aşağıda açık sorular).
+
+### Ne yapıldı (4 commit)
+
+1. **Sağlayıcı arayüzleri tamamlandı.** Önce sadece `LLMProvider` (model) vardı. Şimdi CLAUDE.md §4.2'deki 9 arayüzün hepsi var: konuşma→metin (STT), metin→ses (TTS), ses klonu, yüz avatarı, avatar kaydı, embedding, moderasyon, e-posta/SMS. Her birinin ücretsiz, internetsiz bir **mock**'u var. Hangisinin kullanılacağı `config/providers.yaml`'dan seçiliyor.
+2. **Sözleşme testleri.** `backend/tests/test_provider_contracts.py`: her arayüz için "bir adaptör bunu yapabilmeli" testleri. İleride ElevenLabs ya da kendi sunucumuz eklenince aynı testlerden otomatik geçecek.
+3. **Ana sayfadaki sahte veriler kaldırıldı.** "Ruh halin: İyi" ve "1.2 saat" kartları uydurmaydı. Ruh hali kartı artık dürüstçe "Yakında" diyor; kullanım kartı tamamen kalktı (ayrıca "günde 2 saat kullan" önerisi, EVA'nın bağımlılık yaratmama kuralına da ters düşüyordu). Hiçbir işe yaramayan bildirim zili de kalktı.
+4. **CI kuruldu** (`.github/workflows/ci.yml`). GitHub'a her push'ta otomatik olarak: lint, tip kontrolü, testler, migration'ların gerçek Postgres'te çalışması, frontend build'i, bağımlılık güvenlik taraması, OpenAPI uyumu ve sızmış anahtar taraması (gitleaks).
+5. **Gözlemlenebilirlik.** Her sohbet turunda "ilk kelime ne kadar sürdü" ve "toplam ne kadar sürdü" artık OpenTelemetry metriği olarak ölçülüyor. Hata takibi için Sentry eklendi; ikisi de varsayılan olarak kapalı, açıldığında bile mesaj içeriği ve kişisel veri dışarı gitmiyor (testle kontrol ediliyor).
+6. **Gizli bir hata bulundu ve düzeltildi.** Windows'ta saat ~15 ms adımlarla ilerliyor. Senin mesajın ile EVA'nın cevabı aynı zaman damgasını alınca sohbet geçmişinin sırası karışabiliyordu. Artık her mesaj bir öncekinden kesinlikle sonra kaydediliyor.
+
+Ayrıca: Prettier (kod biçimlendirici) frontend'e eklendi, `frontend/.env.local.example` yanlışlıkla git dışında kalmıştı, eklendi.
+
+**Testler:** 25 → 41, hepsi geçiyor. Lint, tip kontrolü, frontend build temiz. API 8011 portunda gerçekten çalıştırılıp mock ile uçtan uca sohbet denendi.
+
+### Senin yapman gereken
+
+- **CI'ı görmek için push:** `git push -u origin phase-0-skeleton`, sonra GitHub'da "Actions" sekmesi.
+- **İsteğe bağlı, commit öncesi anahtar taraması:** `uvx pre-commit install` (bir kere).
+
+---
+
 ## 16 Ekim 2026 — Faz 0 iskeleti
 
 ### Ne yapıldı
@@ -24,11 +48,11 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 ### Henüz çalışmayan şeyler
 
 - **EVA gerçekten konuşmuyor.** Şu an sahte (mock) sağlayıcı yazdığını geri söylüyor. API anahtarı gerekiyor.
-- **Ana sayfadaki bazı kartlar sahte.** "Ruh halin: İyi" ve "1.2 saat" uydurma değerler. Temizlenecek.
+- ~~**Ana sayfadaki bazı kartlar sahte.**~~ 2. oturumda temizlendi.
 - **"Yakında" yazan her yer:** sesli görüşme, görüntülü görüşme, anılar, Miras, Karakter Stüdyosu, analiz, keşfet, profil.
 - **Gerçek giriş yok.** Passkey ve MFA için karar bekleniyor.
 - **Docker yok.** Postgres yerine geçici olarak SQLite kullanılıyor.
-- **CI yok.** GitHub'da otomatik test kurulmadı.
+- ~~**CI yok.**~~ 2. oturumda kuruldu.
 
 ---
 
@@ -50,10 +74,14 @@ npm run dev
 
 Tarayıcıda `http://localhost:3000` aç. API'yi denemek için `http://localhost:8000/docs`.
 
-**Testler:**
+**Testler ve kontroller:**
 ```powershell
 cd backend
-uv run pytest
+uv run pytest                 # testler
+uv run ruff check .           # lint
+uv run mypy app tests         # tip kontrolü
+cd ..rontend
+npm run lint; npm run typecheck; npm run format:check
 ```
 
 **Gerçek EVA cevabı için:** `backend\.env` dosyasına `ANTHROPIC_API_KEY=...` ekle ve `EVA_LLM_PROVIDER_OVERRIDE=mock` satırını sil.
@@ -107,20 +135,28 @@ Kodda karşına çıkacak, muhtemelen yeni olan kavramlar. Takıldıkça buraya 
 - **OpenAPI:** Backend'in kendi uç noktalarını tarif eden dosya. Frontend tiplerini bundan otomatik üretiyoruz.
 - **uv:** pip ve venv'in yerine geçen hızlı Python paket yöneticisi. `uv run` doğru ortamı kendisi bulur.
 - **ADR:** Mimari karar kaydı. "Neden böyle yaptık" sorusunun cevabı `docs/adr/` içinde.
+- **CI (Continuous Integration):** Her push'ta GitHub'ın kodu kendi makinesinde test etmesi. Bir şey bozulursa kırmızı olur.
+- **Sözleşme testi (contract test):** Bir arayüzün "olmazsa olmaz" davranışlarını test eder. Her yeni adaptör aynı testlerden geçmek zorunda.
+- **STT / TTS:** Speech-to-text (konuşmayı yazıya çevirme) / text-to-speech (yazıyı sese çevirme).
+- **Embedding:** Bir metni anlamını temsil eden sayı listesine çevirmek. Benzer anıları bulmak için kullanılacak (Faz 1).
+- **OpenTelemetry:** Hız ölçümlerini (metrik) ve bir isteğin yolculuğunu (trace/span) standart biçimde toplayan araç.
+- **Sentry:** Sunucuda oluşan hataları toplayıp gösteren servis.
+- **gitleaks:** Kodda yanlışlıkla bırakılmış API anahtarı arayan tarayıcı.
+- **Prettier:** Kod biçimlendirici; herkesin kodu aynı görünür.
 
 ---
 
 ## Açık sorular (sonraki oturum)
 
-1. EVA için hangi API anahtarı? Anthropic mi, Groq adaptörü mü yazılsın?
-2. Docker Desktop kurulacak mı, yoksa bir süre SQLite ile mi devam?
-3. Platform önceliği: önce web mi, mobil (Expo) da başlasın mı?
-4. Gerçek giriş (passkey + MFA) için hangi çözüm?
+1. **Gerçek giriş (passkey + MFA) için hangi çözüm?** Faz 0'ın kapanmayan tek maddesi bu.
+2. EVA için hangi API anahtarı? Anthropic mi, Groq adaptörü mü yazılsın?
+3. Docker Desktop kurulacak mı, yoksa bir süre SQLite ile mi devam?
+4. Platform önceliği: önce web mi, mobil (Expo) da başlasın mı?
 
 ## Sıradaki adım önerisi
 
-1. EVA'yı gerçek modele bağlamak (API anahtarı).
-2. Ana sayfadaki sahte kartları temizlemek.
+1. Giriş kararı verilince passkey + MFA → Faz 0 tamamen kapanır.
+2. EVA'yı gerçek modele bağlamak (API anahtarı).
 3. Faz 1: hafıza ve anılar, "EVA ne biliyor" ekranı.
 
 Bundan sonra daha küçük adımlarla ilerleyip her adımda yeni kavramları açıklayacağız.

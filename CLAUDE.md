@@ -73,6 +73,7 @@ Klasör adları sahibin alıştığı düzene göredir (ADR 0001); mimari aynıd
 ```
 eva/
 ├── CLAUDE.md
+├── .github/workflows/   # ci.yml: lint, tip, test, migration (Postgres), build, audit, OpenAPI drift, gitleaks
 ├── backend/                 # FastAPI – auth, persona, karakter, Miras, anı, metin sohbet (SSE)
 │   ├── app/
 │   │   ├── main.py          # create_app(); app.state üzerinden bağımlılıklar
@@ -83,7 +84,7 @@ eva/
 │   │   ├── routers/         # health, auth, personas, chat
 │   │   ├── services/        # iş mantığı: persona_service, chat_service (akışlı tur)
 │   │   ├── persona/         # domain çekirdeği: PersonaDefinition, safety_core, eva, PersonaCompiler
-│   │   └── providers/       # sağlayıcı sınırı: base (arayüzler), mock, anthropic, registry
+│   │   └── providers/       # sağlayıcı sınırı: base (9 arayüz), mock (hepsi), anthropic, registry
 │   ├── alembic/             # migration'lar
 │   ├── scripts/             # export_openapi.py
 │   └── tests/
@@ -117,7 +118,8 @@ make infra        # docker compose -f infra/docker-compose.yml up -d  (postgres+
 make api          # cd backend && uv run uvicorn app.main:app --reload --port 8000
 make web          # cd frontend && npm run dev   (http://localhost:3000)
 make test         # backend: uv run pytest  ·  frontend: npm run typecheck
-make lint         # backend: ruff format --check, ruff check, mypy  ·  frontend: eslint, tsc
+make lint         # backend: ruff format --check, ruff check, mypy  ·  frontend: prettier --check, eslint, tsc
+make format       # ruff format + ruff --fix  ·  prettier --write
 make migrate      # cd backend && uv run alembic upgrade head
 make migration m="..."   # cd backend && uv run alembic revision --autogenerate -m "..."
 make gen-client   # backend/scripts/export_openapi.py → frontend/src/lib/api/openapi.json → npm run gen-client
