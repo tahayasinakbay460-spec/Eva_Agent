@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     rate_limit_chat_per_minute: int = 30
     rate_limit_default_per_minute: int = 120
 
+    # Arka plan işçisi API'nin içinde de çalışsın mı (ADR 0003)? Boşsa: sadece EVA_ENV=dev iken.
+    worker_inprocess: bool | None = None
+
     # Observability (§3). OTLP endpoint/headers come from the standard OTEL_* env vars.
     otel_enabled: bool = False
     sentry_dsn: str | None = None
@@ -56,6 +59,12 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.env in ("dev", "test")
+
+    @property
+    def run_worker_inprocess(self) -> bool:
+        if self.worker_inprocess is not None:
+            return self.worker_inprocess
+        return self.env == "dev"
 
 
 @lru_cache

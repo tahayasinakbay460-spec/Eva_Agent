@@ -11,10 +11,12 @@ from datetime import date
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.memory import Memory
+from app.models.memory import Memory, MemoryEmbedding
 from app.models.persona import Persona
 from app.models.user import User
 from app.services import persona_service
+from app.worker import queue
+from app.worker.handlers import EMBED_MEMORY
 
 # Bir kullanıcının bir persona için tutabileceği en fazla anı sayısı (kötüye kullanıma karşı).
 MAX_MEMORIES_PER_PERSONA = 5000
@@ -107,6 +109,9 @@ async def add_memory(
         legacy_scope=_legacy_scope_for(data.sensitivity),
     )
     db.add(memory)
+    await db.flush()
+    # Vektöre çevirme işi anıyla AYNI commit'te sıraya girer: biri olup diğeri kaybolamaz.
+    await queue.enqueue(db, EMBED_MEMORY, {"memory_id": str(memory.id)})
     await db.commit()
     return memory
 
@@ -143,6 +148,9 @@ async def update_memory(
     if patch.sensitivity is not None:
         memory.sensitivity = patch.sensitivity
         memory.legacy_scope = _legacy_scope_for(patch.sensitivity)
+    if patch.content is not None or patch.people is not None:
+        # Metin değişti: eski vektör artık yanlış; yenisini üret.
+        await queue.enqueue(db, EMBED_MEMORY, {"memory_id": str(memory.id)})
     await db.commit()
     return memory
 
@@ -150,8 +158,11 @@ async def update_memory(
 async def forget_memory(db: AsyncSession, user: User, memory_id: uuid.UUID) -> None:
     """ "Bunu unut": anıyı gerçekten siler, çöp kutusu yok (§6.4).
 
-    Sonraki adımlarda vektörü, önbelleği ve özetleri de buradan silinecek.
+    Vektörü de silinir (§6.5: vektörler geri çevrilebilir, metin kadar hassastır).
+    Yabancı anahtar zaten siler; burada açıkça da siliyoruz ki kural bir veritabanında
+    kapalı kalsa bile vektör geride kalmasın.
     """
     memory = await get_memory(db, user, memory_id)
+    await db.execute(delete(MemoryEmbedding).where(MemoryEmbedding.memory_id == memory.id))
     await db.execute(delete(Memory).where(Memory.id == memory.id, Memory.user_id == user.id))
     await db.commit()

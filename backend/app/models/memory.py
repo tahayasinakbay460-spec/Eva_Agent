@@ -1,11 +1,27 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
+from typing import Any
 
-from sqlalchemy import Date, Float, ForeignKey, Index, String, Text, Uuid, event
+from pgvector.sqlalchemy import VECTOR
+from sqlalchemy import (
+    JSON,
+    Date,
+    Dialect,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    TypeDecorator,
+    Uuid,
+    event,
+)
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import TypeEngine
 
-from app.database import Base
-from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin
+from app.database import Base, utcnow
+from app.models.base import TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin
 from app.models.persona import JSONDict
 
 
@@ -51,6 +67,45 @@ class Memory(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Kayıttan hemen önce otomatik doldurulur (aşağıdaki olay dinleyicisi); elle yazılmaz.
     # Sohbet sırasında veritabanı sadece mesajdaki kelimeleri içeren anıları getirsin diye var.
     search_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class VectorType(TypeDecorator[list[float]]):
+    """Vektör sütunu: Postgres'te pgvector'ün ``vector`` tipi, SQLite'ta JSON liste.
+
+    Böylece aynı model hem geliştirmede (SQLite) hem gerçek sunucuda (Postgres) çalışır.
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any]:
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(VECTOR())
+        return dialect.type_descriptor(JSON())
+
+    def process_result_value(self, value: Any, dialect: Dialect) -> list[float] | None:
+        if value is None:
+            return None
+        return [float(x) for x in value]
+
+
+class MemoryEmbedding(Base):
+    """Bir anının vektörü (embedding). Anı silinince bu da silinir (§6.5: vektörler de
+    düz metin kadar hassastır, geri çevrilebilir).
+
+    Hangi sağlayıcı/model ile üretildiği saklanır: sağlayıcı değişince eski vektörler
+    karşılaştırılamaz, yeniden üretilmeleri gerekir.
+    """
+
+    __tablename__ = "memory_embeddings"
+
+    memory_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("memories.id", ondelete="CASCADE"), primary_key=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+    vector: Mapped[list[float]] = mapped_column(VectorType, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
 
 
 def turkish_lower(text: str) -> str:

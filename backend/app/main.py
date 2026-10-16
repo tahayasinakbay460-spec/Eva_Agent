@@ -3,6 +3,7 @@
 Run locally:  uv run uvicorn app.main:app --reload --port 8000
 """
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -17,10 +18,12 @@ from app.core.ratelimit import MemoryRateLimiter
 from app.core.telemetry import setup_telemetry
 from app.database import create_engine, create_session_factory
 from app.persona.compiler import PersonaCompiler
-from app.providers.registry import ProviderRegistry, load_provider_config
+from app.providers.registry import ProviderRegistry, build_registry
 from app.routers import auth, chat, health, memories, personas
 from app.services import persona_service
 from app.services.chat_service import ChatService
+from app.worker import handlers  # noqa: F401 - iş işleyicilerini kaydeder
+from app.worker.runner import WorkerContext, run_forever
 
 log = logging.getLogger("eva")
 
@@ -50,8 +53,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         check_production_providers(app)
         await seed_defaults(app)
+        stop = asyncio.Event()
+        worker: asyncio.Task[None] | None = None
+        if settings.run_worker_inprocess:
+            # Geliştirmede ayrı terminal açmamak için işçi API'nin içinde de döner (ADR 0003).
+            worker = asyncio.create_task(run_forever(app.state.worker_context, stop))
         log.info("eva api ready", extra={"env": settings.env, "version": __version__})
         yield
+        stop.set()
+        if worker is not None:
+            await worker
         await app.state.engine.dispose()
 
     app = FastAPI(
@@ -63,16 +74,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     engine = create_engine(settings.database_url)
-    registry = ProviderRegistry(
-        load_provider_config(settings.providers_config),
-        llm_override=settings.llm_provider_override,
-        overrides={"messaging": settings.messaging_provider_override or ""},
-    )
+    registry = build_registry(settings)
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
     app.state.rate_limiter = MemoryRateLimiter()
     app.state.registry = registry
+    app.state.worker_context = WorkerContext(
+        session_factory=app.state.session_factory, registry=registry, settings=settings
+    )
     app.state.chat_service = ChatService(
         registry=registry, compiler=PersonaCompiler(), settings=settings
     )

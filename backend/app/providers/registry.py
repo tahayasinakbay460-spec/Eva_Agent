@@ -3,9 +3,12 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast, get_args
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 
 import yaml
+
+if TYPE_CHECKING:
+    from app.core.config import Settings
 
 from app.providers.anthropic import AnthropicLLMProvider
 from app.providers.base import (
@@ -206,3 +209,12 @@ class ProviderRegistry:
 
     def messaging(self, feature: str = "default") -> MessagingProvider:
         return cast(MessagingProvider, self._resolve("messaging", feature))
+
+
+def build_registry(settings: "Settings") -> ProviderRegistry:
+    """API ve işçi aynı ayarlarla aynı sağlayıcıları kursun diye tek yer."""
+    return ProviderRegistry(
+        load_provider_config(settings.providers_config),
+        llm_override=settings.llm_provider_override,
+        overrides={"messaging": settings.messaging_provider_override or ""},
+    )

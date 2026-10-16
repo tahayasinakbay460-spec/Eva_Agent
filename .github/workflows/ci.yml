@@ -78,6 +78,39 @@ jobs:
       - name: Downgrade and re-upgrade
         run: uv run alembic downgrade base && uv run alembic upgrade head
 
+  # Tüm backend testleri gerçek sunucudaki veritabanıyla (Postgres + pgvector) da koşar:
+  # SQLite'ta görünmeyen farklar (vektör tipi, kuyruk sorguları, tarih/saat) burada yakalanır.
+  backend-postgres:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: eva
+          POSTGRES_PASSWORD: eva
+          POSTGRES_DB: eva_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U eva"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      EVA_ENV: test
+      EVA_TEST_DATABASE_URL: postgresql+asyncpg://eva:eva@localhost:5432/eva_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Tests on Postgres
+        run: uv run pytest -q
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
