@@ -245,7 +245,8 @@ Kodda karşına çıkacak, muhtemelen yeni olan kavramlar. Takıldıkça buraya 
 
 ## Açık sorular (sonraki oturum)
 
-1. **EVA için hangi API anahtarı?** Anthropic mi, Groq adaptörü mü yazılsın? Faz 1'in otomatik anı çıkarması ve gerçek gecikme ölçümü buna bağlı.
+1. ~~EVA için hangi API anahtarı?~~ **Karar (16 Ekim): OpenAI (GPT), ücretli anahtar.** Sıradaki oturumun ilk işi: güncel OpenAI dokümanını okuyup `LLMProvider` için OpenAI adaptörü + ADR (CLAUDE.md'de varsayılan Anthropic yazıyor), sonra otomatik anı çıkarma ve ilk-kelime süresini gerçek modelle doğrulamak. Sesli/görüntülü planı: GPT (anlama/cevap) + ElevenLabs (klon ses) + HeyGen (yüz); OpenAI Realtime'ın hazır sesleri klon ses kullanamadığı için ses üretimi ona bırakılmaz.
+   Eski commit'lerdeki Claude satırı temizlenmeyecek (sahibin kararı).
 2. Embedding (metni vektöre çeviren) sağlayıcı hangisi olsun? Seçilene kadar anlamsal arama kapalı, kelime + önem + yakınlık ile aranıyor.
 3. Docker Desktop kurulacak mı, yoksa bir süre SQLite ile mi devam?
 4. Platform önceliği: önce web mi, mobil (Expo) da başlasın mı?
