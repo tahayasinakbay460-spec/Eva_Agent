@@ -18,7 +18,7 @@ from app.core.telemetry import setup_telemetry
 from app.database import create_engine, create_session_factory
 from app.persona.compiler import PersonaCompiler
 from app.providers.registry import ProviderRegistry, load_provider_config
-from app.routers import auth, chat, health, personas
+from app.routers import auth, chat, health, memories, personas
 from app.services import persona_service
 from app.services.chat_service import ChatService
 
@@ -81,7 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "DELETE"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
     )
     app.add_middleware(RequestContextMiddleware, hsts=not settings.is_dev)
@@ -90,6 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(personas.router)
     app.include_router(chat.router)
+    app.include_router(memories.router)
     return app
 
 

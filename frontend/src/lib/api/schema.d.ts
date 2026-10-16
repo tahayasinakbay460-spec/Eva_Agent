@@ -315,6 +315,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/memories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Memories */
+        get: operations["list_memories_memories_get"];
+        put?: never;
+        /** Add Memory */
+        post: operations["add_memory_memories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memories/{memory_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Forget Memory */
+        delete: operations["forget_memory_memories__memory_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Memory */
+        patch: operations["update_memory_memories__memory_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -398,6 +434,97 @@ export interface components {
             env: string;
             /** Version */
             version: string;
+        };
+        /** MemoryCreate */
+        MemoryCreate: {
+            /** Persona Id */
+            persona_id?: string | null;
+            /**
+             * Kind
+             * @default episode
+             * @enum {string}
+             */
+            kind: "episode" | "fact";
+            /** Content */
+            content: string;
+            /** Occurred On */
+            occurred_on?: string | null;
+            /** People */
+            people?: string[];
+            /** Emotion */
+            emotion?: ("happy" | "sad" | "excited" | "calm" | "angry" | "anxious" | "nostalgic" | "proud" | "grateful") | null;
+            /**
+             * Sensitivity
+             * @default normal
+             * @enum {string}
+             */
+            sensitivity: "normal" | "sensitive";
+        };
+        /** MemoryOut */
+        MemoryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Persona Id
+             * Format: uuid
+             */
+            persona_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "episode" | "fact";
+            /** Content */
+            content: string;
+            /** Occurred On */
+            occurred_on: string | null;
+            /** People */
+            people: string[];
+            /** Emotion */
+            emotion: ("happy" | "sad" | "excited" | "calm" | "angry" | "anxious" | "nostalgic" | "proud" | "grateful") | null;
+            /** Importance */
+            importance: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "auto" | "user_added" | "owner_legacy" | "recipient_added";
+            /**
+             * Sensitivity
+             * @enum {string}
+             */
+            sensitivity: "normal" | "sensitive";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * MemoryUpdate
+         * @description Gönderilmeyen alan değişmez. ``occurred_on`` / ``emotion`` için ``null`` göndermek siler.
+         */
+        MemoryUpdate: {
+            /** Kind */
+            kind?: ("episode" | "fact") | null;
+            /** Content */
+            content?: string | null;
+            /** Occurred On */
+            occurred_on?: string | null;
+            /** People */
+            people?: string[] | null;
+            /** Emotion */
+            emotion?: ("happy" | "sad" | "excited" | "calm" | "angry" | "anxious" | "nostalgic" | "proud" | "grateful") | null;
+            /** Sensitivity */
+            sensitivity?: ("normal" | "sensitive") | null;
         };
         /** MessageOut */
         MessageOut: {
@@ -1220,6 +1347,137 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SSEEnvelope"];
                     "text/event-stream": components["schemas"]["SSEEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_memories_memories_get: {
+        parameters: {
+            query?: {
+                persona_id?: string | null;
+                kind?: ("episode" | "fact") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_memory_memories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_memory_memories__memory_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_memory_memories__memory_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
                 };
             };
             /** @description Validation Error */

@@ -436,7 +436,7 @@ Mühendislik gereksinimleridir, hukuki görüş değildir; lansmandan önce KVKK
 - **Önce plan:** bir özelliğe başlamadan ilgili bölümü oku ve kısa bir plan yaz. Güvenlik-kritik işlerde (auth, Miras, biyometrik, kripto) önce tehdit modeli notunu ve testleri yaz.
 - **Küçük adımlar:** tek amaçlı değişiklikler, Conventional Commits; her adımda lint + tip kontrolü + testler yeşil.
 - **Bitti tanımı:** testler (yetkisiz erişim testleri dahil), lint ve tip kontrolü geçiyor; gecikme metrikleri kötüleşmedi; ilgili dokümanlar ve bu dosya güncel.
-- **Dil:** kod, değişken adları, commit mesajları ve kod yorumları İngilizce. Kullanıcıya görünen metinler i18n dosyalarında (varsayılan `tr`, ayrıca `en`); UI metni koda gömülmez.
+- **Dil:** kod ve değişken/fonksiyon adları İngilizce. **Kod yorumları, docstring'ler ve commit mesajları sade Türkçe** (sahibin kararı, 2026-10-16; Conventional Commits önekleri kalır: `feat(hafiza): ...`). Commit'lere `Co-Authored-By` satırı eklenmez. Kullanıcıya görünen metinler i18n dosyalarında (varsayılan `tr`, ayrıca `en`); UI metni koda gömülmez.
 - **Veritabanı:** her şema değişikliği Alembic migration'ı ile; uygulanmış migration düzenlenmez.
 - **API sözleşmesi:** FastAPI'nin OpenAPI şeması tek gerçek kaynaktır; TS istemcisi ondan üretilir.
 - **Bağımlılık:** yeni paket eklemeden önce gerekçe; bakımı süren, yaygın paketler; lisans kontrolü.

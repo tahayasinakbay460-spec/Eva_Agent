@@ -185,3 +185,17 @@ export function newIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
+
+/* Anılar ("EVA ne biliyor?" ekranı). */
+
+export type Memory = Schemas["MemoryOut"];
+export type MemoryCreate = Schemas["MemoryCreate"];
+export type MemoryUpdate = Schemas["MemoryUpdate"];
+export type MemoryKind = Memory["kind"];
+
+export const listMemories = (kind?: MemoryKind) =>
+  request<Memory[]>(`/memories${kind ? `?kind=${kind}` : ""}`);
+export const addMemory = (body: MemoryCreate) => post<Memory>("/memories", body);
+export const updateMemory = (id: string, body: MemoryUpdate) =>
+  request<Memory>(`/memories/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const forgetMemory = (id: string) => request<void>(`/memories/${id}`, { method: "DELETE" });

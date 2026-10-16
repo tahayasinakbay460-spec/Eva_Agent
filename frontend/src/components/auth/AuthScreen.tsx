@@ -14,7 +14,14 @@ import {
   type User,
 } from "@/lib/api/client";
 import { errorText, type ErrorContext } from "./errors";
-import { Checkbox, ErrorText, Heading, PrimaryButton, SecondaryButton, TextField } from "./ui";
+import {
+  Checkbox,
+  ErrorText,
+  Heading,
+  PrimaryButton,
+  SecondaryButton,
+  TextField,
+} from "@/components/ui";
 
 const t = messages().auth;
 const IS_DEV = process.env.NODE_ENV === "development";
