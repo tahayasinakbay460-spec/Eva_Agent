@@ -24,10 +24,21 @@ from app.services.chat_service import ChatService
 
 log = logging.getLogger("eva")
 
+# Adapters that never deliver real email/SMS; refused in staging/prod.
+DEV_ONLY_MESSAGING = frozenset({"mock", "dev_mailbox"})
+
 
 async def seed_defaults(app: FastAPI) -> None:
     async with app.state.session_factory() as db:
         await persona_service.ensure_default_eva(db)
+
+
+def check_production_providers(app: FastAPI) -> None:
+    """Refuse to start staging/prod with adapters that never deliver anything."""
+    settings: Settings = app.state.settings
+    registry: ProviderRegistry = app.state.registry
+    if not settings.is_dev and registry.provider_name("messaging", "default") in DEV_ONLY_MESSAGING:
+        raise RuntimeError("a real messaging provider is required outside dev/test")
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -37,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        check_production_providers(app)
         await seed_defaults(app)
         log.info("eva api ready", extra={"env": settings.env, "version": __version__})
         yield
@@ -54,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     registry = ProviderRegistry(
         load_provider_config(settings.providers_config),
         llm_override=settings.llm_provider_override,
+        overrides={"messaging": settings.messaging_provider_override or ""},
     )
     app.state.settings = settings
     app.state.engine = engine

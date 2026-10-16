@@ -199,7 +199,7 @@ async def test_messaging_contract(name: str) -> None:
     msg = OutboundMessage(
         channel="email",
         to="alici@example.com",
-        template="otp_code",
+        template="login_code",
         locale="tr",
         params={"code": "123456"},
     )
@@ -207,7 +207,9 @@ async def test_messaging_contract(name: str) -> None:
     b = await provider.send(msg)
     assert a.provider == provider.name and a.message_id != b.message_id
     with pytest.raises(ValueError):
-        await provider.send(OutboundMessage(channel="sms", to="", template="otp_code", locale="tr"))
+        await provider.send(
+            OutboundMessage(channel="sms", to="", template="login_code", locale="tr")
+        )
 
 
 # --- registry -----------------------------------------------------------------
@@ -222,7 +224,7 @@ def test_repo_config_resolves_every_interface() -> None:
     assert registry.avatar_enrollment().name == "mock"
     assert registry.embedding("memory").dimensions > 0
     assert registry.moderation().name == "mock"
-    assert registry.messaging().name == "mock"
+    assert registry.messaging().name == "dev_mailbox", "local codes go to backend/dev_mailbox"
 
 
 def test_registry_rejects_bad_feature_config(tmp_path: Path) -> None:

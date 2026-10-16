@@ -1,6 +1,8 @@
-"""Shared fixtures: an app on a temp SQLite file with the mock LLM provider."""
+"""Shared fixtures: an app on a temp SQLite file with mock providers."""
 
 import json
+import os
+import tempfile
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Any
@@ -13,6 +15,9 @@ from app.core.config import Settings
 from app.database import Base
 from app.main import create_app, seed_defaults
 
+# The dev-mailbox adapter is exercised by the contract suite; keep its files out of the repo.
+os.environ.setdefault("EVA_DEV_MAILBOX_DIR", tempfile.mkdtemp(prefix="eva-mailbox-"))
+
 AppFactory = Callable[..., "AsyncIterator[FastAPI]"]
 
 
@@ -21,6 +26,7 @@ def make_settings(tmp_path: Path, **overrides: Any) -> Settings:
         "env": "test",
         "database_url": f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
         "llm_provider_override": "mock",
+        "messaging_provider_override": "mock",
         "cors_origins": ["http://localhost:3000"],
     }
     base.update(overrides)

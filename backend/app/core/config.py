@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     providers_config: Path = _REPO_ROOT / "config" / "providers.yaml"
     # Force every llm.* feature onto one adapter (tests use "mock").
     llm_provider_override: str | None = None
+    # Force the email/SMS adapter (tests use "mock"; dev default comes from providers.yaml).
+    messaging_provider_override: str | None = None
 
     session_ttl_hours: int = 24 * 7
     chat_history_turns: int = 20

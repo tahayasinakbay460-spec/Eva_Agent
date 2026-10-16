@@ -38,3 +38,19 @@ credentials, issues challenges and manages sessions.
   domain later invalidates passkeys, so `EVA_WEBAUTHN_RP_ID` must be chosen once.
 - Swapping to an identity server later is possible: sessions and `get_current_user`
   are the only touchpoints for the rest of the app.
+
+## Amendment (2026-10-16): email + password, confirmed by an emailed code
+
+The owner asked for a password option next to passkeys for user experience. Because a
+password is a single factor, every password sign-in also requires a 6-digit code sent
+to the verified email address (owner's choice over an authenticator app; replaceable
+later with TOTP or SMS without changing the flow shape: the API answers
+`{flow_id, method}` and the client asks for a code).
+
+- Email is the login name, stored lower-case; the account is created only after the
+  emailed code is entered.
+- Passwords: 10–128 characters, Argon2id via `argon2-cffi`.
+- Until an email provider is chosen (§15), dev emails are written to
+  `backend/dev_mailbox/`; the app refuses to start in staging/prod with that adapter.
+- Threats and mitigations: docs/threat-model.md §2. Residual risk: whoever controls the
+  email account can reset the password; the UI recommends passkeys.

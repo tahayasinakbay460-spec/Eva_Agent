@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import JSON, Boolean, ForeignKey, Integer, LargeBinary, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.database import Base
+from app.database import Base, utcnow
 from app.models.base import TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin
 
 
@@ -42,5 +42,28 @@ class AuthChallenge(UUIDPrimaryKeyMixin, Base):
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class AuthCode(UUIDPrimaryKeyMixin, Base):
+    """A 6-digit code emailed for sign-up, sign-in or password reset.
+
+    Only ``sha256(flow_id:code)`` is stored. The row id is the flow id the client holds;
+    ``attempts`` caps guessing and ``consumed_at`` makes the code single use.
+    """
+
+    __tablename__ = "auth_codes"
+
+    purpose: Mapped[str] = mapped_column(String(16), nullable=False)  # signup | login | reset
+    email: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Pending sign-up data (display name, locale, password hash); never the password.
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, index=True)
     consumed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

@@ -15,14 +15,20 @@ from app.core.security import CurrentUser, issue_session, revoke_session
 from app.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    CodeFlowOut,
+    CodeVerifyRequest,
     DevLoginRequest,
     PasskeyOptionsOut,
     PasskeySignUpRequest,
     PasskeyVerifyRequest,
+    PasswordLoginRequest,
+    PasswordResetRequest,
+    PasswordResetVerifyRequest,
+    PasswordSignUpRequest,
     TokenOut,
     UserOut,
 )
-from app.services import auth_service
+from app.services import auth_service, password_auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -99,3 +105,96 @@ async def me(user: CurrentUser) -> UserOut:
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(request: Request, user: CurrentUser, db: DB) -> None:
     await revoke_session(db, request.state.session_token)
+
+
+# --- email + password, confirmed by an emailed code (threat model §2) -------------
+
+
+def _password_deps(request: Request) -> password_auth_service.Deps:
+    return password_auth_service.Deps(
+        messaging=request.app.state.registry.messaging(),
+        limiter=request.app.state.rate_limiter,
+    )
+
+
+def _weak_password() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Weak password")
+
+
+@router.post(
+    "/password/register",
+    response_model=CodeFlowOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=AUTH_LIMIT,
+)
+async def password_register(request: Request, body: PasswordSignUpRequest, db: DB) -> CodeFlowOut:
+    form = password_auth_service.SignUpForm(
+        email=body.email,
+        password=body.password,
+        display_name=body.display_name.strip(),
+        locale=body.locale,
+    )
+    try:
+        flow_id = await password_auth_service.start_signup(db, _password_deps(request), form)
+    except password_auth_service.WeakPasswordError as exc:
+        raise _weak_password() from exc
+    return CodeFlowOut(flow_id=flow_id)
+
+
+@router.post("/password/register/verify", response_model=TokenOut, dependencies=AUTH_LIMIT)
+async def password_register_verify(request: Request, body: CodeVerifyRequest, db: DB) -> TokenOut:
+    try:
+        user = await password_auth_service.finish_signup(db, body.flow_id, body.code)
+    except auth_service.AuthFailedError as exc:
+        raise _auth_failed() from exc
+    token = await issue_session(db, user, request.app.state.settings.session_ttl_hours)
+    return TokenOut(access_token=token, user=UserOut.model_validate(user))
+
+
+@router.post("/password/login", response_model=CodeFlowOut, dependencies=AUTH_LIMIT)
+async def password_login(request: Request, body: PasswordLoginRequest, db: DB) -> CodeFlowOut:
+    try:
+        flow_id = await password_auth_service.start_login(
+            db, _password_deps(request), body.email, body.password
+        )
+    except auth_service.AuthFailedError as exc:
+        raise _auth_failed() from exc
+    return CodeFlowOut(flow_id=flow_id)
+
+
+@router.post("/password/login/verify", response_model=TokenOut, dependencies=AUTH_LIMIT)
+async def password_login_verify(request: Request, body: CodeVerifyRequest, db: DB) -> TokenOut:
+    try:
+        user = await password_auth_service.finish_login(db, body.flow_id, body.code)
+    except auth_service.AuthFailedError as exc:
+        raise _auth_failed() from exc
+    token = await issue_session(db, user, request.app.state.settings.session_ttl_hours)
+    return TokenOut(access_token=token, user=UserOut.model_validate(user))
+
+
+@router.post(
+    "/password/reset",
+    response_model=CodeFlowOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=AUTH_LIMIT,
+)
+async def password_reset(request: Request, body: PasswordResetRequest, db: DB) -> CodeFlowOut:
+    flow_id = await password_auth_service.start_reset(
+        db, _password_deps(request), body.email, body.locale
+    )
+    return CodeFlowOut(flow_id=flow_id)
+
+
+@router.post(
+    "/password/reset/verify", status_code=status.HTTP_204_NO_CONTENT, dependencies=AUTH_LIMIT
+)
+async def password_reset_verify(request: Request, body: PasswordResetVerifyRequest, db: DB) -> None:
+    """Sets the new password and signs the user out everywhere; they then sign in again."""
+    try:
+        await password_auth_service.finish_reset(
+            db, _password_deps(request), body.flow_id, body.code, body.new_password
+        )
+    except password_auth_service.WeakPasswordError as exc:
+        raise _weak_password() from exc
+    except auth_service.AuthFailedError as exc:
+        raise _auth_failed() from exc

@@ -20,6 +20,7 @@ from app.providers.base import (
     TTSProvider,
     VoiceEnrollmentProvider,
 )
+from app.providers.dev_mailbox import DevMailboxMessagingProvider
 from app.providers.mock import (
     MockAvatarEnrollmentProvider,
     MockAvatarProvider,
@@ -121,7 +122,7 @@ _FACTORIES: dict[ProviderKind, dict[str, Callable[[], object]]] = {
     "avatar_enrollment": {"mock": MockAvatarEnrollmentProvider},
     "embedding": {"mock": MockEmbeddingProvider},
     "moderation": {"mock": MockModerationProvider},
-    "messaging": {"mock": MockMessagingProvider},
+    "messaging": {"mock": MockMessagingProvider, "dev_mailbox": DevMailboxMessagingProvider},
 }
 
 
@@ -137,9 +138,17 @@ def create_adapter(kind: ProviderKind, name: str) -> object:
 
 
 class ProviderRegistry:
-    def __init__(self, config: ProviderConfig, *, llm_override: str | None = None) -> None:
+    def __init__(
+        self,
+        config: ProviderConfig,
+        *,
+        llm_override: str | None = None,
+        overrides: dict[ProviderKind, str] | None = None,
+    ) -> None:
         self._config = config
         self._llm_override = llm_override or None
+        # Force one adapter for every feature of a kind (tests pin messaging to "mock").
+        self._overrides = {k: v for k, v in (overrides or {}).items() if v}
         self._llm_instances: dict[str, LLMProvider] = {}
         self._instances: dict[tuple[ProviderKind, str], object] = {}
 
@@ -160,11 +169,15 @@ class ProviderRegistry:
         """Inject a prebuilt adapter (tests)."""
         self._llm_instances[name] = provider
 
-    def _resolve(self, kind: ProviderKind, feature: str) -> object:
+    def provider_name(self, kind: ProviderKind, feature: str) -> str:
         try:
-            name = self._config.features[kind][feature].provider
+            configured = self._config.features[kind][feature].provider
         except KeyError as exc:
             raise ProviderConfigError(f"no {kind} config for feature {feature!r}") from exc
+        return self._overrides.get(kind, configured)
+
+    def _resolve(self, kind: ProviderKind, feature: str) -> object:
+        name = self.provider_name(kind, feature)
         key = (kind, name)
         if key not in self._instances:
             self._instances[key] = create_adapter(kind, name)

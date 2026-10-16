@@ -268,7 +268,15 @@ class ModerationProvider(Protocol):
 
 MessageChannel = Literal["email", "sms"]
 # Fixed, recognisable templates only (§8.3); free-form bodies are not allowed.
-MessageTemplate = Literal["otp_code", "legacy_key_delivery", "legacy_key_used"]
+MessageTemplate = Literal[
+    "signup_code",
+    "login_code",
+    "password_reset_code",
+    "account_exists",
+    "password_changed",
+    "legacy_key_delivery",
+    "legacy_key_used",
+]
 
 
 @dataclass(frozen=True, slots=True)

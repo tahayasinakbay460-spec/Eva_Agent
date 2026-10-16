@@ -1,7 +1,7 @@
 import uuid
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field
 
 
 class DevLoginRequest(BaseModel):
@@ -16,6 +16,7 @@ class UserOut(BaseModel):
     handle: str
     display_name: str
     locale: str
+    email: str | None = None
 
 
 class TokenOut(BaseModel):
@@ -43,3 +44,48 @@ class PasskeyVerifyRequest(BaseModel):
     flow_id: uuid.UUID
     # The browser's PublicKeyCredential as JSON; structure is verified by py_webauthn.
     credential: dict[str, Any]
+
+
+# --- email + password (docs/threat-model.md §2) ------------------------------------
+
+# Stored and compared lower-case so "Ali@x.com" and "ali@x.com" are one account.
+Email = Annotated[EmailStr, AfterValidator(lambda v: v.lower())]
+NewPassword = Annotated[str, Field(min_length=10, max_length=128)]
+Code = Annotated[str, Field(pattern=r"^\d{6}$")]
+
+
+class PasswordSignUpRequest(BaseModel):
+    email: Email
+    password: NewPassword
+    display_name: str = Field(min_length=1, max_length=80)
+    locale: Literal["tr", "en"] = "tr"
+    age_confirmed: Literal[True]
+    ai_disclosure_accepted: Literal[True]
+
+
+class PasswordLoginRequest(BaseModel):
+    email: Email
+    password: str = Field(min_length=1, max_length=128)
+
+
+class PasswordResetRequest(BaseModel):
+    email: Email
+    locale: Literal["tr", "en"] = "tr"
+
+
+class CodeFlowOut(BaseModel):
+    """A code was (or, for unknown emails, appears to have been) sent."""
+
+    flow_id: uuid.UUID
+    method: Literal["email_code"] = "email_code"
+
+
+class CodeVerifyRequest(BaseModel):
+    flow_id: uuid.UUID
+    code: Code
+
+
+class PasswordResetVerifyRequest(BaseModel):
+    flow_id: uuid.UUID
+    code: Code
+    new_password: NewPassword

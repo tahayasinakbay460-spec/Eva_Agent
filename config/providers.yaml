@@ -38,4 +38,4 @@ embedding:
 moderation:
   default: { provider: mock }
 messaging:
-  default: { provider: mock }
+  default: { provider: dev_mailbox }   # writes to backend/dev_mailbox/ until §15 picks a provider
