@@ -5,12 +5,10 @@ import { useEffect, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import { Onboarding } from "@/components/Onboarding";
 import {
-  BellIcon,
   ChatIcon,
   ChevronRight,
   HeartIcon,
   InfinityIcon,
-  LeafIcon,
   LockIcon,
   MaskIcon,
   MicIcon,
@@ -54,10 +52,7 @@ export default function HomePage() {
               <DailyMessageCard />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <StudioCard />
-            <UsageCard />
-          </div>
+          <StudioCard />
         </section>
       </main>
       <BottomNav />
@@ -89,12 +84,6 @@ function Hero({
           <div className="font-script text-xl text-accent/90">{t.app.tagline}</div>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            aria-label="Bildirimler"
-            className="rounded-full bg-white/10 p-2 text-white/90 backdrop-blur"
-          >
-            <BellIcon size={18} />
-          </button>
           <Link
             href="/profil"
             className="flex items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 text-xs backdrop-blur"
@@ -153,12 +142,13 @@ function MoodCard() {
         <SmileIcon size={30} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-xs text-muted">{t.home.moodTitle}</span>
-        <span className="flex items-center gap-2 text-2xl font-semibold">
-          {t.home.moodValue}
-          <LeafIcon size={18} className="text-mint" />
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          {t.home.moodTitle}
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-normal text-muted">
+            {t.home.comingSoon}
+          </span>
         </span>
-        <span className="block text-xs text-muted">{t.home.moodSubtitle}</span>
+        <span className="mt-0.5 block text-xs text-muted">{t.home.moodSubtitle}</span>
       </span>
       <ChevronRight className="text-muted" />
     </Link>
@@ -279,48 +269,6 @@ function StudioCard() {
         {t.home.comingSoon}
       </span>
     </Link>
-  );
-}
-
-function UsageCard() {
-  const hours = 1.2;
-  const pct = Math.min(hours / 2, 1);
-  const r = 22;
-  const c = 2 * Math.PI * r;
-  return (
-    <div className="card flex items-center gap-3 p-3">
-      <svg width="60" height="60" viewBox="0 0 60 60" className="shrink-0">
-        <circle cx="30" cy="30" r={r} stroke="rgba(255,255,255,.1)" strokeWidth="5" fill="none" />
-        <circle
-          cx="30"
-          cy="30"
-          r={r}
-          stroke="url(#usage)"
-          strokeWidth="5"
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - pct)}
-          transform="rotate(-90 30 30)"
-        />
-        <defs>
-          <linearGradient id="usage" x1="0" x2="1">
-            <stop offset="0" stopColor="#38bdf8" />
-            <stop offset="1" stopColor="#8b5cf6" />
-          </linearGradient>
-        </defs>
-        <text x="30" y="28" textAnchor="middle" fill="#fff" fontSize="13" fontWeight="700">
-          {hours}
-        </text>
-        <text x="30" y="40" textAnchor="middle" fill="#b3abd6" fontSize="8">
-          {t.home.usageUnit}
-        </text>
-      </svg>
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold">{t.home.usageTitle}</span>
-        <span className="block text-[11px] text-muted">{t.home.usageHint}</span>
-      </span>
-    </div>
   );
 }
 
