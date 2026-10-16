@@ -4,6 +4,59 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 
 ---
 
+## 16 Ekim 2026 (5. oturum) — Faz 2 (sesli görüşme) ve Faz 3 (rızalı ses/yüz, avatar)
+
+Sen yokken çalıştım. Gitmeden verdiğin cevapların hepsi "senin önerin" olduğu için şöyle ilerledim:
+önce Faz 2, sonra Faz 3; anahtarlar olmadığından her şey **mock ile çalışıyor**, gerçek
+sağlayıcı adaptörleri güncel dokümanlara göre yazılıp sahte bağlantılarla test edildi.
+
+### Ne yapıldı (13 commit)
+
+**Hazırlık**
+1. **Adım-yukarı doğrulama (step-up):** Ses/yüz kaydı gibi hassas işlemlerden önce aynı oturumda kimliğini yeniden doğruluyorsun (passkey ya da şifre + e-posta kodu). 10 dakika geçerli, sadece o cihaz/oturum için.
+2. **Şifreli dosya deposu:** Ses ve yüz kayıtları diske **şifreli** yazılıyor (AES-256-GCM). Her kullanıcının kendi anahtarı var; anahtar silinirse dosyalar kalıcı olarak okunamaz ("kripto-silme").
+3. **OpenAI (GPT) adaptörü:** Kararını uyguladım (ADR 0004). `providers.yaml` artık OpenAI modellerini kullanıyor. Anahtar yokken mock çalışmaya devam ediyor.
+4. **Gizli bir hata düzeltildi:** `backend\.env`'e yazdığın sağlayıcı anahtarları (ör. `OPENAI_API_KEY`) aslında modele hiç ulaşmıyordu. Artık ulaşıyor.
+
+**Faz 2 — Sesli görüşme**
+5. **Gerçek adaptörler:** ElevenLabs (sesi üretme + ses klonu), OpenAI (konuşmayı yazıya çevirme). Anahtar gelince `providers.yaml`'da tek satır değişecek (dosyadaki yorumlarda yazıyor).
+6. **Görüşme API'si:** "Ara"ya basınca backend bir görüşme açıp tarayıcıya 2 dakikalık, tek odaya bağlı bir giriş anahtarı veriyor. Görüşme, EVA ile **yazışmanın kaldığı yerden** devam ediyor.
+7. **Ses ajanı (`realtime/` klasörü):** LiveKit üzerinde çalışan EVA'nın "kulağı ve ağzı". Sen konuşurken dinliyor, susunca cevap veriyor; **sen söze girersen anında susuyor** ve söyleyebildiği kadarını "kesildi" diye kaydediyor.
+8. **Görüşme ekranı (`/gorusme`):** Ana sayfadaki "Sesli Görüşme" ve "Görüntülü" buraya gidiyor. Canlı yazıya dökülen konuşma, kalan süre, mikrofon/kapat düğmeleri ve görüşme sonunda **gecikme panosu**.
+
+**Faz 3 — Rızalı ses/yüz ve avatar**
+9. **Rızalı kayıt:** Profil → "Ses ve yüz". Rıza metnini okuyup onaylıyorsun → örnek kaydediyorsun (ses için okuma metni var) → ekranda çıkan, **sana özel rastgele kodlu cümleyi kamerada okuyorsun** → incelemeye gönderiyorsun.
+10. **Elle inceleme (`/yonetim`, sadece admin):** Kararın gereği her kaydı bir insan onaylıyor: reşit mi, aynı kişi mi, kod doğru mu, rıza açık mı. Onay olmadan sağlayıcıda klon **oluşturulmuyor**.
+11. **Geri alma:** "Rızamı geri al" dediğin an kullanım duruyor; arkada klon sağlayıcıdan siliniyor, dosyaların imha ediliyor. Kanıt olarak sadece değiştirilemez rıza kaydı (ne zaman, hangi metin, özetler) kalıyor.
+12. **Önizleme:** Kendi klon sesini sadece 3 sabit cümleyle dinleyebiliyorsun (serbest metin yok: klon sesle "annene para gönder" gibi bir şey üretilemesin diye). "Kendi sesimle EVA'yı ara" ile EVA senin sesinle konuşuyor.
+13. **Avatar (görüntülü görüşme):** HeyGen LiveAvatar adaptörü yazıldı (sadece LITE: konuşmayı biz yapıyoruz, o sadece yüzü üretiyor). Görüntülü görüşmede EVA'nın sesi avatara gidiyor, avatar odaya yüzüyle katılıyor.
+
+**Testler:** 179 → 260 (backend) + 10 (ses ajanı). Hepsi geçiyor; lint, tip kontrolü ve production build temiz.
+
+### Canlı olarak denediklerim
+- Bilgisayarında gerçek bir LiveKit sunucusu açıp ajanı bağladım. Bir test programıyla gerçek konuşma kaydını (Windows'un sesiyle ürettiğim) odaya verdim: EVA duydu, cevap verdi, her şey veritabanına yazıldı. **Sen sustuktan EVA'nın konuşmaya başlamasına ~620 ms** (mock'larla; hedef 800 ms).
+- EVA konuşurken söze girdim: sustu, söyleyebildiği kadarı "kesildi" olarak kaydedildi.
+- Gerçek tarayıcıda (sahte kamera/mikrofonla) baştan sona: hesap → ses kaydı → kimlik doğrulama penceresi → örnek + rıza videosu → gönder → admin onayı → aktif → önizleme → kendi sesimle görüşme → geri al → klon silindi, dosya kalmadı. Konsolda hata yok.
+
+### Önemli: şu an göremeyeceklerin
+- **EVA mock olduğu için "bip" sesiyle konuşuyor** (cümle yerine kısık bip). Gerçek ses için ElevenLabs anahtarı + EVA için bir ses seçmek gerekiyor.
+- **Mock sahte STT ne dersen de "(mock) Sesini duydum." diye duyuyor.** Gerçek yazıya dökme OpenAI anahtarıyla gelecek.
+- **Görüntülü görüşmede görüntü yok** (avatar mock). Ekranda "Avatar sağlayıcısı henüz ayarlı değil" yazıyor, ses çalışıyor.
+- **Sesli görüşme için LiveKit sunucusu lazım** (aşağıda nasıl açılacağı var). Açık değilse ekran "henüz kurulmadı" diyor.
+
+### Senin bilmen gereken bir engel
+**HeyGen LiveAvatar'da "kullanıcının videosundan avatar oluştur" API'si yok** (bugün itibarıyla sadece kendi panellerinden yapılıyor) ve silme "yumuşak silme" (tam silindiğinden emin olamıyoruz). Bu yüzden yüz kaydının akışı (rıza, inceleme, şifreli saklama, geri alma) tamam ama **sağlayıcıda avatar oluşturma adımı şimdilik mock**. Gerçek ortamda yüz kaydı kendiliğinden kapalı kalıyor. EVA'nın kendi (stok) avatarıyla görüntülü görüşme ise anahtar gelince çalışır. Açık soru 2'ye bak.
+
+### Senin yapman gereken (bir kere)
+```powershell
+cd C:\Users\HYPER\Desktop\EVA\backend
+uv sync
+uv run alembic upgrade head
+```
+Admin olmak için (inceleme ekranı): `uv run python scripts/make_admin.py <e-postan ya da adın>`
+
+---
+
 ## 16 Ekim 2026 (4. oturum) — Faz 1: EVA artık hatırlıyor
 
 ### Yeni kararlar
@@ -166,11 +219,41 @@ cd backend
 uv run pytest                 # testler
 uv run ruff check .           # lint
 uv run mypy app tests         # tip kontrolü
-cd ..rontend
+cd ..\realtime
+uv run pytest                 # ses ajanının testleri
+cd ..\frontend
 npm run lint; npm run typecheck; npm run format:check
 ```
 
-**Gerçek EVA cevabı için:** `backend\.env` dosyasına `ANTHROPIC_API_KEY=...` ekle ve `EVA_LLM_PROVIDER_OVERRIDE=mock` satırını sil.
+**Gerçek EVA cevabı için:** `backend\.env` dosyasına `OPENAI_API_KEY=...` ekle ve `EVA_LLM_PROVIDER_OVERRIDE=mock` satırını sil.
+
+**Sesli görüşmeyi denemek için (3 terminal daha):**
+
+1. LiveKit sunucusu (bir kere indir): https://github.com/livekit/livekit/releases adresinden
+   `livekit_..._windows_amd64.zip` dosyasını indir, içindeki `livekit-server.exe`'yi bir klasöre çıkar.
+   ```powershell
+   .\livekit-server.exe --dev
+   ```
+2. `backend\.env` dosyasına ekle (lokal sunucunun hazır anahtarları):
+   ```
+   LIVEKIT_URL=ws://localhost:7880
+   LIVEKIT_API_KEY=devkey
+   LIVEKIT_API_SECRET=secret
+   ```
+   Backend'i yeniden başlat.
+3. Ses ajanı:
+   ```powershell
+   cd C:\Users\HYPER\Desktop\EVA\realtime
+   uv sync
+   uv run python -m livekit.agents download-files   # bir kere: ses modelleri
+   uv run python -m eva_realtime dev
+   ```
+4. Tarayıcıda Ana sayfa → "Sesli Görüşme" → "EVA'yı ara". Konuş, sus; EVA (mock'ta bip ile) cevap verir.
+
+**Anahtarlar gelince** (`backend\.env` + `config\providers.yaml`'daki yorumlu satırlar):
+`OPENAI_API_KEY` (model + yazıya dökme), `ELEVENLABS_API_KEY` (ses), `LIVEAVATAR_API_KEY` (avatar).
+LiveKit'i kendi bilgisayarında değil internette istersen LiveKit Cloud'un ücretsiz katmanı yeterli.
+EVA'nın stok sesi ve avatarı `config\media.yaml`'a yazılacak.
 
 ---
 
@@ -197,7 +280,14 @@ Hepsini okumana gerek yok. Bir mesajın yolculuğunu takip et, gerisi zamanla ge
 | `routers/` | URL'ler ve uç noktalar | `routers/chat.py` |
 | `services/` | İş mantığı | `services/agent.py` |
 | `persona/` | EVA'nın kişiliği ve kuralları | `core/system_propmt.py` |
-| `providers/` | Model sağlayıcıları (Claude, mock) | yoktu, Groq doğrudan çağrılıyordu |
+| `providers/` | Sağlayıcılar: OpenAI, ElevenLabs, LiveAvatar, mock | yoktu, Groq doğrudan çağrılıyordu |
+| `storage/` | Şifreli dosya deposu (ses/yüz kayıtları) | yoktu |
+| `../realtime/` | Sesli görüşme ajanı (LiveKit) | yoktu |
+
+**Sesli görüşmede bir cümlenin yolu:** `frontend/src/app/gorusme/page.tsx` (mikrofon açılır) →
+LiveKit odası → `realtime/eva_realtime/agent.py` (ajan dinler, susunca tur biter) →
+`adapters.py` (yazıya dökme → model → ses) → `backend/app/services/voice_service.py`
+(`CallTurns`: sözler ve süreler veritabanına).
 
 ---
 
@@ -240,21 +330,33 @@ Kodda karşına çıkacak, muhtemelen yeni olan kavramlar. Takıldıkça buraya 
 - **Sentry:** Sunucuda oluşan hataları toplayıp gösteren servis.
 - **gitleaks:** Kodda yanlışlıkla bırakılmış API anahtarı arayan tarayıcı.
 - **Prettier:** Kod biçimlendirici; herkesin kodu aynı görünür.
+- **LiveKit / WebRTC:** Tarayıcı ile sunucu arasında sesi ve görüntüyü gecikmesiz taşıyan sistem. EVA'nın ajanı bir "oda"ya katılır, sen de aynı odaya.
+- **VAD (ses aktivitesi tespiti):** "Şu an biri konuşuyor mu?" diyen küçük model. Sustuğunu anlayınca tur biter.
+- **Tur sonu modeli (turn detector):** "Gerçekten bitirdi mi, yoksa nefes mi alıyor?" diye karar veren model. Türkçeyi destekliyor.
+- **Söz kesme (barge-in):** EVA konuşurken senin söze girmen. EVA hemen susar; söyleyebildiği kadarı "kesildi" diye kaydedilir.
+- **Adım-yukarı doğrulama (step-up):** Girişliyken bile hassas bir işlemden önce kimliğini yeniden doğrulaman (çalınmış oturuma karşı).
+- **Zarf şifreleme (envelope encryption):** Dosyalar kullanıcının kendi anahtarıyla şifrelenir; o anahtar da ana anahtarla şifrelenip saklanır. Ana anahtar veritabanında değildir.
+- **Kripto-silme:** Şifreli dosyaların anahtarını silmek; dosyalar (yedekler dahil) bir daha okunamaz.
+- **Sihirli baytlar (magic bytes):** Dosyanın gerçek türünü gösteren ilk birkaç bayt. Dosya adına ya da tarayıcının söylediğine güvenmeyiz, bunlara bakarız.
+- **Rıza kaydı:** Kimin, ne zaman, hangi metne rıza verdiğinin değiştirilemez kanıtı. Sadece eklenebilir, düzeltilemez/silinemez.
+- **Denetim kaydı (audit log):** Hassas işlemlerin (kayıt, onay, dosya açma, geri alma) kim tarafından ne zaman yapıldığının listesi.
+- **LITE mod (avatar):** Avatar sağlayıcısının sadece yüzü üretmesi; konuşmayı, hafızayı ve kişiliği biz yönetiriz.
 
 ---
 
 ## Açık sorular (sonraki oturum)
 
-1. ~~EVA için hangi API anahtarı?~~ **Karar (16 Ekim): OpenAI (GPT), ücretli anahtar.** Sıradaki oturumun ilk işi: güncel OpenAI dokümanını okuyup `LLMProvider` için OpenAI adaptörü + ADR (CLAUDE.md'de varsayılan Anthropic yazıyor), sonra otomatik anı çıkarma ve ilk-kelime süresini gerçek modelle doğrulamak. Sesli/görüntülü planı: GPT (anlama/cevap) + ElevenLabs (klon ses) + HeyGen (yüz); OpenAI Realtime'ın hazır sesleri klon ses kullanamadığı için ses üretimi ona bırakılmaz.
-   Eski commit'lerdeki Claude satırı temizlenmeyecek (sahibin kararı).
-2. Embedding (metni vektöre çeviren) sağlayıcı hangisi olsun? Seçilene kadar anlamsal arama kapalı, kelime + önem + yakınlık ile aranıyor.
-3. Docker Desktop kurulacak mı, yoksa bir süre SQLite ile mi devam?
-4. Platform önceliği: önce web mi, mobil (Expo) da başlasın mı?
+1. **Anahtarlar:** OpenAI (model + yazıya dökme), ElevenLabs (ses), LiveAvatar (avatar), istersen LiveKit Cloud. Gelince: EVA için ElevenLabs'te genç yetişkin, sıcak bir kadın sesi ve LiveAvatar'da stok bir avatar seçip `config/media.yaml`'a yazacağız; Türkçe yazıya dökme kalitesini (OpenAI mı ElevenLabs Scribe mi) gerçek kayıtlarla deneyeceğiz; gerçek gecikmeyi ölçeceğiz.
+2. **Yüz avatarı sağlayıcısı:** LiveAvatar'da kullanıcı videosundan avatar oluşturma API'si yok ve silme "yumuşak". HeyGen'e kurumsal API + kalıcı silme teyidi mi soralım, yoksa başka bir sağlayıcı mı araştırayım?
+3. Embedding (metni vektöre çeviren) sağlayıcı hangisi olsun? Seçilene kadar anlamsal arama kapalı, kelime + önem + yakınlık ile aranıyor.
+4. Docker Desktop kurulacak mı, yoksa bir süre SQLite ile mi devam?
+5. Platform önceliği: önce web mi, mobil (Expo) da başlasın mı?
+6. Bu oturumun kodu GitHub'a gönderilmedi (push etmedim; senin onayınla). `git push` ile CI'da da kontrol edilir.
 
 ## Sıradaki adım önerisi
 
-1. Gerçek model anahtarı → otomatik anı çıkarmayı ve ilk-kelime süresini gerçek modelle doğrulamak.
-2. Girişin kalan parçaları (lansmandan önce zorunlu): passkey ↔ şifre bağlama, kurtarma kodları, güvenli oturum, step-up, cihaz ekranı, hesap silme/dışa aktarma.
-3. Faz 2: sesli görüşme.
+1. Anahtarlar → gerçek ses, gerçek yazıya dökme, gerçek gecikme ölçümü; EVA'nın sesini ve avatarını seçmek.
+2. Girişin kalan parçaları (lansmandan önce zorunlu): passkey ↔ şifre bağlama, kurtarma kodları, güvenli oturum (httpOnly çerez), cihaz ekranı, hesap silme/dışa aktarma.
+3. Faz 4: Karakter Stüdyosu.
 
 Bundan sonra daha küçük adımlarla ilerleyip her adımda yeni kavramları açıklayacağız.

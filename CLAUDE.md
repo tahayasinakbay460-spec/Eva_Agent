@@ -79,29 +79,39 @@ eva/
 │   │   ├── main.py          # create_app(); app.state üzerinden bağımlılıklar; dev'de işçiyi de başlatır
 │   │   ├── database.py      # async engine, session, Base (SQLite'ta yabancı anahtarlar açık)
 │   │   ├── core/            # config (Settings), security (token/auth), ratelimit, middleware, telemetry
-│   │   ├── models/          # users, sessions, passkeys, auth_challenges, auth_codes, personas,
-│   │   │                    # conversations, messages, memories, memory_embeddings, jobs
+│   │   ├── models/          # users (role), sessions (step_up_at), passkeys, auth_*, personas,
+│   │   │                    # conversations, messages, memories, memory_embeddings, jobs,
+│   │   │                    # call_sessions, turn_latencies, user_data_keys, biometric_enrollments,
+│   │   │                    # enrollment_samples, provider_assets, consents, consent_records, audit_log
 │   │   ├── schemas/         # Pydantic istek/cevap şemaları (SSE payload'ları dahil)
-│   │   ├── routers/         # health, auth (passkey + şifre), personas, chat, memories
+│   │   ├── routers/         # health, auth (passkey + şifre + adım-yukarı), personas, chat, memories,
+│   │   │                    # voice (görüşme + gecikme panosu), biometrics (ses/yüz kaydı), admin (inceleme)
 │   │   ├── services/        # iş mantığı: auth, password_auth, persona, chat (akışlı tur),
-│   │   │                    # memory (CRUD), memory_retrieval (sıcak yol), memory_extraction (işçi)
-│   │   ├── persona/         # domain çekirdeği: PersonaDefinition, safety_core, eva, PersonaCompiler
-│   │   ├── providers/       # sağlayıcı sınırı: base (9 arayüz), mock, anthropic, dev_mailbox, registry
+│   │   │                    # memory (CRUD), memory_retrieval (sıcak yol), memory_extraction (işçi),
+│   │   │                    # voice (görüşme + CallTurns), biometric, consent_texts, audit
+│   │   ├── persona/         # domain çekirdeği: PersonaDefinition, safety_core, eva, PersonaCompiler, media
+│   │   ├── providers/       # sağlayıcı sınırı: base (9 arayüz), mock, registry; gerçek adaptörler:
+│   │   │                    # openai_llm, openai_stt, elevenlabs (TTS + ses klonu), liveavatar (LITE),
+│   │   │                    # anthropic, dev_mailbox
+│   │   ├── storage/         # şifreli dosya deposu: kullanıcı başına veri anahtarı (AES-256-GCM), KMS arayüzü
 │   │   └── worker/          # arka plan işçisi (ADR 0001 eşlemesiyle `worker/` burada): queue, runner,
 │   │                        # handlers, jobs; `uv run python -m app.worker`
 │   ├── alembic/             # migration'lar
-│   ├── scripts/             # export_openapi.py
+│   ├── scripts/             # export_openapi.py, make_admin.py (admin rolü yalnızca sunucuda verilir)
 │   └── tests/               # soft_authenticator.py: testler için yazılımsal passkey cihazı
 ├── frontend/                # Next.js (App Router, Tailwind v4) – mobil-öncelikli web
 │   └── src/
-│       ├── app/             # sayfalar: / (ana sayfa), /chat, /anilar, /analiz, /kesfet, /profil
-│       ├── components/      # auth/ (giriş ekranı), memories/ (anı formu/kartı), ui.tsx, BottomNav, icons
-│       ├── hooks/           # useSession
+│       ├── app/             # sayfalar: / (ana sayfa), /chat, /anilar, /gorusme (sesli/görüntülü),
+│       │                    # /profil, /profil/ses-yuz (rızalı kayıt), /yonetim (admin inceleme), /analiz, /kesfet
+│       ├── components/      # auth/, memories/, StepUpSheet (adım-yukarı penceresi), ui.tsx, BottomNav, icons
+│       ├── hooks/           # useSession, useRecorder (mikrofon/kamera kaydı)
 │       ├── i18n/            # tr.ts (varsayılan), en.ts – UI metinleri koda gömülmez
 │       └── lib/             # api/ (openapi.json + üretilen schema.d.ts + client.ts), webauthn.ts, sse.ts
-├── realtime/                # (Faz 2) LiveKit Agents – VAD → STT → LLM → TTS → avatar
+├── realtime/                # LiveKit Agents ajanı (ayrı uv projesi, backend'i yerel paket olarak kullanır;
+│                            # ADR 0005): eva_realtime/adapters (STT/LLM/TTS köprüsü), agent, avatar
 ├── mobile/                  # (§15 kararı sonrası) Expo
-├── config/                  # providers.yaml, sensitive_figures.yaml, blocked_franchises.yaml
+├── config/                  # providers.yaml, media.yaml (EVA'nın ses/yüz id'leri), sensitive_figures.yaml,
+│                            # blocked_franchises.yaml
 ├── evals/                   # persona kalitesi, karakter bütünlüğü, red-team
 ├── infra/                   # docker-compose.yml (postgres+pgvector, redis, minio)
 ├── docs/adr/                # mimari karar kayıtları
@@ -121,7 +131,11 @@ make infra        # docker compose -f infra/docker-compose.yml up -d  (postgres+
 make api          # cd backend && uv run uvicorn app.main:app --reload --port 8000  (dev'de işçi de içinde döner)
                   # ayrı işçi: cd backend && uv run python -m app.worker  (EVA_WORKER_INPROCESS=false ile)
 make web          # cd frontend && npm run dev   (http://localhost:3000)
-make test         # backend: uv run pytest  ·  frontend: npm run typecheck
+                  # sesli görüşme: livekit-server --dev (ws://localhost:7880, devkey/secret) +
+                  # cd realtime && uv run python -m livekit.agents download-files  (bir kez)
+                  #             && uv run python -m eva_realtime dev
+                  # admin yapmak: cd backend && uv run python scripts/make_admin.py <e-posta|ad>
+make test         # backend: uv run pytest  ·  realtime: uv run pytest  ·  frontend: npm run typecheck
 make lint         # backend: ruff format --check, ruff check, mypy  ·  frontend: prettier --check, eslint, tsc
 make format       # ruff format + ruff --fix  ·  prettier --write
 make migrate      # cd backend && uv run alembic upgrade head
@@ -134,6 +148,7 @@ Lokal geliştirmede veritabanı varsayılan olarak SQLite'tır (`backend/eva_dev
 `EVA_DATABASE_URL=postgresql+asyncpg://eva:eva@localhost:5432/eva` ile Postgres'e geçilir.
 `EVA_LLM_PROVIDER_OVERRIDE=mock` ağsız çalıştırır; gerçek cevap için `OPENAI_API_KEY` gerekir (ADR 0004).
 Arka plan işleri veritabanındaki `jobs` tablosunda (ADR 0003); Redis gelince `app/worker/queue.py` değişir. E-posta sağlayıcısı seçilene kadar mailler `backend/dev_mailbox/` klasörüne yazılır (staging/prod bu adaptörle açılmaz). Testler `EVA_TEST_DATABASE_URL` verilirse Postgres'te koşar (CI'da `backend-postgres` işi).
+Sesli görüşme LiveKit ister (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`); yoksa `POST /voice/calls` 503 `voice_not_configured` döner. Ajan `backend/.env`'i okur; göreli yollar (SQLite, config) her zaman `backend/`'e göre çözülür. Biyometrik dosyalar `backend/storage/` altında şifreli; dev ana anahtarı `backend/.dev_master_key` (git'e girmez; staging/prod'da KMS zorunlu, yoksa uygulama açılmaz). Hassas uçlar `require_step_up` ister (10 dk geçerli).
 Giriş: passkey (`/auth/passkey/{register,login}/{options,verify}`) veya e-posta + şifre + e-postaya gelen kod (`/auth/password/...`), ADR 0002 ve eki. WebAuthn RP ayarları `EVA_WEBAUTHN_RP_ID` ve `EVA_WEBAUTHN_ORIGINS`; frontend başka porttan açılırsa origin listesine eklenmeli. `POST /auth/dev-login` yalnızca `EVA_ENV=dev|test` için ve testlerde kalır; frontend kullanmaz. Testlerde passkey için `backend/tests/soft_authenticator.py` kullanılır.
 
 ### Ortam değişkenleri
@@ -485,3 +500,9 @@ Kullanıcıya sorulacak; karar verilene kadar ilgili özellik kapalı kalır.
 - [ ] Romantik/flörtöz karakterlere izin var mı? (Varsayılan: kapalı; açık cinsel içerik her durumda yok)
 - [ ] Gelir modeli ve plan kotaları (avatar dakikası maliyeti nedeniyle)
 - [ ] Hassas figürler listesinin son hali (hukukçu görüşüyle)
+- [x] LLM sağlayıcısı → OpenAI GPT (ADR 0004, 2026-10-16)
+- [x] Biyometrik kayıt incelemesi → yüz eşleştirme / yaş tahmini sağlayıcısı yok; her kayıt bir admin tarafından elle onaylanır (ADR 0006, 2026-10-16)
+- [ ] Yüz avatarı sağlayıcısı: LiveAvatar'da özel avatar oluşturma API'si yok (yalnızca panel) ve silme "yumuşak silme". HeyGen'den kurumsal API + kalıcı silme teyidi mi, başka sağlayıcı mı? (Karar verilene kadar yüz kaydı gerçek ortamda kapalı.)
+- [ ] EVA'nın stok sesi ve avatarı (`config/media.yaml`): anahtar gelince seçilecek (sahibin tercihi: genç yetişkin, sıcak bir kadın sesi)
+- [ ] Rıza kanıtının (rıza kaydı + özetler) hesap silindikten sonra saklanma süresi (hukukçu görüşü)
+- [ ] Yüz eşleştirme ve yaş tahmini sağlayıcısı (otomatik ön kontrol; inceleyicinin yükünü azaltır)
