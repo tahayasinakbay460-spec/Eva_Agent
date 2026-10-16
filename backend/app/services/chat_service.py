@@ -8,12 +8,14 @@ import asyncio
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.telemetry import TurnTimer, log_turn
+from app.core.telemetry import TurnTimer, record_turn
+from app.database import utcnow
 from app.models.base import new_id
 from app.models.conversation import Conversation, Message
 from app.models.persona import Persona
@@ -146,6 +148,7 @@ class ChatService:
             raise ConversationNotFoundError(str(conversation_id))
         history = await self._load_history(db, conversation)
 
+        user_created_at = _after(history[-1].created_at if history else None)
         user_msg = Message(
             id=new_id(),
             conversation_id=conversation.id,
@@ -153,6 +156,7 @@ class ChatService:
             content=content,
             channel="text",
             idempotency_key=idempotency_key,
+            created_at=user_created_at,
         )
         db.add(user_msg)
         await db.commit()
@@ -162,7 +166,7 @@ class ChatService:
 
         request = self._build_request(persona_row, user, history, content)
         provider, feature_cfg = self._registry.llm("chat")
-        timer = TurnTimer()
+        timer = TurnTimer(provider=provider.name, model=feature_cfg.model)
         parts: list[str] = []
         stop_reason: StopReason = "end_turn"
         output_tokens = 0
@@ -179,24 +183,23 @@ class ChatService:
                     output_tokens = event.output_tokens
         except asyncio.CancelledError:
             interrupted = True
-            await asyncio.shield(self._save_assistant(db, conversation, assistant_id, parts, True))
+            record_turn(timer, outcome="interrupted")
+            await asyncio.shield(
+                self._save_assistant(db, conversation, assistant_id, user_created_at, parts, True)
+            )
             raise
         except ProviderError as exc:
+            record_turn(timer, outcome="provider_error")
             if parts:
                 interrupted = True
-                await self._save_assistant(db, conversation, assistant_id, parts, True)
+                await self._save_assistant(
+                    db, conversation, assistant_id, user_created_at, parts, True
+                )
             yield Error("provider_error", exc.retryable)
             return
 
-        await self._save_assistant(db, conversation, assistant_id, parts, False)
-        log_turn(
-            timer=timer,
-            provider=provider.name,
-            model=feature_cfg.model,
-            stop_reason=stop_reason,
-            output_tokens=output_tokens,
-            interrupted=interrupted,
-        )
+        await self._save_assistant(db, conversation, assistant_id, user_created_at, parts, False)
+        record_turn(timer, outcome="ok", stop_reason=stop_reason, output_tokens=output_tokens)
         yield Done(assistant_id, stop_reason, interrupted)
 
     # --- helpers ------------------------------------------------------------------
@@ -261,6 +264,7 @@ class ChatService:
         db: AsyncSession,
         conversation: Conversation,
         assistant_id: uuid.UUID,
+        user_created_at: datetime,
         parts: list[str],
         interrupted: bool,
     ) -> None:
@@ -272,11 +276,25 @@ class ChatService:
                 content="".join(parts),
                 channel="text",
                 interrupted=interrupted,
+                created_at=_after(user_created_at),
             )
         )
         conversation.updated_at = conversation.updated_at  # touch -> onupdate fires
         db.add(conversation)
         await db.commit()
+
+
+def _after(previous: datetime | None) -> datetime:
+    """Now, but strictly later than ``previous``.
+
+    History is ordered by ``created_at``; on clocks with coarse resolution (Windows
+    ticks ~15 ms) a reply could otherwise share its prompt's timestamp and the order
+    would fall back to the random UUID tiebreak.
+    """
+    now = utcnow()
+    if previous is not None and now <= previous:
+        return previous + timedelta(microseconds=1)
+    return now
 
 
 def _normalize_turns(turns: Sequence[tuple[str, str]]) -> list[LLMMessage]:

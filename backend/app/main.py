@@ -14,6 +14,7 @@ from app import __version__
 from app.core.config import Settings, get_settings
 from app.core.middleware import RequestContextMiddleware
 from app.core.ratelimit import MemoryRateLimiter
+from app.core.telemetry import setup_telemetry
 from app.database import create_engine, create_session_factory
 from app.persona.compiler import PersonaCompiler
 from app.providers.registry import ProviderRegistry, load_provider_config
@@ -32,6 +33,7 @@ async def seed_defaults(app: FastAPI) -> None:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     logging.basicConfig(level=logging.INFO if settings.is_dev else logging.WARNING)
+    setup_telemetry(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

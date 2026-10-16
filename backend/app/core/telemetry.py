@@ -1,26 +1,66 @@
-"""Latency-budget instrumentation (CLAUDE.md §4.4).
+"""Latency-budget instrumentation and error reporting (CLAUDE.md §3, §4.4).
 
-Only numbers and identifiers are logged, never prompt or message content (§2.6).
-OpenTelemetry export will plug in here; call sites stay the same.
+Only numbers and identifiers leave the process, never prompt, message or memory
+content (§2.6).
+
+- Metrics and traces go through the OpenTelemetry API. Instruments are created at
+  import time and bind to whatever provider is installed; with none installed they
+  are no-ops. ``setup_telemetry`` installs OTLP exporters when ``EVA_OTEL_ENABLED``
+  is true; endpoint, headers and protocol come from the standard ``OTEL_*`` env vars.
+- Sentry is enabled only when ``EVA_SENTRY_DSN`` is set, with PII stripped.
 """
 
 import logging
 import time
 from dataclasses import dataclass, field
+from typing import Any, Literal
+
+from opentelemetry import metrics, trace
+from opentelemetry.trace import Span, Status, StatusCode
+
+from app import __version__
+from app.core.config import Settings
 
 log = logging.getLogger("eva.telemetry")
+
+_meter = metrics.get_meter("eva.api", __version__)
+_tracer = trace.get_tracer("eva.api", __version__)
+
+LLM_TTFT = _meter.create_histogram(
+    "eva.chat.llm_ttft", unit="ms", description="Send to first LLM token (text chat)"
+)
+E2E = _meter.create_histogram(
+    "eva.chat.e2e", unit="ms", description="Send to last LLM token (text chat)"
+)
+TURNS = _meter.create_counter("eva.chat.turns", description="Text chat turns by outcome")
+
+TurnOutcome = Literal["ok", "interrupted", "provider_error"]
 
 
 @dataclass
 class TurnTimer:
-    """Measures one chat turn: time to first token and end-to-end."""
+    """Measures one chat turn: time to first token and end-to-end.
 
+    Also owns the turn's span. The span is started without becoming the current
+    span because the turn runs inside an async generator that is resumed in
+    different contexts.
+    """
+
+    provider: str
+    model: str
     started: float = field(default_factory=time.perf_counter)
     first_token_at: float | None = None
+    span: Span = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.span = _tracer.start_span(
+            "chat.turn", attributes={"llm.provider": self.provider, "llm.model": self.model}
+        )
 
     def mark_first_token(self) -> None:
         if self.first_token_at is None:
             self.first_token_at = time.perf_counter()
+            self.span.add_event("first_token")
 
     @property
     def ttft_ms(self) -> float | None:
@@ -33,24 +73,118 @@ class TurnTimer:
         return (time.perf_counter() - self.started) * 1000
 
 
-def log_turn(
-    *,
+def record_turn(
     timer: TurnTimer,
-    provider: str,
-    model: str,
-    stop_reason: str,
-    output_tokens: int,
-    interrupted: bool,
+    *,
+    outcome: TurnOutcome,
+    stop_reason: str | None = None,
+    output_tokens: int = 0,
 ) -> None:
+    attrs: dict[str, str] = {
+        "llm.provider": timer.provider,
+        "llm.model": timer.model,
+        "outcome": outcome,
+    }
+    ttft = timer.ttft_ms
+    e2e = timer.e2e_ms
+    if ttft is not None:
+        LLM_TTFT.record(ttft, attrs)
+    if outcome == "ok":
+        E2E.record(e2e, attrs)
+    TURNS.add(1, attrs)
+
+    span = timer.span
+    span.set_attribute("outcome", outcome)
+    span.set_attribute("llm.output_tokens", output_tokens)
+    if stop_reason is not None:
+        span.set_attribute("llm.stop_reason", stop_reason)
+    if outcome == "provider_error":
+        span.set_status(Status(StatusCode.ERROR, "provider_error"))
+    span.end()
+
     log.info(
         "chat_turn",
         extra={
-            "llm_provider": provider,
-            "llm_model": model,
-            "llm_ttft_ms": round(timer.ttft_ms, 1) if timer.ttft_ms is not None else None,
-            "e2e_ms": round(timer.e2e_ms, 1),
+            "llm_provider": timer.provider,
+            "llm_model": timer.model,
+            "llm_ttft_ms": round(ttft, 1) if ttft is not None else None,
+            "e2e_ms": round(e2e, 1),
+            "outcome": outcome,
             "stop_reason": stop_reason,
             "output_tokens": output_tokens,
-            "interrupted": interrupted,
         },
     )
+
+
+# --- setup ----------------------------------------------------------------------
+
+
+def setup_telemetry(settings: Settings) -> None:
+    if settings.otel_enabled:
+        _setup_otel(settings)
+    if settings.sentry_dsn:
+        _setup_sentry(settings)
+
+
+def _setup_otel(settings: Settings) -> None:
+    from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+    resource = Resource.create(
+        {
+            "service.name": "eva-api",
+            "service.version": __version__,
+            "deployment.environment": settings.env,
+        }
+    )
+    tracer_provider = TracerProvider(resource=resource)
+    tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+    trace.set_tracer_provider(tracer_provider)
+    metrics.set_meter_provider(
+        MeterProvider(
+            resource=resource,
+            metric_readers=[PeriodicExportingMetricReader(OTLPMetricExporter())],
+        )
+    )
+    log.info("opentelemetry export enabled")
+
+
+# Request parts that can carry personal data, tokens or message content.
+_SCRUBBED_REQUEST_KEYS = ("data", "cookies", "query_string", "headers", "env")
+
+
+def scrub_sentry_event(event: Any, hint: Any = None) -> Any:
+    """``before_send`` hook: drop everything that could hold PII or content (§2.6)."""
+    request = event.get("request")
+    if isinstance(request, dict):
+        for key in _SCRUBBED_REQUEST_KEYS:
+            request.pop(key, None)
+    event.pop("user", None)
+    event.pop("breadcrumbs", None)
+    event.pop("extra", None)
+    for exc in (event.get("exception") or {}).get("values", []):
+        for frame in (exc.get("stacktrace") or {}).get("frames", []):
+            frame.pop("vars", None)
+    return event
+
+
+def _setup_sentry(settings: Settings) -> None:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.env,
+        release=f"eva-api@{__version__}",
+        send_default_pii=False,
+        include_local_variables=False,
+        max_request_body_size="never",
+        traces_sample_rate=0.0,  # tracing goes through OpenTelemetry
+        before_send=scrub_sentry_event,
+        before_breadcrumb=lambda crumb, hint: None,
+    )
+    log.info("sentry enabled")

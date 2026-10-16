@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     rate_limit_chat_per_minute: int = 30
     rate_limit_default_per_minute: int = 120
 
+    # Observability (§3). OTLP endpoint/headers come from the standard OTEL_* env vars.
+    otel_enabled: bool = False
+    sentry_dsn: str | None = None
+
     @property
     def is_dev(self) -> bool:
         return self.env in ("dev", "test")

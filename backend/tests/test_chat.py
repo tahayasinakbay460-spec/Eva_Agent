@@ -1,7 +1,9 @@
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 import httpx
+import pytest
 from fastapi import FastAPI
 
 from app.providers.base import LLMEvent, LLMRequest, ProviderError, StreamEnd, TextDelta
@@ -166,3 +168,32 @@ async def test_history_is_sent_in_alternating_order(
     assert req.system[0].cacheable is True
     assert "Core rules" in req.system[0].text
     assert "EVA" in req.system[1].text
+
+
+async def test_history_order_survives_a_frozen_clock(
+    app: FastAPI,
+    client: httpx.AsyncClient,
+    auth_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Coarse clocks (Windows) can give a reply the same timestamp as its prompt."""
+    frozen = datetime(2026, 10, 16, 12, 0, tzinfo=UTC)
+    monkeypatch.setattr("app.services.chat_service.utcnow", lambda: frozen)
+    provider = _RecordingProvider()
+    app.state.registry.register_llm("mock", provider)
+    conversation_id = await _new_conversation(client, auth_headers)
+    for i, text in enumerate(["bir", "iki", "üç"]):
+        await _send(client, auth_headers, conversation_id, text, f"frozen-{i:04d}")
+
+    req = provider.requests[-1]
+    assert [(m.role, m.content) for m in req.messages] == [
+        ("user", "bir"),
+        ("assistant", "ok"),
+        ("user", "iki"),
+        ("assistant", "ok"),
+        ("user", "üç"),
+    ]
+    msgs = (
+        await client.get(f"/chat/conversations/{conversation_id}/messages", headers=auth_headers)
+    ).json()
+    assert [m["content"] for m in msgs] == ["bir", "ok", "iki", "ok", "üç", "ok"]
