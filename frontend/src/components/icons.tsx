@@ -27,6 +27,17 @@ export const MicIcon = (p: IconProps) => (
     <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
   </svg>
 );
+export const MicOffIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M9 9v2a3 3 0 0 0 5.1 2.1M15 9.3V6a3 3 0 0 0-5.7-1.3" />
+    <path d="M5 11a7 7 0 0 0 11.5 5.4M19 11a7 7 0 0 1-.6 2.8M12 18v3M3 3l18 18" />
+  </svg>
+);
+export const PhoneOffIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 15.5c5-4 13-4 18 0l-1.6 2.3a1 1 0 0 1-1.3.3l-2.6-1.4a1 1 0 0 1-.5-.9V14c-2.6-.8-5.4-.8-8 0v1.8a1 1 0 0 1-.5.9l-2.6 1.4a1 1 0 0 1-1.3-.3Z" />
+  </svg>
+);
 export const VideoIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <rect x="3" y="6" width="13" height="12" rx="3" />

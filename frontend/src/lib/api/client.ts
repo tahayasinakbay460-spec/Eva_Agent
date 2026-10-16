@@ -204,3 +204,13 @@ export const addMemory = (body: MemoryCreate) => post<Memory>("/memories", body)
 export const updateMemory = (id: string, body: MemoryUpdate) =>
   request<Memory>(`/memories/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const forgetMemory = (id: string) => request<void>(`/memories/${id}`, { method: "DELETE" });
+
+/* Sesli / görüntülü görüşme (Faz 2). Ses bu API'den geçmez: tarayıcı LiveKit odasına bağlanır. */
+
+export type Call = Schemas["CallOut"];
+export type CallMode = Call["mode"];
+export type LatencyReport = Schemas["LatencyReportOut"];
+
+export const startCall = (mode: CallMode = "voice") => post<Call>("/voice/calls", { mode });
+export const endCall = (callId: string) => post<void>(`/voice/calls/${callId}/end`, {});
+export const latencyReport = () => request<LatencyReport>("/voice/latency");
