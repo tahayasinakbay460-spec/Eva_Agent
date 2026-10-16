@@ -44,6 +44,32 @@ jobs:
           uv export --frozen --no-dev --no-emit-project --format requirements-txt > /tmp/requirements.txt
           uvx pip-audit --strict -r /tmp/requirements.txt
 
+  # Sesli görüşme ajanı (LiveKit Agents). Ağır bağımlılıkları (onnxruntime vb.) backend'e
+  # bulaşmasın diye ayrı uv projesi; backend'i yerel paket olarak kullanır.
+  realtime:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: realtime
+    env:
+      EVA_ENV: test
+      EVA_LLM_PROVIDER_OVERRIDE: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Lint
+        run: uv run ruff check .
+      - name: Types
+        run: uv run mypy eva_realtime tests
+      - name: Tests
+        run: uv run pytest -q
+
   # Migration'lar canlıdaki veritabanı motoruyla (Postgres + pgvector) denenir.
   # Bir model değişip migration'ı yazılmamışsa `alembic check` hata verir (§13).
   migrations:

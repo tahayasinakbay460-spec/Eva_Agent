@@ -13,6 +13,10 @@ backend/*.db
 backend/.mypy_cache/
 backend/.ruff_cache/
 backend/.pytest_cache/
+realtime/.venv/
+realtime/.mypy_cache/
+realtime/.ruff_cache/
+realtime/.pytest_cache/
 backend/uploads/
 backend/dev_mailbox/
 backend/storage/
