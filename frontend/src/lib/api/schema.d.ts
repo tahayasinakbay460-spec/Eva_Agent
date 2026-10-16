@@ -504,10 +504,325 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/biometrics/consent-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consent Text */
+        get: operations["consent_text_biometrics_consent_text_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/biometrics/enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Enrollments */
+        get: operations["list_enrollments_biometrics_enrollments_get"];
+        put?: never;
+        /** Start Enrollment */
+        post: operations["start_enrollment_biometrics_enrollments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/biometrics/enrollments/{enrollment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Enrollment */
+        get: operations["get_enrollment_biometrics_enrollments__enrollment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/biometrics/enrollments/{enrollment_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload File */
+        post: operations["upload_file_biometrics_enrollments__enrollment_id__files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/biometrics/enrollments/{enrollment_id}/files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete File */
+        delete: operations["delete_file_biometrics_enrollments__enrollment_id__files__file_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/biometrics/enrollments/{enrollment_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit */
+        post: operations["submit_biometrics_enrollments__enrollment_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/biometrics/enrollments/{enrollment_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke
+         * @description Rızayı geri alır: kullanım hemen durur, klon ve dosyalar arka planda silinir.
+         */
+        post: operations["revoke_biometrics_enrollments__enrollment_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/biometrics/voice/preview-sentences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Sentences */
+        get: operations["preview_sentences_biometrics_voice_preview_sentences_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/biometrics/voice/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Voice Preview
+         * @description Kendi klon sesinle sabit bir cümle (serbest metin yok, §11.3).
+         */
+        post: operations["voice_preview_biometrics_voice_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/biometrics/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pending */
+        get: operations["pending_admin_biometrics_pending_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/biometrics/enrollments/{enrollment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["detail_admin_biometrics_enrollments__enrollment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/biometrics/enrollments/{enrollment_id}/files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** File Content */
+        get: operations["file_content_admin_biometrics_enrollments__enrollment_id__files__file_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/biometrics/enrollments/{enrollment_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve */
+        post: operations["approve_admin_biometrics_enrollments__enrollment_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/biometrics/enrollments/{enrollment_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject */
+        post: operations["reject_admin_biometrics_enrollments__enrollment_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminEnrollmentOut */
+        AdminEnrollmentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "voice" | "face";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "collecting" | "pending_review" | "processing" | "active" | "rejected" | "revoked" | "failed";
+            /** Consent Sentence */
+            consent_sentence: string;
+            /** Challenge Code */
+            challenge_code: string;
+            /** Files */
+            files: components["schemas"]["EnrollmentFileOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Activated At */
+            activated_at: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** User Display Name */
+            user_display_name: string;
+        };
+        /**
+         * ApproveRequest
+         * @description İnceleyicinin tek tek doğruladığı maddeler; hepsi açıkça true olmalı.
+         */
+        ApproveRequest: {
+            /**
+             * Adult
+             * @constant
+             */
+            adult: true;
+            /**
+             * Same Person
+             * @constant
+             */
+            same_person: true;
+            /**
+             * Code Matches
+             * @constant
+             */
+            code_matches: true;
+            /**
+             * Consent Is Clear
+             * @constant
+             */
+            consent_is_clear: true;
+        };
         /** CallCreate */
         CallCreate: {
             /** Persona Id */
@@ -606,6 +921,20 @@ export interface components {
             /** Code */
             code: string;
         };
+        /** ConsentTextOut */
+        ConsentTextOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "voice" | "face";
+            /** Version */
+            version: string;
+            /** Summary */
+            summary: string;
+            /** Reading Passage */
+            reading_passage: string | null;
+        };
         /** ConversationCreate */
         ConversationCreate: {
             /** Persona Id */
@@ -644,6 +973,82 @@ export interface components {
             handle: string;
             /** Display Name */
             display_name: string;
+        };
+        /** EnrollmentCreate */
+        EnrollmentCreate: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "voice" | "face";
+            /** Consent Text Version */
+            consent_text_version: string;
+            /**
+             * Consent Accepted
+             * @constant
+             */
+            consent_accepted: true;
+        };
+        /** EnrollmentFileOut */
+        EnrollmentFileOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "sample" | "consent_recording";
+            /** Media Type */
+            media_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Duration S */
+            duration_s: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** EnrollmentOut */
+        EnrollmentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "voice" | "face";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "collecting" | "pending_review" | "processing" | "active" | "rejected" | "revoked" | "failed";
+            /** Consent Sentence */
+            consent_sentence: string;
+            /** Challenge Code */
+            challenge_code: string;
+            /** Files */
+            files: components["schemas"]["EnrollmentFileOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Activated At */
+            activated_at: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -915,6 +1320,19 @@ export interface components {
             /** Slug */
             slug: string | null;
         };
+        /** PreviewRequest */
+        PreviewRequest: {
+            /** Sentence */
+            sentence: number;
+        };
+        /** RejectRequest */
+        RejectRequest: {
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "not_adult" | "different_person" | "code_mismatch" | "poor_quality" | "not_consenting" | "other";
+        };
         /** SSEDelta */
         SSEDelta: {
             /** Text */
@@ -1053,6 +1471,12 @@ export interface components {
             locale: string;
             /** Email */
             email?: string | null;
+            /**
+             * Role
+             * @default user
+             * @enum {string}
+             */
+            role: "user" | "admin";
         };
         /** ValidationError */
         ValidationError: {
@@ -2046,6 +2470,504 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LatencyReportOut"];
+                };
+            };
+        };
+    };
+    consent_text_biometrics_consent_text_get: {
+        parameters: {
+            query: {
+                kind: "voice" | "face";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentTextOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_enrollments_biometrics_enrollments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentOut"][];
+                };
+            };
+        };
+    };
+    start_enrollment_biometrics_enrollments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrollmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentOut"];
+                };
+            };
+            /** @description step_up_required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description state conflict (code in detail) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_enrollment_biometrics_enrollments__enrollment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_file_biometrics_enrollments__enrollment_id__files_post: {
+        parameters: {
+            query: {
+                role: "sample" | "consent_recording";
+                duration_s?: number | null;
+            };
+            header?: never;
+            path: {
+                enrollment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "audio/webm": string;
+                "audio/ogg": string;
+                "audio/mp4": string;
+                "video/webm": string;
+                "video/mp4": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentFileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_file_biometrics_enrollments__enrollment_id__files__file_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: string;
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_biometrics_enrollments__enrollment_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentOut"];
+                };
+            };
+            /** @description step_up_required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description state conflict (code in detail) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_biometrics_enrollments__enrollment_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentOut"];
+                };
+            };
+            /** @description step_up_required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description state conflict (code in detail) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_sentences_biometrics_voice_preview_sentences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    voice_preview_biometrics_voice_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description WAV audio */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pending_admin_biometrics_pending_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEnrollmentOut"][];
+                };
+            };
+        };
+    };
+    detail_admin_biometrics_enrollments__enrollment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEnrollmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    file_content_admin_biometrics_enrollments__enrollment_id__files__file_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: string;
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description media */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/webm": unknown;
+                    "audio/webm": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_admin_biometrics_enrollments__enrollment_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEnrollmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_admin_biometrics_enrollments__enrollment_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEnrollmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -108,6 +108,7 @@ class Settings(BaseSettings):
     call_idle_timeout_s: int = 60
     video_daily_quota_s: int = 1800
     rate_limit_call_per_minute: int = 5
+    rate_limit_biometric_per_minute: int = 30
 
     # Arka plan işçisi API'nin içinde de çalışsın mı (ADR 0003)? Boşsa: sadece EVA_ENV=dev iken.
     worker_inprocess: bool | None = None

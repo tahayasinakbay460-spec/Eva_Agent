@@ -18,6 +18,7 @@ class UserOut(BaseModel):
     display_name: str
     locale: str
     email: str | None = None
+    role: Literal["user", "admin"] = "user"
 
 
 class TokenOut(BaseModel):

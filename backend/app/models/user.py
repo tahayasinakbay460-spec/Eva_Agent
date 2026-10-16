@@ -26,3 +26,8 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Kayıttaki beyanlar (§7 yapay zekâ bildirimi, §12 18+). dev-login kullanıcılarında boş.
     age_confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     ai_disclosure_accepted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # "user" ya da "admin". Admin, biyometrik kayıtları inceleyip onaylayabilir (Faz 3);
+    # API'den verilemez, yalnızca sunucuda `scripts/make_admin.py` ile.
+    role: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="user", server_default="user"
+    )

@@ -3,13 +3,24 @@ işçi çökerse aynı iş ikinci kez gelebilir.
 """
 
 import uuid
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
+from app.database import utcnow
+from app.models.biometric import OPEN_STATUSES, BiometricEnrollment, EnrollmentSample, ProviderAsset
 from app.models.memory import Memory, MemoryEmbedding
-from app.services import memory_extraction
-from app.worker.jobs import EMBED_MEMORY, EXTRACT_MEMORIES
+from app.providers.base import AvatarEnrollmentProvider, ProviderError, VoiceEnrollmentProvider
+from app.providers.base import EnrollmentSample as ProviderSample
+from app.providers.registry import create_adapter
+from app.services import audit, memory_extraction
+from app.worker import queue
+from app.worker.jobs import (
+    BIOMETRIC_CREATE_ASSET,
+    BIOMETRIC_PURGE,
+    EMBED_MEMORY,
+    EXTRACT_MEMORIES,
+)
 from app.worker.runner import WorkerContext, handler
 
 
@@ -49,3 +60,161 @@ async def extract_memories(ctx: WorkerContext, payload: dict[str, Any]) -> None:
     conversation_id = uuid.UUID(str(payload["conversation_id"]))
     async with ctx.session_factory() as db:
         await memory_extraction.extract(db, ctx.registry, conversation_id)
+
+
+# --- biyometrik kayıt (Faz 3) ---------------------------------------------------------
+
+
+def _voice_provider(ctx: WorkerContext, name: str | None = None) -> VoiceEnrollmentProvider:
+    configured = ctx.registry.voice_enrollment()
+    if name is None or name == configured.name:
+        return configured
+    # Klon başka bir sağlayıcıda oluşturulmuşsa (config sonradan değiştiyse) onunla sil.
+    return cast(VoiceEnrollmentProvider, create_adapter("voice_enrollment", name))
+
+
+def _avatar_provider(ctx: WorkerContext, name: str | None = None) -> AvatarEnrollmentProvider:
+    configured = ctx.registry.avatar_enrollment()
+    if name is None or name == configured.name:
+        return configured
+    return cast(AvatarEnrollmentProvider, create_adapter("avatar_enrollment", name))
+
+
+@handler(BIOMETRIC_CREATE_ASSET)
+async def create_biometric_asset(ctx: WorkerContext, payload: dict[str, Any]) -> None:
+    """Onaylanmış kaydın örneklerinden sağlayıcıda klon oluşturur. Sağlayıcıya kişisel veri
+    gitmez: etiket sadece kayıt id'si."""
+    enrollment_id = uuid.UUID(str(payload["enrollment_id"]))
+    samples: list[ProviderSample] = []
+    async with ctx.session_factory() as db:
+        enrollment = await db.get(BiometricEnrollment, enrollment_id)
+        if enrollment is None or enrollment.status != "processing":
+            return
+        existing = await db.scalar(
+            select(ProviderAsset).where(
+                ProviderAsset.enrollment_id == enrollment_id, ProviderAsset.status == "active"
+            )
+        )
+        if existing is None:
+            rows = (
+                await db.execute(
+                    select(EnrollmentSample).where(
+                        EnrollmentSample.enrollment_id == enrollment_id,
+                        EnrollmentSample.role == "sample",
+                    )
+                )
+            ).scalars()
+            for row in list(rows):
+                data = await ctx.store.get(db, enrollment.user_id, "biometric", row.blob_key)
+                samples.append(ProviderSample(data, row.media_type))
+        kind = enrollment.kind
+
+    if existing is None:
+        label = f"eva-{enrollment_id}"
+        try:
+            if kind == "voice":
+                ref = await _voice_provider(ctx).create_voice(samples, label=label)
+            else:
+                ref = await _avatar_provider(ctx).create_avatar(samples, label=label)
+        except ProviderError as exc:
+            if exc.retryable:
+                raise  # işçi artan beklemeyle tekrar dener
+            await _mark_failed(ctx, enrollment_id)
+            return
+        async with ctx.session_factory() as db:
+            db.add(
+                ProviderAsset(
+                    enrollment_id=enrollment_id,
+                    kind="voice" if kind == "voice" else "avatar",
+                    provider=ref.provider,
+                    asset_id=ref.asset_id,
+                )
+            )
+            await db.commit()
+
+    async with ctx.session_factory() as db:
+        current = await db.get(BiometricEnrollment, enrollment_id, populate_existing=True)
+        if current is None:
+            return
+        if current.status == "processing":
+            current.status = "active"
+            current.activated_at = utcnow()
+            audit.record(
+                db,
+                action="biometric.activated",
+                target_type="biometric_enrollment",
+                target_id=enrollment_id,
+                user_id=current.user_id,
+                actor_id=None,
+                meta={"kind": kind},
+            )
+        else:
+            # Klon oluşturulurken rıza geri alındı: yeni klonu da hemen sil.
+            await queue.enqueue(db, BIOMETRIC_PURGE, {"enrollment_id": str(enrollment_id)})
+        await db.commit()
+
+
+async def _mark_failed(ctx: WorkerContext, enrollment_id: uuid.UUID) -> None:
+    async with ctx.session_factory() as db:
+        enrollment = await db.get(BiometricEnrollment, enrollment_id)
+        if enrollment is None or enrollment.status != "processing":
+            return
+        enrollment.status = "failed"
+        audit.record(
+            db,
+            action="biometric.failed",
+            target_type="biometric_enrollment",
+            target_id=enrollment_id,
+            user_id=enrollment.user_id,
+            actor_id=None,
+            meta={"kind": enrollment.kind},
+        )
+        await queue.enqueue(db, BIOMETRIC_PURGE, {"enrollment_id": str(enrollment_id)})
+        await db.commit()
+
+
+@handler(BIOMETRIC_PURGE)
+async def purge_biometric(ctx: WorkerContext, payload: dict[str, Any]) -> None:
+    """Klonu sağlayıcıdan siler (idempotent; hata olursa iş tekrar denenir) ve ham dosyaları
+    imha eder. Rıza kaydı ve özetleri kanıt olarak kalır; dosyaların kendisi kalmaz."""
+    enrollment_id = uuid.UUID(str(payload["enrollment_id"]))
+    async with ctx.session_factory() as db:
+        enrollment = await db.get(BiometricEnrollment, enrollment_id)
+        if enrollment is None or enrollment.status in OPEN_STATUSES:
+            return
+        assets = (
+            await db.execute(
+                select(ProviderAsset).where(
+                    ProviderAsset.enrollment_id == enrollment_id, ProviderAsset.status != "deleted"
+                )
+            )
+        ).scalars()
+        for asset in list(assets):
+            if asset.kind == "voice":
+                await _voice_provider(ctx, asset.provider).delete_voice(asset.asset_id)
+            else:
+                await _avatar_provider(ctx, asset.provider).delete_avatar(asset.asset_id)
+            asset.status = "deleted"
+            asset.deleted_at = utcnow()
+            await db.commit()  # her silinen klon hemen işaretlensin (tekrar denemede atlanır)
+
+        files = (
+            await db.execute(
+                select(EnrollmentSample).where(EnrollmentSample.enrollment_id == enrollment_id)
+            )
+        ).scalars()
+        removed = 0
+        for sample in list(files):
+            await ctx.store.delete("biometric", sample.blob_key)
+            await db.delete(sample)
+            removed += 1
+        audit.record(
+            db,
+            action="biometric.purged",
+            target_type="biometric_enrollment",
+            target_id=enrollment_id,
+            user_id=enrollment.user_id,
+            actor_id=None,
+            meta={"files": removed},
+        )
+        await db.commit()

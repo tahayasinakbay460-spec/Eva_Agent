@@ -84,3 +84,41 @@ eski onayı kabul etmez. Yöntemler: passkey (yalnızca kullanıcının kendi pa
 | Kurcalama | Başkasının kod akışına deneme yapıp hakkını harcamak | Akış sahibi kontrolü deneme sayılmadan önce | `test_password_step_up_code_is_bound_to_the_user` |
 | Yetki yükseltme | Eski bir onayın süresiz geçerli kalması | 10 dk sonra yeniden sorulur | `test_step_up_expires` |
 | Hizmet engelleme | Kod/passkey denemeleriyle kaba kuvvet | Tüm uçlarda auth istek sınırı; kodda 5 deneme | (mevcut testler) |
+
+## 5. Biyometrik kayıt ve rıza (Faz 3) — 2026-10-16
+
+Varlıklar: kullanıcının ham ses ve yüz örnekleri, rıza videosu, sağlayıcıdaki klonlar (ses/avatar
+id'leri), klonla üretilen ses/görüntü. En hassas veri sınıfı (§1, §11.3). Sınırlar: tarayıcı ↔ API,
+API ↔ şifreli depo, işçi ↔ sağlayıcı (ElevenLabs / LiveAvatar), inceleyici (admin) ↔ API.
+
+Akış: adım-yukarı doğrulama → kayıt başlat (rastgele 6 haneli kod üretilir) → örnekler yüklenir →
+kişi, kodu içeren rıza cümlesini kamerada sesli okur → gönder (rıza kaydı yazılır) → **inceleme
+bekliyor** → admin örnekleri ve rıza videosunu izler: reşit mi, aynı kişi mi, kod doğru mu
+(sahibin kararı: yüz eşleştirme / yaş tahmini sağlayıcısı yok, her kayıt elle incelenir) → onay →
+işçi sağlayıcıda klonu oluşturur → aktif. Geri alma: kullanım anında durur, işçi sağlayıcıdan
+siler ve ham dosyaları imha eder.
+
+| STRIDE | Tehdit | Önlem | Test |
+|---|---|---|---|
+| Kimlik sahtekârlığı | Başkasının sesini/yüzünü "izni var" diye yüklemek | Rızayı kişinin kendisi kamerada, ekranda rastgele üretilen kodla sesli verir; inceleyici örneklerle rıza videosunun aynı kişi olduğunu doğrular; onay olmadan klon yok | `test_no_clone_without_approval`, `test_approval_requires_all_checks` |
+| Kimlik sahtekârlığı | Eski bir rıza videosunu tekrar oynatmak | Her kayıt için yeni rastgele kod; rıza cümlesi kodla birlikte özetlenip kayda geçer | `test_each_enrollment_gets_a_fresh_code` |
+| Kimlik sahtekârlığı | Çalınmış oturumla kayıt başlatmak / rızayı değiştirmek | Başlatma, gönderme ve geri alma adım-yukarı doğrulama ister | `test_sensitive_steps_require_step_up` |
+| Kimlik sahtekârlığı | Admin kendi kaydını onaylar (görevler ayrılığı) | Prod'da kendi kaydını onaylamak yasak; dev'de tek kişilik geliştirme için izinli ve denetim kaydında işaretli | `test_self_approval_forbidden_outside_dev` |
+| Kurcalama | Rıza kaydını sonradan değiştirmek/silmek | `consent_records` yalnızca eklenir (ORM seviyesinde güncelleme/silme engelli); metin sürümü + metin özeti + kanıt (video) özeti | `test_consent_records_are_append_only` |
+| Kurcalama | Dosya adıyla/yoluyla depoyu kurcalamak | Depo anahtarları sunucuda uuid'den üretilir; kullanıcı girdisi asla yol olmaz | `test_blob_keys_cannot_escape_the_root` |
+| Kurcalama | Zararlı/yanlış dosya yüklemek | Boyut sınırı akış sırasında uygulanır; tür "sihirli baytlarla" (magic bytes) doğrulanır, Content-Type'a güvenilmez | `test_upload_rejects_wrong_magic_bytes`, `test_upload_size_limit` |
+| İnkâr | "Rıza vermedim" itirazı | Değiştirilemez rıza kaydı (kim, ne zaman, hangi metin sürümü, kanıt özeti) + `audit_log` | `test_submit_writes_consent_record` |
+| Bilgi sızması | Başka kullanıcının kaydına/örneğine erişmek (IDOR) | Her sorgu `user_id` kapsamlı; yoksa 404 | `test_users_cannot_touch_each_others_enrollments` |
+| Bilgi sızması | Depo/veritabanı sızıntısı | Kullanıcı başına veri anahtarıyla AES-256-GCM; ayrı biyometrik kova; düz dosya yok; herkese açık URL yok | `test_round_trip_and_nothing_plain_on_disk` |
+| Bilgi sızması | İnceleyicinin örnekleri dışarı çıkarması | İnceleme uçları admin + adım-yukarı ister; her görüntüleme denetim kaydına yazılır; `Cache-Control: no-store` | `test_admin_sample_access_is_audited` |
+| Bilgi sızması | Klon sesle keyfi konuşma üretip dolandırıcılıkta kullanmak (sahte arama) | Önizleme yalnızca sabit cümlelerle; serbest metin yok; indirme düğmesi yok; istek sınırı (§11.3 "dışa aktarma yok") | `test_preview_only_fixed_sentences` |
+| Bilgi sızması | Loglarda biyometrik veri / kod | Loglara içerik, kod, dosya yazılmaz; iş yükleri yalnızca id taşır | (inceleme) |
+| Hizmet engelleme | Çok büyük/çok sayıda dosyayla depoyu doldurmak | Kayıt başına örnek sayısı ve boyut sınırı; kullanıcı başına tek açık kayıt (tür başına); istek sınırı | `test_sample_count_limit` |
+| Yetki yükseltme | Geri alınmış rızayla klonun kullanılmaya devam etmesi | Geri alma isteği durumu anında `revoked` yapar; her kullanım (önizleme, görüşme) durumu o an kontrol eder; işçi sağlayıcıdan siler (idempotent, tekrar denenir); onay ile klon oluşturma yarışında, klon oluştuktan sonra durum yeniden kontrol edilip gerekirse hemen silinir | `test_revoke_stops_use_immediately`, `test_revoke_deletes_provider_asset_and_files`, `test_revoked_during_clone_creation_is_cleaned_up` |
+| Yetki yükseltme | Reşit olmayanın sesi/yüzü (§2.3) | 18+ beyanı + her kayıt elle incelenir, şüphede red; otomatik yaş tahmini sağlayıcı seçilince eklenecek | `test_rejection_purges_everything` |
+
+Açık maddeler: yüz eşleştirme ve yaş tahmini sağlayıcısı (otomatik ön kontrol); zararlı yazılım
+taraması; video metadata (konum) temizleme — tarayıcı kaydında konum yok ama mobil yüklemede
+gerekecek; LiveAvatar'da özel avatar oluşturma API'si yok ve silme "yumuşak silme" (HeyGen'den
+kalıcı silme ve saklama süresi teyidi gerekiyor, §15); KMS (prod'da yerel ana anahtar kabul
+edilmez); rıza kanıtının hesap silindikten sonra ne kadar saklanacağı (hukukçu görüşü).

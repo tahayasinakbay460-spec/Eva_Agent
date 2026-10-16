@@ -1361,10 +1361,941 @@
           }
         ]
       }
+    },
+    "/biometrics/consent-text": {
+      "get": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "Consent Text",
+        "operationId": "consent_text_biometrics_consent_text_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "voice",
+                "face"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentTextOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/biometrics/enrollments": {
+      "get": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "List Enrollments",
+        "operationId": "list_enrollments_biometrics_enrollments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EnrollmentOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Enrollments Biometrics Enrollments Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "Start Enrollment",
+        "operationId": "start_enrollment_biometrics_enrollments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "step_up_required"
+          },
+          "409": {
+            "description": "state conflict (code in detail)"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/biometrics/enrollments/{enrollment_id}": {
+      "get": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "Get Enrollment",
+        "operationId": "get_enrollment_biometrics_enrollments__enrollment_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/biometrics/enrollments/{enrollment_id}/files": {
+      "post": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "Upload File",
+        "operationId": "upload_file_biometrics_enrollments__enrollment_id__files_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "sample",
+                "consent_recording"
+              ],
+              "type": "string",
+              "title": "Role"
+            }
+          },
+          {
+            "name": "duration_s",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 900,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration S"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentFileOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "audio/webm": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "audio/ogg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "audio/mp4": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "video/webm": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "video/mp4": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/biometrics/enrollments/{enrollment_id}/files/{file_id}": {
+      "delete": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "Delete File",
+        "operationId": "delete_file_biometrics_enrollments__enrollment_id__files__file_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "File Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/biometrics/enrollments/{enrollment_id}/submit": {
+      "post": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "Submit",
+        "operationId": "submit_biometrics_enrollments__enrollment_id__submit_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "step_up_required"
+          },
+          "409": {
+            "description": "state conflict (code in detail)"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/biometrics/enrollments/{enrollment_id}/revoke": {
+      "post": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "Revoke",
+        "description": "Rızayı geri alır: kullanım hemen durur, klon ve dosyalar arka planda silinir.",
+        "operationId": "revoke_biometrics_enrollments__enrollment_id__revoke_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "step_up_required"
+          },
+          "409": {
+            "description": "state conflict (code in detail)"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/biometrics/voice/preview-sentences": {
+      "get": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "Preview Sentences",
+        "operationId": "preview_sentences_biometrics_voice_preview_sentences_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response Preview Sentences Biometrics Voice Preview Sentences Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/biometrics/voice/preview": {
+      "post": {
+        "tags": [
+          "biometrics"
+        ],
+        "summary": "Voice Preview",
+        "description": "Kendi klon sesinle sabit bir cümle (serbest metin yok, §11.3).",
+        "operationId": "voice_preview_biometrics_voice_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "WAV audio",
+            "content": {
+              "audio/wav": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/biometrics/pending": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Pending",
+        "operationId": "pending_admin_biometrics_pending_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminEnrollmentOut"
+                  },
+                  "type": "array",
+                  "title": "Response Pending Admin Biometrics Pending Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/biometrics/enrollments/{enrollment_id}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Detail",
+        "operationId": "detail_admin_biometrics_enrollments__enrollment_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEnrollmentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/biometrics/enrollments/{enrollment_id}/files/{file_id}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "File Content",
+        "operationId": "file_content_admin_biometrics_enrollments__enrollment_id__files__file_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "File Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "media",
+            "content": {
+              "video/webm": {},
+              "audio/webm": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/biometrics/enrollments/{enrollment_id}/approve": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Approve",
+        "operationId": "approve_admin_biometrics_enrollments__enrollment_id__approve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEnrollmentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/biometrics/enrollments/{enrollment_id}/reject": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Reject",
+        "operationId": "reject_admin_biometrics_enrollments__enrollment_id__reject_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "enrollment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Enrollment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEnrollmentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AdminEnrollmentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "face"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "collecting",
+              "pending_review",
+              "processing",
+              "active",
+              "rejected",
+              "revoked",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "consent_sentence": {
+            "type": "string",
+            "title": "Consent Sentence"
+          },
+          "challenge_code": {
+            "type": "string",
+            "title": "Challenge Code"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/EnrollmentFileOut"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "activated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "user_display_name": {
+            "type": "string",
+            "title": "User Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "consent_sentence",
+          "challenge_code",
+          "files",
+          "created_at",
+          "submitted_at",
+          "activated_at",
+          "revoked_at",
+          "reject_reason",
+          "user_id",
+          "user_display_name"
+        ],
+        "title": "AdminEnrollmentOut"
+      },
+      "ApproveRequest": {
+        "properties": {
+          "adult": {
+            "type": "boolean",
+            "const": true,
+            "title": "Adult"
+          },
+          "same_person": {
+            "type": "boolean",
+            "const": true,
+            "title": "Same Person"
+          },
+          "code_matches": {
+            "type": "boolean",
+            "const": true,
+            "title": "Code Matches"
+          },
+          "consent_is_clear": {
+            "type": "boolean",
+            "const": true,
+            "title": "Consent Is Clear"
+          }
+        },
+        "type": "object",
+        "required": [
+          "adult",
+          "same_person",
+          "code_matches",
+          "consent_is_clear"
+        ],
+        "title": "ApproveRequest",
+        "description": "İnceleyicinin tek tek doğruladığı maddeler; hepsi açıkça true olmalı."
+      },
       "CallCreate": {
         "properties": {
           "persona_id": {
@@ -1560,6 +2491,45 @@
         ],
         "title": "CodeVerifyRequest"
       },
+      "ConsentTextOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "face"
+            ],
+            "title": "Kind"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "reading_passage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Passage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "version",
+          "summary",
+          "reading_passage"
+        ],
+        "title": "ConsentTextOut"
+      },
       "ConversationCreate": {
         "properties": {
           "persona_id": {
@@ -1649,6 +2619,199 @@
           "display_name"
         ],
         "title": "DevLoginRequest"
+      },
+      "EnrollmentCreate": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "face"
+            ],
+            "title": "Kind"
+          },
+          "consent_text_version": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Consent Text Version"
+          },
+          "consent_accepted": {
+            "type": "boolean",
+            "const": true,
+            "title": "Consent Accepted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "consent_text_version",
+          "consent_accepted"
+        ],
+        "title": "EnrollmentCreate"
+      },
+      "EnrollmentFileOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "sample",
+              "consent_recording"
+            ],
+            "title": "Role"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "media_type",
+          "size_bytes",
+          "duration_s",
+          "created_at"
+        ],
+        "title": "EnrollmentFileOut"
+      },
+      "EnrollmentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "face"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "collecting",
+              "pending_review",
+              "processing",
+              "active",
+              "rejected",
+              "revoked",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "consent_sentence": {
+            "type": "string",
+            "title": "Consent Sentence"
+          },
+          "challenge_code": {
+            "type": "string",
+            "title": "Challenge Code"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/EnrollmentFileOut"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "activated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "consent_sentence",
+          "challenge_code",
+          "files",
+          "created_at",
+          "submitted_at",
+          "activated_at",
+          "revoked_at",
+          "reject_reason"
+        ],
+        "title": "EnrollmentOut"
       },
       "HTTPValidationError": {
         "properties": {
@@ -2300,6 +3463,42 @@
         ],
         "title": "PersonaOut"
       },
+      "PreviewRequest": {
+        "properties": {
+          "sentence": {
+            "type": "integer",
+            "maximum": 9.0,
+            "minimum": 0.0,
+            "title": "Sentence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sentence"
+        ],
+        "title": "PreviewRequest"
+      },
+      "RejectRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "not_adult",
+              "different_person",
+              "code_mismatch",
+              "poor_quality",
+              "not_consenting",
+              "other"
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "RejectRequest"
+      },
       "SSEDelta": {
         "properties": {
           "text": {
@@ -2688,6 +3887,15 @@
               }
             ],
             "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "admin"
+            ],
+            "title": "Role",
+            "default": "user"
           }
         },
         "type": "object",

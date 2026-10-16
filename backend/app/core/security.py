@@ -114,3 +114,26 @@ async def require_step_up(
 
 
 SteppedUpUser = Annotated[User, Depends(require_step_up)]
+
+
+async def require_admin(user: CurrentUser) -> User:
+    """Yönetici uçları. Admin değilse uç "yok" sayılır (404): yönetim yüzeyi ele verilmesin."""
+    if user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+    return user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]
+
+
+async def require_admin_step_up(
+    request: Request, user: AdminUser, db: Annotated[AsyncSession, Depends(get_db)]
+) -> User:
+    """Biyometrik dosyalara bakmak ve karar vermek: admin + yakın zamanda adım-yukarı."""
+    session = await current_auth_session(request, db)
+    if step_up_valid_until(session, request.app.state.settings.step_up_ttl_s) is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="step_up_required")
+    return user
+
+
+SteppedUpAdmin = Annotated[User, Depends(require_admin_step_up)]
