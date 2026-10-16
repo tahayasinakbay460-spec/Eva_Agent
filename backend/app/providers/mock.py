@@ -91,10 +91,14 @@ class MockSTTProvider:
 
 
 class MockTTSProvider:
-    """Her metin parçası için kısık bir "bip" sesi üretir (karakter başına 10 ms, en fazla
-    1,5 sn). Anahtarsız geliştirmede EVA'nın konuştuğu kulakla duyulsun diye sessizlik değil."""
+    """Her metin parçası için kısık bir "bip" sesi üretir (varsayılan karakter başına 10 ms,
+    parça başına en fazla 1,5 sn). Anahtarsız geliştirmede EVA'nın konuştuğu kulakla duyulsun
+    diye sessizlik değil. ``ms_per_char`` büyütülürse konuşma uzar (söz kesme denemeleri için)."""
 
     name = "mock"
+
+    def __init__(self, ms_per_char: int = 10) -> None:
+        self._ms_per_char = ms_per_char
 
     async def synthesize(
         self, text: AsyncIterable[str], request: TTSRequest
@@ -102,7 +106,8 @@ class MockTTSProvider:
         fmt = request.output
         async for fragment in text:
             if fragment:
-                yield AudioChunk(_beep(fmt, min(len(fragment), 150) * 10), fmt)
+                duration = min(len(fragment) * self._ms_per_char, 1500)
+                yield AudioChunk(_beep(fmt, duration), fmt)
 
 
 def _beep(fmt: AudioFormat, duration_ms: int) -> bytes:

@@ -192,6 +192,8 @@ async def entrypoint(ctx: JobContext) -> None:
 
     ctx.add_shutdown_callback(on_shutdown)
 
+    # Sadece belli bir katılımcıyı dinlemek için önce odaya bağlanmak gerekiyor.
+    await ctx.connect()
     await session.start(
         agent=Agent(instructions=""),
         room=ctx.room,
