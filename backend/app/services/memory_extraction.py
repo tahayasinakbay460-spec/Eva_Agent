@@ -72,6 +72,9 @@ Rules:
 - Write each memory as one short, plain sentence in the language the user wrote in, the way \
 a close friend would note it down.
 - Do not add something already in known memories; use "update" if it changed or became more precise.
+- If the user explicitly asks to remember something ("bunu anı olarak kaydet", "bunu unutma"), \
+add it with importance at least 0.8.
+- If the user asks to forget something, do NOT add it (deleting is done by the user in the app).
 - "sensitive" = health, sexuality, money, legal trouble, or secrets about other people.
 - occurred_on only if the user gave a clear date. people: names or roles ("annem").
 - If nothing is worth remembering, return {"memories": []}.

@@ -13,19 +13,22 @@ const EMOTIONS = Object.keys(t.emotions) as Emotion[];
 /** Hem yeni anı eklemek hem var olanı düzenlemek için aynı form. */
 export function MemoryForm({
   initial,
+  draft,
   busy,
   error,
   onSave,
   onCancel,
 }: {
   initial?: Memory;
+  /** Yeni anı için hazır metin (ör. sohbetteki bir mesajdan). */
+  draft?: string;
   busy: boolean;
   error: string | null;
   onSave: (body: MemoryCreate) => void;
   onCancel: () => void;
 }) {
   const [kind, setKind] = useState<MemoryKind>(initial?.kind ?? "episode");
-  const [content, setContent] = useState(initial?.content ?? "");
+  const [content, setContent] = useState(initial?.content ?? draft ?? "");
   const [date, setDate] = useState(initial?.occurred_on ?? "");
   const [people, setPeople] = useState((initial?.people ?? []).join(", "));
   const [emotion, setEmotion] = useState<Emotion | null>(initial?.emotion ?? null);

@@ -142,6 +142,9 @@ export const en: Messages = {
     errorFatal: "Something went wrong.",
     interrupted: "(interrupted)",
     newConversation: "New chat",
+    saveAsMemory: "Save as a memory",
+    savedAsMemory: "Added to memories.",
+    seeMemories: "Go to memories",
   },
   comingSoon: {
     title: "Coming soon",

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
-import { ArrowLeft, SendIcon } from "@/components/icons";
+import { ArrowLeft, HeartIcon, SendIcon } from "@/components/icons";
+import { SaveMemorySheet } from "@/components/memories/SaveMemorySheet";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
 import {
@@ -33,6 +34,9 @@ function Chat() {
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Anıya çevrilmek üzere seçilen mesaj metni (pencere açıkken dolu).
+  const [saving, setSaving] = useState<string | null>(null);
+  const [savedNotice, setSavedNotice] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -199,9 +203,17 @@ function Chat() {
           <p className="pt-20 text-center text-sm text-muted">{t.chat.empty}</p>
         )}
         {bubbles.map((m) => (
-          <BubbleView key={m.id} bubble={m} />
+          <BubbleView key={m.id} bubble={m} onSaveAsMemory={setSaving} />
         ))}
         {error && <p className="text-center text-xs text-red-300">{error}</p>}
+        {savedNotice && (
+          <p role="status" className="text-center text-xs text-mint">
+            {t.chat.savedAsMemory}{" "}
+            <Link href="/anilar" className="underline">
+              {t.chat.seeMemories}
+            </Link>
+          </p>
+        )}
         <div ref={bottomRef} />
       </main>
 
@@ -232,14 +244,33 @@ function Chat() {
           <SendIcon size={18} />
         </button>
       </form>
+
+      {saving !== null && (
+        <SaveMemorySheet
+          text={saving}
+          onClose={() => setSaving(null)}
+          onSaved={() => {
+            setSaving(null);
+            setSavedNotice(true);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function BubbleView({ bubble }: { bubble: Bubble }) {
+function BubbleView({
+  bubble,
+  onSaveAsMemory,
+}: {
+  bubble: Bubble;
+  onSaveAsMemory: (text: string) => void;
+}) {
   const mine = bubble.role === "user";
+  // Sadece sunucuya kaydedilmiş kendi mesajların anıya çevrilebilir (geçici ID "tmp-" ile başlar).
+  const canSave = mine && !bubble.id.startsWith("tmp-") && bubble.content.trim().length > 0;
   return (
-    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+    <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
       <div
         className={`max-w-[82%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-[15px] leading-snug ${
           mine
@@ -260,6 +291,15 @@ function BubbleView({ bubble }: { bubble: Bubble }) {
           <span className="ml-1 text-[11px] text-white/60">{t.chat.interrupted}</span>
         )}
       </div>
+      {canSave && (
+        <button
+          type="button"
+          onClick={() => onSaveAsMemory(bubble.content)}
+          className="mt-1 flex items-center gap-1 px-1 text-[11px] text-muted hover:text-white"
+        >
+          <HeartIcon size={12} /> {t.chat.saveAsMemory}
+        </button>
+      )}
     </div>
   );
 }

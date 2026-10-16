@@ -140,6 +140,9 @@ export const tr = {
     errorFatal: "Bir şeyler ters gitti.",
     interrupted: "(kesildi)",
     newConversation: "Yeni sohbet",
+    saveAsMemory: "Anı olarak kaydet",
+    savedAsMemory: "Anılara eklendi.",
+    seeMemories: "Anılara git",
   },
   comingSoon: {
     title: "Yakında",
