@@ -18,6 +18,8 @@ dependencies = [
     "opentelemetry-sdk>=1.30",
     "opentelemetry-exporter-otlp-proto-http>=1.30",
     "sentry-sdk>=2.20",
+    "webauthn>=2.5",
+    "pyotp>=2.9",
 ]
 
 [dependency-groups]

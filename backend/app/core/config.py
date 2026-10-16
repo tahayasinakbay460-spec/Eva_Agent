@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     session_ttl_hours: int = 24 * 7
     chat_history_turns: int = 20
 
+    # WebAuthn relying party (ADR 0002). The RP ID is the domain passkeys are bound to;
+    # changing it in production invalidates every registered passkey.
+    webauthn_rp_id: str = "localhost"
+    webauthn_rp_name: str = "EVA"
+    webauthn_origins: list[str] = ["http://localhost:3000"]
+    auth_challenge_ttl_s: int = 300
+
     rate_limit_auth_per_minute: int = 10
     rate_limit_chat_per_minute: int = 30
     rate_limit_default_per_minute: int = 120

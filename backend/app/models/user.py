@@ -1,14 +1,23 @@
-from sqlalchemy import String
+from datetime import datetime
+
+from sqlalchemy import LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
-from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.base import TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
-    # Stable login identifier. Passkey/MFA identity will attach to this row later (§11.2).
+    # Internal identifier (random for passkey sign-ups); not shown as a username.
     handle: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(80), nullable=False)
     locale: Mapped[str] = mapped_column(String(8), nullable=False, default="tr")
+    # WebAuthn user handle: random bytes, no personal data (W3C WebAuthn §14.6.1).
+    webauthn_user_id: Mapped[bytes | None] = mapped_column(
+        LargeBinary(64), unique=True, nullable=True
+    )
+    # Sign-up declarations (§7 AI disclosure, §12 18+). Null for dev-login users.
+    age_confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    ai_disclosure_accepted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

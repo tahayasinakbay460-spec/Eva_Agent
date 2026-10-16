@@ -472,7 +472,7 @@ Kullanıcıya sorulacak; karar verilene kadar ilgili özellik kapalı kalır.
 - [ ] Eski EVA kodundan taşınacak bir şey var mı (veri, prompt'lar, tasarım)?
 - [ ] STT sağlayıcısı — Türkçe doğruluk ve gecikme testiyle seçilecek
 - [ ] Embedding, moderasyon, e-posta ve SMS sağlayıcıları (Türkiye'de teslim oranı yüksek olan)
-- [ ] Kimlik doğrulama çözümü (self-host edilebilir olması tercih)
+- [x] Kimlik doğrulama çözümü → kendi backend'imizde py_webauthn + pyotp (ADR 0002, 2026-10-16)
 - [ ] Barındırma bölgesi: AB/Frankfurt mı, Türkiye mi (KVKK yurt dışı aktarım etkisi)
 - [ ] Miras "vefat sonrası" etkinleştirme yöntemi: belge doğrulama, hareketsizlik, ikisi birden
 - [ ] Vefat etmiş sahibin Miras personası için silme talebini kim yapabilir?

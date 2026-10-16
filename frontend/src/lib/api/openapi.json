@@ -26,6 +26,150 @@
         }
       }
     },
+    "/auth/passkey/register/options": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Passkey Register Options",
+        "operationId": "passkey_register_options_auth_passkey_register_options_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeySignUpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptionsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/passkey/register/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Passkey Register Verify",
+        "operationId": "passkey_register_verify_auth_passkey_register_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/passkey/login/options": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Passkey Login Options",
+        "operationId": "passkey_login_options_auth_passkey_login_options_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptionsOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/passkey/login/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Passkey Login Verify",
+        "operationId": "passkey_login_verify_auth_passkey_login_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/dev-login": {
       "post": {
         "tags": [
@@ -545,6 +689,83 @@
           "created_at"
         ],
         "title": "MessageOut"
+      },
+      "PasskeyOptionsOut": {
+        "properties": {
+          "flow_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Flow Id"
+          },
+          "options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flow_id",
+          "options"
+        ],
+        "title": "PasskeyOptionsOut",
+        "description": "Options for ``navigator.credentials.create/get`` plus the flow to finish."
+      },
+      "PasskeySignUpRequest": {
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Display Name"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "tr",
+              "en"
+            ],
+            "title": "Locale",
+            "default": "tr"
+          },
+          "age_confirmed": {
+            "type": "boolean",
+            "const": true,
+            "title": "Age Confirmed"
+          },
+          "ai_disclosure_accepted": {
+            "type": "boolean",
+            "const": true,
+            "title": "Ai Disclosure Accepted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "display_name",
+          "age_confirmed",
+          "ai_disclosure_accepted"
+        ],
+        "title": "PasskeySignUpRequest"
+      },
+      "PasskeyVerifyRequest": {
+        "properties": {
+          "flow_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Flow Id"
+          },
+          "credential": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Credential"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flow_id",
+          "credential"
+        ],
+        "title": "PasskeyVerifyRequest"
       },
       "PersonaOut": {
         "properties": {
