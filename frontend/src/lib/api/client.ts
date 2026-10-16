@@ -2,11 +2,12 @@
  * Thin typed client over the EVA API. Types come from `schema.d.ts`, which is generated
  * from the backend's OpenAPI schema (`npm run gen-client`) - never edit it by hand.
  *
- * Dev-only: the access token lives in localStorage. Production auth (passkey + MFA,
- * httpOnly cookies) replaces `devLogin` and `tokenStore`; call sites stay the same.
+ * Sign-in is passkey-only (ADR 0002). For now the session token lives in localStorage;
+ * moving it to an httpOnly cookie with refresh rotation is the next auth step (§11.2).
  */
 
 import { readSSE } from "../sse";
+import { createPasskey, getPasskey } from "../webauthn";
 import type { components } from "./schema";
 
 type Schemas = components["schemas"];
@@ -19,7 +20,7 @@ export type SSEMessageStart = Schemas["SSEMessageStart"];
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-const TOKEN_KEY = "eva.dev.token";
+const TOKEN_KEY = "eva.token";
 
 export const tokenStore = {
   get: (): string | null => {
@@ -65,13 +66,38 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function devLogin(handle: string, displayName: string): Promise<User> {
-  const out = await request<Schemas["TokenOut"]>("/auth/dev-login", {
+export type SignUpForm = Schemas["PasskeySignUpRequest"];
+type PasskeyOptions = Schemas["PasskeyOptionsOut"];
+
+async function finishPasskey(
+  path: string,
+  flow: PasskeyOptions,
+  credential: Record<string, unknown>,
+): Promise<User> {
+  const body: Schemas["PasskeyVerifyRequest"] = { flow_id: flow.flow_id, credential };
+  const out = await request<Schemas["TokenOut"]>(path, {
     method: "POST",
-    body: JSON.stringify({ handle, display_name: displayName }),
+    body: JSON.stringify(body),
   });
   tokenStore.set(out.access_token);
   return out.user;
+}
+
+/** Create the account: the device makes a passkey, the backend verifies it. */
+export async function passkeySignUp(form: SignUpForm): Promise<User> {
+  const flow = await request<PasskeyOptions>("/auth/passkey/register/options", {
+    method: "POST",
+    body: JSON.stringify(form),
+  });
+  const credential = await createPasskey(flow.options);
+  return finishPasskey("/auth/passkey/register/verify", flow, credential);
+}
+
+/** Sign in with any passkey saved on this device (no username needed). */
+export async function passkeyLogin(): Promise<User> {
+  const flow = await request<PasskeyOptions>("/auth/passkey/login/options", { method: "POST" });
+  const credential = await getPasskey(flow.options);
+  return finishPasskey("/auth/passkey/login/verify", flow, credential);
 }
 
 export const me = () => request<User>("/auth/me");

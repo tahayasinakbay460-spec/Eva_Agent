@@ -21,8 +21,8 @@ const CONVERSATION_KEY = "eva.conversation";
 type Bubble = Pick<Message, "id" | "role" | "content" | "interrupted"> & { pending?: boolean };
 
 export default function ChatPage() {
-  const { state, onboard } = useSession();
-  if (state.status === "needs_onboarding") return <Onboarding onDone={onboard} />;
+  const { state, signUp, signIn } = useSession();
+  if (state.status === "needs_onboarding") return <Onboarding signUp={signUp} signIn={signIn} />;
   if (state.status !== "ready") return null;
   return <Chat />;
 }
@@ -149,7 +149,8 @@ function Chat() {
   function submit(e: FormEvent) {
     e.preventDefault();
     const text = draft.trim();
-    if (!text) return;
+    // Keep the draft until the conversation is loaded; never drop what the user typed.
+    if (!text || !conversationId || streaming) return;
     setDraft("");
     void send(text);
   }
@@ -224,7 +225,7 @@ function Chat() {
         />
         <button
           type="submit"
-          disabled={streaming || draft.trim().length === 0}
+          disabled={!conversationId || streaming || draft.trim().length === 0}
           aria-label={t.chat.send}
           className="glow-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-white disabled:opacity-40"
         >

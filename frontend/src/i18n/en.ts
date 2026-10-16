@@ -13,7 +13,23 @@ export const en: Messages = {
     namePlaceholder: "Your name",
     disclosure:
       "EVA and the characters you talk to are AI simulations, not real people. In an emergency call your local emergency number.",
-    accept: "Got it, let's start",
+    ageConfirm: "I am 18 or older.",
+    disclosureConfirm: "I have read and understood that EVA is an AI.",
+    passkeyHint:
+      "No password: you sign in with your fingerprint, face or screen lock, just like unlocking your phone or computer.",
+    createAccount: "Create account with a passkey",
+    haveAccount: "I already have an account",
+    signIn: "Sign in with a passkey",
+    backToSignUp: "Create a new account",
+    signInTitle: "Welcome back.",
+    signInBody: "Sign in with the passkey saved on this device.",
+    errors: {
+      unsupported:
+        "This browser does not support passkeys. Try a recent Chrome, Safari, Edge or Firefox.",
+      cancelled: "Cancelled or timed out. Please try again.",
+      failed: "Verification failed. Please try again.",
+      network: "Could not reach the server. Check your connection.",
+    },
   },
   home: {
     greeting: "Hello",

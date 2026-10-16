@@ -22,10 +22,10 @@ import { listConversations, listMessages, type Message } from "@/lib/api/client"
 const t = messages();
 
 export default function HomePage() {
-  const { state, onboard, retry } = useSession();
+  const { state, signUp, signIn, retry } = useSession();
 
   if (state.status === "loading") return <Splash />;
-  if (state.status === "needs_onboarding") return <Onboarding onDone={onboard} />;
+  if (state.status === "needs_onboarding") return <Onboarding signUp={signUp} signIn={signIn} />;
   if (state.status === "offline") return <Offline message={state.message} onRetry={retry} />;
 
   const firstName = state.user.display_name.split(" ")[0];
@@ -257,7 +257,7 @@ function DailyMessageCard() {
 
 function StudioCard() {
   return (
-    <Link href="/kesfet" className="card relative overflow-hidden p-3">
+    <Link href="/kesfet" className="card relative block overflow-hidden p-3">
       <div className="absolute inset-0 bg-[radial-gradient(90%_60%_at_80%_100%,#8b5cf6_0%,transparent_70%)] opacity-40" />
       <span className="relative flex items-center gap-2 text-sm font-semibold">
         <MaskIcon size={18} className="text-accent" /> {t.home.studioTitle}

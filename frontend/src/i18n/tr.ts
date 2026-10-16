@@ -11,7 +11,23 @@ export const tr = {
     namePlaceholder: "Adın",
     disclosure:
       "EVA ve konuştuğun karakterler yapay zekâ simülasyonudur; gerçek insan değildir. Acil bir durumda 112'yi ara.",
-    accept: "Anladım, başlayalım",
+    ageConfirm: "18 yaşından büyüğüm.",
+    disclosureConfirm: "EVA'nın yapay zekâ olduğunu okudum ve anladım.",
+    passkeyHint:
+      "Şifre yok: telefonunun ya da bilgisayarının kilidini açar gibi parmak izin, yüzün veya ekran kilidinle girersin.",
+    createAccount: "Passkey ile hesap oluştur",
+    haveAccount: "Zaten hesabım var",
+    signIn: "Passkey ile giriş yap",
+    backToSignUp: "Yeni hesap oluştur",
+    signInTitle: "Tekrar hoş geldin.",
+    signInBody: "Bu cihazda kayıtlı passkey'inle giriş yap.",
+    errors: {
+      unsupported:
+        "Bu tarayıcı passkey desteklemiyor. Güncel Chrome, Safari, Edge ya da Firefox dene.",
+      cancelled: "İşlem iptal edildi ya da süresi doldu. Tekrar dene.",
+      failed: "Doğrulama yapılamadı. Tekrar dene.",
+      network: "Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.",
+    },
   },
   home: {
     greeting: "Merhaba",

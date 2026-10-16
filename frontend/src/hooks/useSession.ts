@@ -1,9 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { devLogin, me, tokenStore, type User } from "@/lib/api/client";
-
-const ONBOARDED_KEY = "eva.onboarded";
+import {
+  me,
+  passkeyLogin,
+  passkeySignUp,
+  tokenStore,
+  type SignUpForm,
+  type User,
+} from "@/lib/api/client";
 
 export type SessionState =
   | { status: "loading" }
@@ -11,10 +16,11 @@ export type SessionState =
   | { status: "ready"; user: User }
   | { status: "offline"; message: string };
 
-/** Dev session: restores the stored token, or asks for a name and performs dev-login. */
+/** Restores the stored session, or lets the user sign up / sign in with a passkey. */
 export function useSession(): {
   state: SessionState;
-  onboard: (displayName: string) => Promise<void>;
+  signUp: (form: SignUpForm) => Promise<void>;
+  signIn: () => Promise<void>;
   retry: () => void;
 } {
   const [state, setState] = useState<SessionState>({ status: "loading" });
@@ -46,35 +52,17 @@ export function useSession(): {
     };
   }, [attempt]);
 
-  const onboard = useCallback(async (displayName: string) => {
-    const handle = toHandle(displayName);
-    const user = await devLogin(handle, displayName.trim());
-    try {
-      localStorage.setItem(ONBOARDED_KEY, "1");
-    } catch {
-      /* ignore */
-    }
+  const signUp = useCallback(async (form: SignUpForm) => {
+    const user = await passkeySignUp(form);
+    setState({ status: "ready", user });
+  }, []);
+
+  const signIn = useCallback(async () => {
+    const user = await passkeyLogin();
     setState({ status: "ready", user });
   }, []);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
-  return { state, onboard, retry };
-}
-
-function toHandle(name: string): string {
-  const ascii = name
-    .toLowerCase()
-    .replace(/ı/g, "i")
-    .replace(/ğ/g, "g")
-    .replace(/ü/g, "u")
-    .replace(/ş/g, "s")
-    .replace(/ö/g, "o")
-    .replace(/ç/g, "c")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9_.-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  const base = ascii.length >= 2 ? ascii : "user";
-  return `${base}-${Math.random().toString(36).slice(2, 6)}`.slice(0, 64);
+  return { state, signUp, signIn, retry };
 }
