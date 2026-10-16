@@ -54,15 +54,13 @@ body {
   max-width: 430px;
   min-height: 100dvh;
   margin: 0 auto;
-  background:
-    radial-gradient(120% 60% at 50% 0%, #3a1d6e 0%, var(--bg-1) 45%, var(--bg-0) 100%);
+  background: radial-gradient(120% 60% at 50% 0%, #3a1d6e 0%, var(--bg-1) 45%, var(--bg-0) 100%);
   overflow-x: hidden;
 }
 
 @media (min-width: 640px) {
   body {
-    background:
-      radial-gradient(80% 60% at 50% 20%, #1a1040 0%, #040312 70%);
+    background: radial-gradient(80% 60% at 50% 20%, #1a1040 0%, #040312 70%);
   }
   .phone {
     min-height: calc(100dvh - 32px);

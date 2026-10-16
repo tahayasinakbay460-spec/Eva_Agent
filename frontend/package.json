@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "gen-client": "openapi-typescript src/lib/api/openapi.json -o src/lib/api/schema.d.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src"
   },
   "dependencies": {
     "next": "16.4.2",
@@ -23,6 +25,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "openapi-typescript": "^7.13.0",
+    "prettier": "3.6.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

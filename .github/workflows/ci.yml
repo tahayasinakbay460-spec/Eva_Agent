@@ -1,0 +1,137 @@
+# Quality gate for every push and pull request (CLAUDE.md §3, §11.7, §13).
+# Every job runs offline against mock providers; no secrets are needed or available.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      EVA_ENV: test
+      EVA_LLM_PROVIDER_OVERRIDE: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Lint
+        run: uv run ruff check .
+      - name: Types
+        run: uv run mypy app tests
+      - name: Tests
+        run: uv run pytest -q
+      - name: Dependency audit
+        run: |
+          uv export --frozen --no-dev --no-emit-project --format requirements-txt > /tmp/requirements.txt
+          uvx pip-audit --strict -r /tmp/requirements.txt
+
+  # Migrations run against the production engine (Postgres + pgvector), and
+  # `alembic check` fails if a model changed without a migration (§13).
+  migrations:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: eva
+          POSTGRES_PASSWORD: eva
+          POSTGRES_DB: eva
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U eva"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      EVA_ENV: test
+      EVA_DATABASE_URL: postgresql+asyncpg://eva:eva@localhost:5432/eva
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run alembic upgrade head
+      - run: uv run alembic check
+      - name: Downgrade and re-upgrade
+        run: uv run alembic downgrade base && uv run alembic upgrade head
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Format
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Types
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+  # The OpenAPI schema is the single source of truth (§13); the committed TS client
+  # must match what the backend currently generates.
+  api-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: cd backend && uv sync --frozen && uv run python scripts/export_openapi.py
+      - run: cd frontend && npm ci && npm run gen-client
+      - name: Generated client is up to date
+        run: |
+          git diff --exit-code -- frontend/src/lib/api/ || {
+            echo "::error::OpenAPI client is stale. Run 'make gen-client' and commit the result."
+            exit 1
+          }
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

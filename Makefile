@@ -1,7 +1,7 @@
 # EVA task runner. On Windows without GNU make, run the commands listed under each target
 # directly (they are plain uv / npm / docker commands).
 
-.PHONY: dev infra api web test test-py test-ts lint lint-py lint-ts migrate migration gen-client eval
+.PHONY: dev infra api web test test-py test-ts lint lint-py lint-ts format migrate migration gen-client eval
 
 infra:            ## postgres (pgvector), redis, minio
 	docker compose -f infra/docker-compose.yml up -d
@@ -29,7 +29,11 @@ lint-py:
 	cd backend && uv run ruff format --check . && uv run ruff check . && uv run mypy app tests
 
 lint-ts:
-	cd frontend && npm run lint && npm run typecheck
+	cd frontend && npm run format:check && npm run lint && npm run typecheck
+
+format:           ## apply ruff + prettier formatting
+	cd backend && uv run ruff format . && uv run ruff check --fix .
+	cd frontend && npm run format
 
 migrate:          ## alembic upgrade head
 	cd backend && uv run alembic upgrade head

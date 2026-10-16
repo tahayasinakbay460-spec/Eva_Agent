@@ -1,0 +1,7 @@
+# Local secret scan before every commit (CLAUDE.md §3, §11.7). CI runs the same scan.
+# One-time setup:  uvx pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
