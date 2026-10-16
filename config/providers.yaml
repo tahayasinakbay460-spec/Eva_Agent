@@ -36,6 +36,11 @@ tts:
   preview: { provider: mock }
 voice_enrollment:
   default: { provider: mock }
+# Avatar (görüntülü görüşme). Anahtar gelince:
+#   avatar.realtime -> { provider: liveavatar, video_quality: high }   (LIVEAVATAR_API_KEY)
+#   Denemek için ücretsiz "sandbox": sandbox: true (yalnızca "Wayne" avatarı, ~1 dk).
+# avatar_enrollment'ın gerçek adaptörü YOK: LiveAvatar'da özel avatar oluşturma API'si yok
+# (2026-10-16, ADR 0006). Gerçek ortamda mock olduğu için yüz kaydı kapalı kalır.
 avatar:
   realtime: { provider: mock }
 avatar_enrollment:

@@ -209,22 +209,58 @@ class AvatarEnrollmentProvider(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class MediaRoom:
+    """Avatarın görüntüyü (ve sesini) yayınlayacağı gerçek zamanlı oda: bizim LiveKit odamız
+    ve avatar katılımcısı için bizim ürettiğimiz kısa ömürlü giriş token'ı."""
+
+    url: str
+    token: str
+
+
+@dataclass(frozen=True, slots=True)
 class AvatarSessionRequest:
     avatar_id: str
     room_name: str
     max_duration_s: int
     idle_timeout_s: int
+    room: MediaRoom | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AvatarPlaybackStarted:
+    """Avatar konuşmaya başladı (ilk kare kullanıcıya gidiyor)."""
+
+
+@dataclass(frozen=True, slots=True)
+class AvatarPlaybackFinished:
+    """Avatar bu sözü bitirdi; ``interrupted`` = sonuna kadar söyleyemeden kesildi."""
+
+    interrupted: bool = False
+
+
+AvatarEvent = AvatarPlaybackStarted | AvatarPlaybackFinished
 
 
 class AvatarSession(Protocol):
     session_id: str
+    # Avatarın beklediği ses biçimi (ör. LiveAvatar: 24 kHz, 16 bit, mono).
+    input_format: AudioFormat
 
     async def send_audio(self, chunk: AudioChunk) -> None:
         """TTS sesini gönderir; sağlayıcı odaya dudak senkronlu video basar."""
         ...
 
+    async def end_of_speech(self) -> None:
+        """Bu söz bitti (bütün sesi gönderildi); avatar sırayı bitirip dinlemeye geçer."""
+        ...
+
     async def interrupt(self) -> None:
         """Sırada bekleyen sesi hemen atar (kullanıcı söz kesti / barge-in)."""
+        ...
+
+    def events(self) -> AsyncIterator[AvatarEvent]:
+        """Avatarın gerçekten konuşmaya başladığı / bitirdiği anlar. Gerçek zamanlı katman
+        bunlarla "EVA ne kadarını söyleyebildi" hesabını yapar."""
         ...
 
     async def close(self) -> None:

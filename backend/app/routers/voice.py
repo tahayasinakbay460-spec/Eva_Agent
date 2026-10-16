@@ -43,10 +43,17 @@ LATENCY_TARGETS = {
 async def start_call(request: Request, body: CallCreate, user: CurrentUser, db: DB) -> CallOut:
     try:
         started = await voice_service.start_call(
-            db, request.app.state.settings, user, persona_id=body.persona_id, mode=body.mode
+            db,
+            request.app.state.settings,
+            user,
+            persona_id=body.persona_id,
+            mode=body.mode,
+            use_my_media=body.use_my_media,
         )
     except voice_service.VoiceNotConfiguredError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "voice_not_configured") from exc
+    except voice_service.MediaNotReadyError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, exc.code) from exc
     except voice_service.VideoQuotaExceededError as exc:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "video_quota_exceeded") from exc
     except persona_service.PersonaNotFoundError as exc:
@@ -56,6 +63,7 @@ async def start_call(request: Request, body: CallCreate, user: CurrentUser, db: 
         call_id=call.id,
         conversation_id=call.conversation_id,
         mode=body.mode,
+        media_source="self" if call.media_source == "self" else "persona",
         livekit_url=started.url,
         token=started.token,
         max_duration_s=call.max_duration_s,

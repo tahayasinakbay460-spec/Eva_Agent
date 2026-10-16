@@ -627,3 +627,79 @@ def test_mock_enrollment_providers_are_unavailable_outside_dev(
 )
 def test_sniff_container(data: bytes, container: str | None) -> None:
     assert biometric_service.sniff_container(data) == container
+
+
+# --- kendi sesinle / yüzünle görüşme (önizleme) ------------------------------------
+
+
+@pytest.fixture
+async def lk_app(tmp_path: Path) -> Any:
+    from tests.conftest import build_app
+    from tests.test_voice import LK
+
+    application = await build_app(make_settings(tmp_path, **LK))
+    yield application
+    await application.state.engine.dispose()
+
+
+@pytest.fixture
+async def lk_client(lk_app: FastAPI) -> Any:
+    transport = httpx.ASGITransport(app=lk_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+
+
+async def _media(app: FastAPI, call_id: str, avatar: str | None = None) -> Any:
+    from app.services.voice_service import CallTurns
+
+    async with app.state.session_factory() as db:
+        return await CallTurns(app.state.chat_service).call_media(
+            db,
+            uuid.UUID(call_id),
+            media_config=app.state.settings.media_config,
+            tts_provider="mock",
+            avatar_provider=avatar,
+        )
+
+
+async def test_persona_call_uses_the_personas_own_media(
+    lk_app: FastAPI, lk_client: httpx.AsyncClient
+) -> None:
+    headers = await login(lk_client, "ayse")
+    r = await lk_client.post("/voice/calls", headers=headers, json={"mode": "video"})
+    assert r.json()["media_source"] == "persona"
+    media = await _media(lk_app, r.json()["call_id"], avatar="mock")
+    assert (media.voice_id, media.avatar_id) == ("eva-mock", "eva-mock")
+
+
+async def test_call_with_my_media_needs_an_active_consented_clone(
+    lk_app: FastAPI, lk_client: httpx.AsyncClient
+) -> None:
+    from app.services.voice_service import CallTurns, MediaNotReadyError
+
+    user = await _user(lk_client, lk_app, "ayse")
+    r = await lk_client.post("/voice/calls", headers=user, json={"use_my_media": True})
+    assert r.status_code == 409 and r.json() == {"detail": "no_active_voice"}
+
+    enrollment = await _ready(lk_client, user)
+    await _approve(lk_client, await _admin(lk_client, lk_app), enrollment["id"])
+    await drain(lk_app.state.worker_context)
+
+    r = await lk_client.post("/voice/calls", headers=user, json={"use_my_media": True})
+    assert r.status_code == 201 and r.json()["media_source"] == "self"
+    call_id = r.json()["call_id"]
+    media = await _media(lk_app, call_id)
+    assert media.voice_id in _voices(lk_app).assets, "EVA speaks with the user's own clone"
+
+    r = await lk_client.post(
+        "/voice/calls", headers=user, json={"use_my_media": True, "mode": "video"}
+    )
+    assert r.status_code == 409 and r.json() == {"detail": "no_active_avatar"}
+
+    # Görüşme sürerken rıza geri alınırsa bir sonraki turda görüşme biter.
+    await lk_client.post(f"/biometrics/enrollments/{enrollment['id']}/revoke", headers=user)
+    turns = CallTurns(lk_app.state.chat_service)
+    async with lk_app.state.session_factory() as db:
+        assert not await turns.media_still_allowed(db, uuid.UUID(call_id))
+    with pytest.raises(MediaNotReadyError):
+        await _media(lk_app, call_id)

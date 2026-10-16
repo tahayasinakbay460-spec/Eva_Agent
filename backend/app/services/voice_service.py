@@ -21,6 +21,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Literal
 
 from livekit import api as lk_api
@@ -33,12 +34,15 @@ from app.models.call import CallSession, TurnLatency
 from app.models.conversation import Conversation, Message
 from app.models.persona import Persona
 from app.models.user import User
+from app.persona.media import MediaNotConfiguredError, media_id
 from app.providers.base import LLMRequest
-from app.services import memory_extraction, memory_retrieval, persona_service
+from app.services import biometric_service, memory_extraction, memory_retrieval, persona_service
 from app.services.chat_service import ChatService
 
 CallMode = Literal["voice", "video"]
-EndReason = Literal["user", "idle", "max_duration", "disconnected", "replaced", "error"]
+EndReason = Literal[
+    "user", "idle", "max_duration", "disconnected", "replaced", "error", "consent_revoked"
+]
 
 # Görüşme açılınca EVA'nın ilk sözü için sahte "kullanıcı turu" (kaydedilmez).
 CALL_OPENING_CUE = (
@@ -59,6 +63,22 @@ class CallNotFoundError(LookupError):
     pass
 
 
+class MediaNotReadyError(RuntimeError):
+    """Kendi sesinle/yüzünle görüşme istendi ama aktif (onaylı, rızası geçerli) klon yok."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class CallMedia:
+    """Bu görüşmede EVA hangi sesle konuşacak, hangi yüzle görünecek (sağlayıcıdaki id'ler)."""
+
+    voice_id: str
+    avatar_id: str | None
+
+
 @dataclass(frozen=True, slots=True)
 class StartedCall:
     call: CallSession
@@ -76,6 +96,7 @@ async def start_call(
     *,
     persona_id: uuid.UUID | None,
     mode: CallMode,
+    use_my_media: bool = False,
 ) -> StartedCall:
     if not settings.voice_configured:
         raise VoiceNotConfiguredError
@@ -83,6 +104,12 @@ async def start_call(
         persona = await persona_service.get_default_eva(db)
     else:
         persona = await persona_service.get_persona_for_user(db, user, persona_id)
+
+    if use_my_media:
+        if await biometric_service.active_asset(db, user.id, "voice") is None:
+            raise MediaNotReadyError("no_active_voice")
+        if mode == "video" and await biometric_service.active_asset(db, user.id, "face") is None:
+            raise MediaNotReadyError("no_active_avatar")
 
     max_duration = settings.voice_max_duration_s
     if mode == "video":
@@ -103,6 +130,7 @@ async def start_call(
         user_id=user.id,
         conversation_id=conversation.id,
         mode=mode,
+        media_source="self" if use_my_media else "persona",
         room_name=f"eva-{secrets.token_hex(12)}",
         max_duration_s=max_duration,
         idle_timeout_s=settings.call_idle_timeout_s,
@@ -287,6 +315,61 @@ class CallTurns:
         """Görüşmedeki personanın kısa adı (ses/yüz seçimi için; şimdilik sadece "eva")."""
         _call, _conversation, persona, _user = await self._load(db, call_id)
         return persona.slug or "eva"
+
+    async def call_media(
+        self,
+        db: AsyncSession,
+        call_id: uuid.UUID,
+        *,
+        media_config: Path,
+        tts_provider: str,
+        avatar_provider: str | None,
+    ) -> CallMedia:
+        """Görüşmenin sesi ve (görüntülüde) yüzü. Kullanıcının kendi klonuysa rıza o an
+        kontrol edilir; klon başka bir sağlayıcıda oluşturulmuşsa kullanılamaz."""
+        call, _conversation, persona, user = await self._load(db, call_id)
+        if call.media_source != "self":
+            slug = persona.slug or "eva"
+            try:
+                voice = media_id(media_config, slug, "voice", tts_provider)
+                avatar = (
+                    media_id(media_config, slug, "avatar", avatar_provider)
+                    if avatar_provider
+                    else None
+                )
+            except MediaNotConfiguredError as exc:
+                raise MediaNotReadyError("persona_media_not_configured") from exc
+            return CallMedia(voice_id=voice, avatar_id=avatar)
+
+        voice_asset = await biometric_service.active_asset(db, user.id, "voice")
+        if voice_asset is None:
+            raise MediaNotReadyError("no_active_voice")
+        if voice_asset.provider != tts_provider:
+            raise MediaNotReadyError("voice_provider_mismatch")
+        avatar_id = None
+        if avatar_provider:
+            avatar_asset = await biometric_service.active_asset(db, user.id, "face")
+            if avatar_asset is None:
+                raise MediaNotReadyError("no_active_avatar")
+            if avatar_asset.provider != avatar_provider:
+                raise MediaNotReadyError("avatar_provider_mismatch")
+            avatar_id = avatar_asset.asset_id
+        return CallMedia(voice_id=voice_asset.asset_id, avatar_id=avatar_id)
+
+    async def media_still_allowed(self, db: AsyncSession, call_id: uuid.UUID) -> bool:
+        """Kendi klonuyla yapılan görüşmede rıza hâlâ geçerli mi? Her turda sorulur:
+        rıza geri alınırsa görüşme o an biter (§11.3 "kullanım anında durur")."""
+        call = await db.get(CallSession, call_id)
+        if call is None:
+            return False
+        if call.media_source != "self":
+            return True
+        if await biometric_service.active_asset(db, call.user_id, "voice") is None:
+            return False
+        return not (
+            call.mode == "video"
+            and await biometric_service.active_asset(db, call.user_id, "face") is None
+        )
 
     async def is_ended(self, db: AsyncSession, call_id: uuid.UUID) -> bool:
         status = await db.scalar(select(CallSession.status).where(CallSession.id == call_id))

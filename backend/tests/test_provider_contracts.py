@@ -18,6 +18,8 @@ from app.providers.base import (
     AudioChunk,
     AudioFormat,
     AvatarEnrollmentProvider,
+    AvatarPlaybackFinished,
+    AvatarPlaybackStarted,
     AvatarProvider,
     AvatarSessionRequest,
     EmbeddingProvider,
@@ -173,8 +175,22 @@ async def test_avatar_session_contract(name: str) -> None:
     session = await provider.start_session(request)
     other = await provider.start_session(request)
     assert session.session_id and session.session_id != other.session_id
-    await session.send_audio(AudioChunk(b"\x00\x00" * 160))
-    await session.interrupt()
+    fmt = session.input_format
+    assert fmt.encoding == "pcm_s16le" and fmt.channels == 1
+
+    events = session.events()
+    await session.send_audio(AudioChunk(b"\x00\x00" * 160, fmt))
+    await session.end_of_speech()
+    assert isinstance(await anext(events), AvatarPlaybackStarted)
+    finished = await anext(events)
+    assert isinstance(finished, AvatarPlaybackFinished) and not finished.interrupted
+
+    await session.send_audio(AudioChunk(b"\x00\x00" * 160, fmt))
+    await session.interrupt()  # kullanıcı söze girdi
+    assert isinstance(await anext(events), AvatarPlaybackStarted)
+    cut = await anext(events)
+    assert isinstance(cut, AvatarPlaybackFinished) and cut.interrupted
+
     await session.close()
     await session.close()  # iki kez kapatmak da hata vermez
     await other.close()

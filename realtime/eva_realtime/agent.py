@@ -33,12 +33,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import Settings, get_settings
 from app.database import create_engine, create_session_factory
 from app.persona.compiler import PersonaCompiler
-from app.persona.media import media_id
-from app.providers.base import LLMRequest
+from app.providers.base import AvatarSessionRequest, LLMRequest, MediaRoom
 from app.providers.registry import ProviderRegistry, build_registry
 from app.services.chat_service import ChatService
 from app.services.voice_service import CallTurns, EndReason, TurnTimings
 from eva_realtime.adapters import EvaLLM, EvaSTT, EvaTTS
+from eva_realtime.avatar import AvatarBridge, mint_avatar_token
 
 log = logging.getLogger("eva.realtime")
 
@@ -76,7 +76,9 @@ def parse_call_id(metadata: str | None) -> uuid.UUID:
     return uuid.UUID(str(data["call_id"]))
 
 
-def timings_from(user_metrics: dict[str, Any], reply_metrics: dict[str, Any]) -> TurnTimings:
+def timings_from(
+    user_metrics: dict[str, Any], reply_metrics: dict[str, Any], *, avatar: bool = False
+) -> TurnTimings:
     """LiveKit'in saniye cinsinden ölçümlerini bizim milisaniyelik tur kaydımıza çevirir."""
 
     def ms(source: dict[str, Any], key: str) -> float | None:
@@ -89,6 +91,8 @@ def timings_from(user_metrics: dict[str, Any], reply_metrics: dict[str, Any]) ->
         llm_ttft_ms=ms(reply_metrics, "llm_node_ttft"),
         tts_ttfb_ms=ms(reply_metrics, "tts_node_ttfb"),
         e2e_ms=ms(reply_metrics, "e2e_latency"),
+        # Avatar varken "oynatma başladı" = avatarın ilk konuşan karesi kullanıcıya gitti.
+        avatar_first_frame_ms=ms(reply_metrics, "playback_latency") if avatar else None,
     )
 
 
@@ -107,17 +111,29 @@ server.setup_fnc = prewarm
 async def entrypoint(ctx: JobContext) -> None:
     rt = runtime()
     call_id = parse_call_id(ctx.job.metadata)
-    async with rt.session_factory() as db:
-        call = await rt.turns.open(db, call_id)
-        persona_slug = await rt.turns.persona_slug(db, call_id)
-
     stt_provider = rt.registry.stt("realtime")
     tts_provider = rt.registry.tts("realtime")
     llm_provider, _ = rt.registry.llm("realtime")
-    voice_id = media_id(rt.settings.media_config, persona_slug, "voice", tts_provider.name)
+    avatar_provider = rt.registry.avatar("realtime")
+
+    async with rt.session_factory() as db:
+        call = await rt.turns.open(db, call_id)
+        # Sahte (mock) avatar görüntü üretmez: o durumda görüntülü görüşme sesli devam eder.
+        use_avatar = call.mode == "video" and avatar_provider.name != "mock"
+        media = await rt.turns.call_media(
+            db,
+            call_id,
+            media_config=rt.settings.media_config,
+            tts_provider=tts_provider.name,
+            avatar_provider=avatar_provider.name if use_avatar else None,
+        )
 
     async def prepare(item_id: str | None, text: str | None) -> LLMRequest:
         async with rt.session_factory() as db:
+            # Kendi klonuyla görüşmede rıza her turda yeniden kontrol edilir (§11.3).
+            if not await rt.turns.media_still_allowed(db, call_id):
+                finish("consent_revoked")
+                raise RuntimeError("consent revoked during call")
             return await rt.turns.prepare_reply(db, call_id, user_item_id=item_id, user_text=text)
 
     eva_stt = EvaSTT(stt_provider)
@@ -125,7 +141,7 @@ async def entrypoint(ctx: JobContext) -> None:
         vad=ctx.proc.userdata["vad"],
         stt=eva_stt,
         llm=EvaLLM(llm_provider, prepare),
-        tts=EvaTTS(tts_provider, voice_id=voice_id, sample_rate=OUTPUT_SAMPLE_RATE),
+        tts=EvaTTS(tts_provider, voice_id=media.voice_id, sample_rate=OUTPUT_SAMPLE_RATE),
         turn_handling=TurnHandlingOptions(
             # Türkçe destekli ses tabanlı tur sonu modeli; kendi sunucumuzda CPU'da çalışır.
             turn_detection=inference.TurnDetector(),
@@ -171,7 +187,7 @@ async def entrypoint(ctx: JobContext) -> None:
                     item_id=item.id,
                     text=item.text_content or "",
                     interrupted=item.interrupted,
-                    timings=timings_from(last_user_metrics, dict(item.metrics)),
+                    timings=timings_from(last_user_metrics, dict(item.metrics), avatar=use_avatar),
                 )
 
         task = asyncio.create_task(save())
@@ -194,6 +210,26 @@ async def entrypoint(ctx: JobContext) -> None:
 
     # Sadece belli bir katılımcıyı dinlemek için önce odaya bağlanmak gerekiyor.
     await ctx.connect()
+
+    if use_avatar and media.avatar_id:
+        # Avatar bizim odamıza katılır; token'ını biz üretiriz (sağlayıcıya anahtar verilmez).
+        token = mint_avatar_token(
+            rt.settings,
+            room_name=ctx.room.name,
+            agent_identity=ctx.room.local_participant.identity,
+        )
+        avatar_session = await avatar_provider.start_session(
+            AvatarSessionRequest(
+                avatar_id=media.avatar_id,
+                room_name=ctx.room.name,
+                max_duration_s=call.max_duration_s,
+                idle_timeout_s=call.idle_timeout_s,
+                room=MediaRoom(url=str(rt.settings.livekit_url), token=token),
+            )
+        )
+        bridge = AvatarBridge(avatar_session)
+        await bridge.attach(session.output.replace_audio_tail)
+        ctx.add_shutdown_callback(bridge.aclose)
     await session.start(
         agent=Agent(instructions=""),
         room=ctx.room,

@@ -25,6 +25,7 @@ from app.providers.base import (
 )
 from app.providers.dev_mailbox import DevMailboxMessagingProvider
 from app.providers.elevenlabs import ElevenLabsTTSProvider, ElevenLabsVoiceEnrollmentProvider
+from app.providers.liveavatar import LiveAvatarProvider
 from app.providers.mock import (
     MockAvatarEnrollmentProvider,
     MockAvatarProvider,
@@ -134,7 +135,7 @@ _FACTORIES: dict[ProviderKind, dict[str, Callable[..., object]]] = {
         "mock": MockVoiceEnrollmentProvider,
         "elevenlabs": ElevenLabsVoiceEnrollmentProvider,
     },
-    "avatar": {"mock": MockAvatarProvider},
+    "avatar": {"mock": MockAvatarProvider, "liveavatar": LiveAvatarProvider},
     "avatar_enrollment": {"mock": MockAvatarEnrollmentProvider},
     "embedding": {"mock": MockEmbeddingProvider},
     "moderation": {"mock": MockModerationProvider},

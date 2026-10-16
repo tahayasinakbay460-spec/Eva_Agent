@@ -15,6 +15,9 @@ from collections.abc import AsyncIterable, AsyncIterator, Sequence
 from app.providers.base import (
     AudioChunk,
     AudioFormat,
+    AvatarEvent,
+    AvatarPlaybackFinished,
+    AvatarPlaybackStarted,
     AvatarSessionRequest,
     EmbeddingPurpose,
     EnrollmentSample,
@@ -180,22 +183,45 @@ class MockAvatarEnrollmentProvider:
 
 
 class MockAvatarSession:
+    """Görüntü üretmez; sesi sayar ve konuşma başladı/bitti olaylarını hemen verir."""
+
+    input_format = AudioFormat(sample_rate=24_000)
+
     def __init__(self, session_id: str) -> None:
         self.session_id = session_id
         self.audio_bytes = 0
         self.interrupts = 0
         self.closed = False
+        self._speaking = False
+        self._events: asyncio.Queue[AvatarEvent | None] = asyncio.Queue()
 
     async def send_audio(self, chunk: AudioChunk) -> None:
         if self.closed:
             raise RuntimeError("avatar session is closed")
         self.audio_bytes += len(chunk.data)
+        if not self._speaking:
+            self._speaking = True
+            self._events.put_nowait(AvatarPlaybackStarted())
+
+    async def end_of_speech(self) -> None:
+        if self._speaking:
+            self._speaking = False
+            self._events.put_nowait(AvatarPlaybackFinished(interrupted=False))
 
     async def interrupt(self) -> None:
         self.interrupts += 1
+        if self._speaking:
+            self._speaking = False
+            self._events.put_nowait(AvatarPlaybackFinished(interrupted=True))
+
+    async def events(self) -> AsyncIterator[AvatarEvent]:
+        while (event := await self._events.get()) is not None:
+            yield event
 
     async def close(self) -> None:
-        self.closed = True
+        if not self.closed:
+            self.closed = True
+            self._events.put_nowait(None)
 
 
 class MockAvatarProvider:
