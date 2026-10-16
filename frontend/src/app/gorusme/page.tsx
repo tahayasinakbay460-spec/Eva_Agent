@@ -1,12 +1,14 @@
 "use client";
 
 /**
- * Sesli görüşme ekranı (Faz 2). "EVA'yı ara"ya basınca backend bir görüşme açar ve kısa
+ * Sesli / görüntülü görüşme ekranı (Faz 2-3). "EVA'yı ara"ya basınca backend bir görüşme açar ve kısa
  * ömürlü bir LiveKit token'ı verir; tarayıcı odaya bağlanıp mikrofonu açar, EVA'nın ajanı
  * da aynı odaya katılır. Ses doğrudan tarayıcı ↔ LiveKit arasında akar.
  *
  * Ekranda: EVA'nın durumu (dinliyor / düşünüyor / konuşuyor), canlı yazıya dökülen konuşma,
- * kalan süre, mikrofon ve kapat düğmeleri; görüşme bitince gecikme panosu.
+ * kalan süre, mikrofon ve kapat düğmeleri; görüşme bitince gecikme panosu. Görüntülü
+ * görüşmede EVA'nın avatarı (LiveAvatar) odaya katılıp yüz videosunu yayınlar. "Kendi sesimle"
+ * seçilirse EVA, kullanıcının rızalı klon sesiyle (ve yüzüyle) konuşur (önizleme, Faz 3).
  */
 
 import Link from "next/link";
@@ -18,17 +20,20 @@ import {
   type Participant,
   type RemoteTrack,
 } from "livekit-client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
-import { ArrowLeft, MicIcon, MicOffIcon, PhoneOffIcon } from "@/components/icons";
+import { ArrowLeft, MicIcon, MicOffIcon, PhoneOffIcon, VideoIcon } from "@/components/icons";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
 import {
   ApiError,
   endCall,
+  errorCode,
   latencyReport,
   startCall,
   type Call,
+  type CallMode,
   type LatencyReport,
 } from "@/lib/api/client";
 
@@ -42,11 +47,25 @@ export default function CallPage() {
   const { state, signedIn } = useSession();
   if (state.status === "needs_onboarding") return <AuthScreen onSignedIn={signedIn} />;
   if (state.status !== "ready") return null;
-  return <VoiceCall />;
+  return (
+    <Suspense fallback={null}>
+      <CallFromUrl />
+    </Suspense>
+  );
 }
 
-function VoiceCall() {
+/** `?mine=1`: "Ses ve yüz" ekranındaki "Kendi sesimle EVA'yı ara" bağlantısı. */
+function CallFromUrl() {
+  const params = useSearchParams();
+  return <VoiceCall initialMine={params.get("mine") === "1"} />;
+}
+
+function VoiceCall({ initialMine }: { initialMine: boolean }) {
   const [phase, setPhase] = useState<Phase>("idle");
+  const [mode, setMode] = useState<CallMode>("voice");
+  const [useMine, setUseMine] = useState(initialMine);
+  const [hasVideo, setHasVideo] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [agentState, setAgentState] = useState<AgentState | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
@@ -127,14 +146,18 @@ function VoiceCall() {
   async function start() {
     setError(null);
     setLines([]);
+    setHasVideo(false);
     setPhase("connecting");
     let call: Call;
     try {
-      call = await startCall("voice");
+      call = await startCall(mode, useMine);
     } catch (err) {
       setPhase("idle");
+      const code = errorCode(err);
       if (err instanceof ApiError && err.status === 503) setError(t.call.notConfigured);
       else if (err instanceof ApiError && err.status === 429) setError(t.call.quotaExceeded);
+      else if (code === "no_active_voice") setError(t.call.noActiveVoice);
+      else if (code === "no_active_avatar") setError(t.call.noActiveAvatar);
       else setError(t.call.failed);
       return;
     }
@@ -147,6 +170,10 @@ function VoiceCall() {
         if (track.kind === Track.Kind.Audio) {
           const el = track.attach();
           audioHost.current?.appendChild(el);
+        } else if (track.kind === Track.Kind.Video && videoRef.current) {
+          // Avatarın yüz videosu (EVA adına yayın yapan avatar katılımcısından gelir).
+          track.attach(videoRef.current);
+          setHasVideo(true);
         }
       })
       .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
@@ -223,7 +250,9 @@ function VoiceCall() {
         <Link href="/" aria-label="Geri" className="rounded-full p-1 text-muted hover:text-white">
           <ArrowLeft />
         </Link>
-        <span className="flex-1 font-semibold">{t.call.title}</span>
+        <span className="flex-1 font-semibold">
+          {mode === "video" ? t.call.titleVideo : t.call.title}
+        </span>
         {/* Her zaman görünen "AI simülasyonu" rozeti (CLAUDE.md §7). */}
         <span className="rounded-full border border-amber/40 bg-amber/10 px-2 py-0.5 text-[10px] font-medium text-amber">
           {t.app.aiBadge}
@@ -231,7 +260,18 @@ function VoiceCall() {
       </header>
 
       <main className="flex flex-1 flex-col items-center px-4 py-6">
-        <Orb active={phase === "in_call"} speaking={agentState === "speaking"} />
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          className={`w-full max-w-md rounded-2xl bg-black ${hasVideo && phase === "in_call" ? "" : "hidden"}`}
+        />
+        {!(hasVideo && phase === "in_call") && (
+          <Orb active={phase === "in_call"} speaking={agentState === "speaking"} />
+        )}
+        {mode === "video" && phase === "in_call" && !hasVideo && agentState && (
+          <p className="mt-2 max-w-md text-center text-xs text-amber">{t.call.mockAvatar}</p>
+        )}
         <p className="mt-4 text-lg font-semibold">EVA</p>
         {phase === "in_call" || phase === "connecting" ? (
           <p className="text-sm text-muted" aria-live="polite">
@@ -271,12 +311,36 @@ function VoiceCall() {
 
         {(phase === "idle" || phase === "ended") && (
           <div className="mt-8 w-full max-w-md space-y-4">
+            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white/5 p-1" role="radiogroup">
+              {(["voice", "video"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === m}
+                  onClick={() => setMode(m)}
+                  className={`rounded-xl py-2 text-sm font-semibold ${mode === m ? "bg-white/15" : "text-muted"}`}
+                >
+                  {m === "voice" ? t.call.modeVoice : t.call.modeVideo}
+                </button>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={useMine}
+                onChange={(e) => setUseMine(e.target.checked)}
+                className="h-4 w-4 accent-[var(--color-accent)]"
+              />
+              {t.call.useMine}
+            </label>
             <button
               type="button"
               onClick={start}
               className="glow-ring flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent to-accent-2 py-4 text-lg font-semibold text-white"
             >
-              <MicIcon /> {phase === "ended" ? t.call.callAgain : t.call.start}
+              {mode === "video" ? <VideoIcon /> : <MicIcon />}{" "}
+              {phase === "ended" ? t.call.callAgain : t.call.start}
             </button>
             <p className="text-center text-xs text-muted">{t.call.startHint}</p>
             {phase === "ended" && (

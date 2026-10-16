@@ -211,6 +211,133 @@ export type Call = Schemas["CallOut"];
 export type CallMode = Call["mode"];
 export type LatencyReport = Schemas["LatencyReportOut"];
 
-export const startCall = (mode: CallMode = "voice") => post<Call>("/voice/calls", { mode });
+export const startCall = (mode: CallMode = "voice", useMyMedia = false) =>
+  post<Call>("/voice/calls", { mode, use_my_media: useMyMedia });
 export const endCall = (callId: string) => post<void>(`/voice/calls/${callId}/end`, {});
 export const latencyReport = () => request<LatencyReport>("/voice/latency");
+
+/** Backend hatasındaki kısa kod (ör. `{"detail": "step_up_required"}` -> "step_up_required"). */
+export function errorCode(err: unknown): string | null {
+  if (!(err instanceof ApiError)) return null;
+  try {
+    const body = JSON.parse(err.message) as { detail?: unknown };
+    return typeof body.detail === "string" ? body.detail : null;
+  } catch {
+    return null;
+  }
+}
+
+/*
+ * Adım-yukarı doğrulama (§11.2): hassas işlemden önce kimliği yeniden doğrula. Başarılı olunca
+ * bu oturum 10 dakika boyunca hassas işlem yapabilir.
+ */
+
+export type StepUpStatus = Schemas["StepUpStatusOut"];
+
+export const stepUpStatus = () => request<StepUpStatus>("/auth/step-up");
+
+export async function stepUpWithPasskey(): Promise<StepUpStatus> {
+  const flow = await post<PasskeyOptions>("/auth/step-up/passkey/options", {});
+  const credential = await getPasskey(flow.options);
+  return post<StepUpStatus>("/auth/step-up/passkey/verify", {
+    flow_id: flow.flow_id,
+    credential,
+  });
+}
+
+export const stepUpPasswordStart = (password: string) =>
+  post<CodeFlow>("/auth/step-up/password", { password });
+export const stepUpPasswordFinish = (flowId: string, code: string) =>
+  post<StepUpStatus>("/auth/step-up/password/verify", { flow_id: flowId, code });
+
+/* Rızalı ses / yüz kaydı (Faz 3). */
+
+export type Enrollment = Schemas["EnrollmentOut"];
+export type EnrollmentKind = Enrollment["kind"];
+export type EnrollmentFile = Schemas["EnrollmentFileOut"];
+export type ConsentText = Schemas["ConsentTextOut"];
+export type FileRole = EnrollmentFile["role"];
+
+export const consentText = (kind: EnrollmentKind) =>
+  request<ConsentText>(`/biometrics/consent-text?kind=${kind}`);
+export const listEnrollments = () => request<Enrollment[]>("/biometrics/enrollments");
+export const getEnrollment = (id: string) => request<Enrollment>(`/biometrics/enrollments/${id}`);
+export const startEnrollment = (kind: EnrollmentKind, version: string) =>
+  post<Enrollment>("/biometrics/enrollments", {
+    kind,
+    consent_text_version: version,
+    consent_accepted: true,
+  });
+export const submitEnrollment = (id: string) =>
+  post<Enrollment>(`/biometrics/enrollments/${id}/submit`, {});
+export const revokeEnrollment = (id: string) =>
+  post<Enrollment>(`/biometrics/enrollments/${id}/revoke`, {});
+export const deleteEnrollmentFile = (id: string, fileId: string) =>
+  request<void>(`/biometrics/enrollments/${id}/files/${fileId}`, { method: "DELETE" });
+
+/** Kaydedilen dosyayı ham gövde olarak yükler (tür, dosyanın kendisinden doğrulanır). */
+export async function uploadEnrollmentFile(
+  id: string,
+  role: FileRole,
+  blob: Blob,
+  durationS: number,
+): Promise<EnrollmentFile> {
+  const headers = new Headers({ "Content-Type": blob.type || "application/octet-stream" });
+  const token = tokenStore.get();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const params = new URLSearchParams({
+    role,
+    duration_s: String(Math.max(1, Math.round(durationS))),
+  });
+  const res = await fetch(`${API_URL}/biometrics/enrollments/${id}/files?${params}`, {
+    method: "POST",
+    headers,
+    body: blob,
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return (await res.json()) as EnrollmentFile;
+}
+
+export const previewSentences = () => request<string[]>("/biometrics/voice/preview-sentences");
+
+/** Kendi klon sesinle sabit bir cümle; çalınabilir bir adres döner (indirme düğmesi yok). */
+export async function voicePreview(sentence: number): Promise<string> {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  const token = tokenStore.get();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${API_URL}/biometrics/voice/preview`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ sentence }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return URL.createObjectURL(await res.blob());
+}
+
+/* Yönetici: kayıtların elle incelenmesi. */
+
+export type AdminEnrollment = Schemas["AdminEnrollmentOut"];
+export type RejectReason = Schemas["RejectRequest"]["reason"];
+
+export const pendingReviews = () => request<AdminEnrollment[]>("/admin/biometrics/pending");
+export const approveEnrollment = (id: string) =>
+  post<AdminEnrollment>(`/admin/biometrics/enrollments/${id}/approve`, {
+    adult: true,
+    same_person: true,
+    code_matches: true,
+    consent_is_clear: true,
+  });
+export const rejectEnrollment = (id: string, reason: RejectReason) =>
+  post<AdminEnrollment>(`/admin/biometrics/enrollments/${id}/reject`, { reason });
+
+/** İnceleme için bir dosyayı açar (her açılış denetim kaydına yazılır). */
+export async function reviewFileUrl(id: string, fileId: string): Promise<string> {
+  const headers = new Headers();
+  const token = tokenStore.get();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${API_URL}/admin/biometrics/enrollments/${id}/files/${fileId}`, {
+    headers,
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return URL.createObjectURL(await res.blob());
+}

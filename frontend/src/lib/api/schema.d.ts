@@ -833,6 +833,11 @@ export interface components {
              * @enum {string}
              */
             mode: "voice" | "video";
+            /**
+             * Use My Media
+             * @default false
+             */
+            use_my_media: boolean;
         };
         /**
          * CallOut
@@ -855,6 +860,11 @@ export interface components {
              * @enum {string}
              */
             mode: "voice" | "video";
+            /**
+             * Media Source
+             * @enum {string}
+             */
+            media_source: "persona" | "self";
             /** Livekit Url */
             livekit_url: string;
             /** Token */

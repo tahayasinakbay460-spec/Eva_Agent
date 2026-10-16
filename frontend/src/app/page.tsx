@@ -159,7 +159,7 @@ function QuickActions() {
   const actions = [
     { href: "/chat", label: t.home.actions.chat, Icon: ChatIcon, color: "text-cyan" },
     { href: "/gorusme", label: t.home.actions.voice, Icon: MicIcon, color: "text-accent" },
-    { href: "/kesfet", label: t.home.actions.video, Icon: VideoIcon, color: "text-cyan" },
+    { href: "/gorusme", label: t.home.actions.video, Icon: VideoIcon, color: "text-cyan" },
     { href: "/anilar", label: t.home.actions.memories, Icon: HeartIcon, color: "text-accent" },
     {
       href: "/kesfet",

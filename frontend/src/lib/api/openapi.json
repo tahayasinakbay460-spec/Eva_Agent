@@ -2318,6 +2318,11 @@
             ],
             "title": "Mode",
             "default": "voice"
+          },
+          "use_my_media": {
+            "type": "boolean",
+            "title": "Use My Media",
+            "default": false
           }
         },
         "type": "object",
@@ -2343,6 +2348,14 @@
             ],
             "title": "Mode"
           },
+          "media_source": {
+            "type": "string",
+            "enum": [
+              "persona",
+              "self"
+            ],
+            "title": "Media Source"
+          },
           "livekit_url": {
             "type": "string",
             "title": "Livekit Url"
@@ -2365,6 +2378,7 @@
           "call_id",
           "conversation_id",
           "mode",
+          "media_source",
           "livekit_url",
           "token",
           "max_duration_s",
