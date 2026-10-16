@@ -2,14 +2,21 @@
 
 Tüm değerler ortam değişkenlerinden (``EVA_`` önekli) ya da ``backend/.env`` dosyasından gelir.
 Sırlara burada asla varsayılan değer verilmez; sağlayıcı SDK'ları kendi anahtarlarını
-(ör. ``ANTHROPIC_API_KEY``) doğrudan ortamdan okur.
+(ör. ``OPENAI_API_KEY``) doğrudan ortamdan okur — ``get_settings`` bu yüzden ``.env``'deki
+sağlayıcı anahtarlarını süreç ortamına da koyar.
+
+Göreli yollar (``./eva_dev.db``, ``../config/...``) her zaman ``backend/`` klasörüne göre
+çözülür; böylece API, işçi ve ``realtime/`` ajanı nereden çalıştırılırsa çalıştırılsın aynı
+veritabanını ve ayarları görür.
 """
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr
+from dotenv import dotenv_values
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["dev", "test", "staging", "prod"]
@@ -21,7 +28,7 @@ _BACKEND_ROOT = _REPO_ROOT / "backend"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EVA_",
-        env_file=".env",
+        env_file=_BACKEND_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
@@ -31,6 +38,23 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./eva_dev.db"
     redis_url: str = "redis://localhost:6379/0"
     cors_origins: list[str] = ["http://localhost:3000"]
+
+    @field_validator("database_url")
+    @classmethod
+    def _anchor_sqlite_path(cls, value: str) -> str:
+        prefix = "sqlite+aiosqlite:///"
+        if value.startswith(prefix) and not value.endswith(":memory:"):
+            path = Path(value[len(prefix) :])
+            if not path.is_absolute():
+                return prefix + (_BACKEND_ROOT / path).resolve().as_posix()
+        return value
+
+    @field_validator(
+        "providers_config", "media_config", "storage_dir", "dev_master_key_file", mode="after"
+    )
+    @classmethod
+    def _anchor_path(cls, value: Path) -> Path:
+        return value if value.is_absolute() else (_BACKEND_ROOT / value).resolve()
 
     providers_config: Path = _REPO_ROOT / "config" / "providers.yaml"
     media_config: Path = _REPO_ROOT / "config" / "media.yaml"
@@ -107,6 +131,17 @@ class Settings(BaseSettings):
         return self.env == "dev"
 
 
+def export_provider_keys(env_file: Path = _BACKEND_ROOT / ".env") -> None:
+    """``.env``'deki sağlayıcı anahtarlarını (``EVA_`` öneki olmayanlar, ör. OPENAI_API_KEY)
+    süreç ortamına koyar; SDK'lar anahtarı oradan okur. Ortamda zaten olan değer ezilmez."""
+    if not env_file.exists():
+        return
+    for key, value in dotenv_values(env_file).items():
+        if value and not key.startswith("EVA_") and key not in os.environ:
+            os.environ[key] = value
+
+
 @lru_cache
 def get_settings() -> Settings:
+    export_provider_keys()
     return Settings()

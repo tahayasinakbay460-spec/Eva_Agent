@@ -283,6 +283,11 @@ class CallTurns:
             await db.commit()
         return call
 
+    async def persona_slug(self, db: AsyncSession, call_id: uuid.UUID) -> str:
+        """Görüşmedeki personanın kısa adı (ses/yüz seçimi için; şimdilik sadece "eva")."""
+        _call, _conversation, persona, _user = await self._load(db, call_id)
+        return persona.slug or "eva"
+
     async def is_ended(self, db: AsyncSession, call_id: uuid.UUID) -> bool:
         status = await db.scalar(select(CallSession.status).where(CallSession.id == call_id))
         return status in (None, "ended")
