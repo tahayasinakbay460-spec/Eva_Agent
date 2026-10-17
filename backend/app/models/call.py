@@ -25,10 +25,10 @@ class CallSession(UUIDPrimaryKeyMixin, Base):
         Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True
     )
     mode: Mapped[str] = mapped_column(String(8), nullable=False)  # voice | video
-    # persona: personanın kendi sesi/yüzü · self: kullanıcının kendi rızalı klonu (önizleme, Faz 3)
-    media_source: Mapped[str] = mapped_column(
-        String(8), nullable=False, default="persona", server_default="persona"
-    )
+    # Görüşme başlarken seçilen ses ve yüz (katalog anahtarı ya da "own" = kullanıcının kendi
+    # rızalı klonu / fotoğrafı). Görüşme boyunca değişmez; "own" ise rıza her turda kontrol edilir.
+    voice_key: Mapped[str] = mapped_column(String(32), nullable=False)
+    avatar_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     room_name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="created")
     max_duration_s: Mapped[int] = mapped_column(Integer, nullable=False)

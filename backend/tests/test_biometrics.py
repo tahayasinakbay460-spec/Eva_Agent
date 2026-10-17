@@ -672,7 +672,7 @@ async def test_persona_call_uses_the_personas_own_media(
 ) -> None:
     headers = await login(lk_client, "ayse")
     r = await lk_client.post("/voice/calls", headers=headers, json={"mode": "video"})
-    assert r.json()["media_source"] == "persona"
+    assert (r.json()["voice_key"], r.json()["avatar_key"]) == ("eva", "eva")
     media = await _media(lk_app, r.json()["call_id"], avatar="mock")
     assert (media.voice_id, media.avatar_id) == ("eva-mock", "eva-mock")
 
@@ -683,21 +683,26 @@ async def test_call_with_my_media_needs_an_active_consented_clone(
     from app.services.voice_service import CallTurns, MediaNotReadyError
 
     user = await _user(lk_client, lk_app, "ayse")
-    r = await lk_client.post("/voice/calls", headers=user, json={"use_my_media": True})
+    r = await lk_client.put("/media/preferences", headers=user, json={"voice": "own"})
     assert r.status_code == 409 and r.json() == {"detail": "no_active_voice"}
 
     enrollment = await _ready(lk_client, user)
     await _approve(lk_client, await _admin(lk_client, lk_app), enrollment["id"])
     await drain(lk_app.state.worker_context)
 
-    r = await lk_client.post("/voice/calls", headers=user, json={"use_my_media": True})
-    assert r.status_code == 201 and r.json()["media_source"] == "self"
+    r = await lk_client.put("/media/preferences", headers=user, json={"voice": "own"})
+    assert r.status_code == 200 and r.json()["selected"] == {"voice": "own", "avatar": "eva"}
+    r = await lk_client.post("/voice/calls", headers=user, json={})
+    assert r.status_code == 201 and r.json()["voice_key"] == "own"
     call_id = r.json()["call_id"]
     media = await _media(lk_app, call_id)
     assert media.voice_id in _voices(lk_app).assets, "EVA speaks with the user's own clone"
 
-    r = await lk_client.post(
-        "/voice/calls", headers=user, json={"use_my_media": True, "mode": "video"}
+    # Kendi sesi + EVA'nın yüzü birlikte kullanılabilir; kendi yüzü kayıt olmadan seçilemez.
+    r = await lk_client.post("/voice/calls", headers=user, json={"mode": "video"})
+    assert (r.json()["voice_key"], r.json()["avatar_key"]) == ("own", "eva")
+    r = await lk_client.put(
+        "/media/preferences", headers=user, json={"voice": "own", "avatar": "own"}
     )
     assert r.status_code == 409 and r.json() == {"detail": "no_active_avatar"}
 
@@ -787,10 +792,10 @@ def _lemonslice_config(tmp_path: Path) -> Path:
     old = "avatar_enrollment:\n  default: { provider: mock }"
     assert old in text
     path = tmp_path / "providers.yaml"
-    path.write_text(
-        text.replace(old, "avatar_enrollment:\n  default: { provider: lemonslice }"),
-        encoding="utf-8",
-    )
+    text = text.replace(old, "avatar_enrollment:\n  default: { provider: lemonslice }")
+    old = "avatar:\n  realtime: { provider: mock }"
+    assert old in text
+    path.write_text(text.replace(old, "avatar:\n  realtime: { provider: lemonslice }"), "utf-8")
     return path
 
 
@@ -846,10 +851,15 @@ async def test_lemonslice_face_enrollment_keeps_the_photo_with_us(
         ).scalar_one()
     assert asset.provider == "lemonslice"
 
-    r = await ls_client.post(
-        "/voice/calls", headers=user, json={"use_my_media": True, "mode": "video"}
+    # Kendi fotoğrafı + katalogdan başka bir ses (sahibin istediği eşleştirme).
+    r = await ls_client.put(
+        "/media/preferences", headers=user, json={"voice": "sarah", "avatar": "own"}
     )
+    assert r.status_code == 200, r.text
+    assert r.json()["own_avatar"] and r.json()["own_voice"], "both own options are open"
+    r = await ls_client.post("/voice/calls", headers=user, json={"mode": "video"})
     assert r.status_code == 201, r.text
+    assert (r.json()["voice_key"], r.json()["avatar_key"]) == ("sarah", "own")
     call_id = uuid.UUID(r.json()["call_id"])
 
     async def media() -> Any:
@@ -865,6 +875,7 @@ async def test_lemonslice_face_enrollment_keeps_the_photo_with_us(
             )
 
     result = await media()
+    assert result.voice_id == "sarah-mock"
     assert result.avatar_image is not None and result.avatar_image.media_type == "image/png"
     with Image.open(io.BytesIO(result.avatar_image.data)) as sent:
         assert sent.size == (300, 400)
@@ -875,6 +886,8 @@ async def test_lemonslice_face_enrollment_keeps_the_photo_with_us(
     # Rıza geri alınınca fotoğraf bir daha gönderilmez; işçi ham dosyaları imha eder.
     r = await ls_client.post(f"/biometrics/enrollments/{face['id']}/revoke", headers=user)
     assert r.is_success
+    async with ls_app.state.session_factory() as db:
+        assert not await CallTurns(ls_app.state.chat_service).media_still_allowed(db, call_id)
     with pytest.raises(MediaNotReadyError):
         await media()
     await drain(ls_app.state.worker_context)

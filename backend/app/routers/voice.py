@@ -48,7 +48,7 @@ async def start_call(request: Request, body: CallCreate, user: CurrentUser, db: 
             user,
             persona_id=body.persona_id,
             mode=body.mode,
-            use_my_media=body.use_my_media,
+            registry=request.app.state.registry,
         )
     except voice_service.VoiceNotConfiguredError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "voice_not_configured") from exc
@@ -63,7 +63,8 @@ async def start_call(request: Request, body: CallCreate, user: CurrentUser, db: 
         call_id=call.id,
         conversation_id=call.conversation_id,
         mode=body.mode,
-        media_source="self" if call.media_source == "self" else "persona",
+        voice_key=call.voice_key,
+        avatar_key=call.avatar_key,
         livekit_url=started.url,
         token=started.token,
         max_duration_s=call.max_duration_s,

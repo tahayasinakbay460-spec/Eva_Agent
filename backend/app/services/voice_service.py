@@ -34,9 +34,22 @@ from app.models.call import CallSession, TurnLatency
 from app.models.conversation import Conversation, Message
 from app.models.persona import Persona
 from app.models.user import User
-from app.persona.media import FILE_PREFIX, MediaNotConfiguredError, media_id, media_image
+from app.persona.media import (
+    FILE_PREFIX,
+    OWN,
+    MediaNotConfiguredError,
+    load_catalog,
+    media_image,
+)
 from app.providers.base import EnrollmentSample, LLMRequest
-from app.services import biometric_service, memory_extraction, memory_retrieval, persona_service
+from app.providers.registry import ProviderRegistry
+from app.services import (
+    biometric_service,
+    media_service,
+    memory_extraction,
+    memory_retrieval,
+    persona_service,
+)
 from app.services.chat_service import ChatService
 from app.storage.encrypted import EncryptedStore
 
@@ -99,7 +112,7 @@ async def start_call(
     *,
     persona_id: uuid.UUID | None,
     mode: CallMode,
-    use_my_media: bool = False,
+    registry: ProviderRegistry,
 ) -> StartedCall:
     if not settings.voice_configured:
         raise VoiceNotConfiguredError
@@ -108,11 +121,17 @@ async def start_call(
     else:
         persona = await persona_service.get_persona_for_user(db, user, persona_id)
 
-    if use_my_media:
-        if await biometric_service.active_asset(db, user.id, "voice") is None:
-            raise MediaNotReadyError("no_active_voice")
-        if mode == "video" and await biometric_service.active_asset(db, user.id, "face") is None:
-            raise MediaNotReadyError("no_active_avatar")
+    # Kullanıcının seçtiği ses ve yüz (seçmediyse personanın varsayılanı). "Kendi" seçildiyse
+    # rızalı kayıt şu an aktif olmalı; görüşme boyunca her turda yeniden kontrol edilir.
+    choice = await media_service.chosen(db, settings, registry, user, persona)
+    if choice.voice == OWN and await biometric_service.active_asset(db, user.id, "voice") is None:
+        raise MediaNotReadyError("no_active_voice")
+    if (
+        mode == "video"
+        and choice.avatar == OWN
+        and await biometric_service.active_asset(db, user.id, "face") is None
+    ):
+        raise MediaNotReadyError("no_active_avatar")
 
     max_duration = settings.voice_max_duration_s
     if mode == "video":
@@ -133,7 +152,8 @@ async def start_call(
         user_id=user.id,
         conversation_id=conversation.id,
         mode=mode,
-        media_source="self" if use_my_media else "persona",
+        voice_key=choice.voice,
+        avatar_key=choice.avatar if mode == "video" else None,
         room_name=f"eva-{secrets.token_hex(12)}",
         max_duration_s=max_duration,
         idle_timeout_s=settings.call_idle_timeout_s,
@@ -330,71 +350,80 @@ class CallTurns:
         avatar_accepts_image: bool = False,
         store: EncryptedStore | None = None,
     ) -> CallMedia:
-        """Görüşmenin sesi ve (görüntülüde) yüzü. Kullanıcının kendi klonuysa rıza o an
-        kontrol edilir; klon başka bir sağlayıcıda oluşturulmuşsa kullanılamaz.
+        """Görüşmenin sesi ve (görüntülüde) yüzü: görüşme başlarken seçilen katalog sesi/yüzü
+        ya da kullanıcının kendi klonu/fotoğrafı. Kendi klonuysa rıza o an kontrol edilir; klon
+        başka bir sağlayıcıda oluşturulmuşsa kullanılamaz.
 
-        Avatar sağlayıcısı fotoğraftan çalışıyorsa (``avatar_accepts_image``) rızalı fotoğraf
-        şifreli depodan okunur ve yalnızca bu görüşme için sağlayıcıya verilir."""
+        Avatar sağlayıcısı fotoğraftan çalışıyorsa (``avatar_accepts_image``) kullanıcının rızalı
+        fotoğrafı şifreli depodan ya da katalog görseli (``file:``) diskten okunur ve yalnızca bu
+        görüşme için sağlayıcıya verilir."""
         call, _conversation, persona, user = await self._load(db, call_id)
-        if call.media_source != "self":
-            slug = persona.slug or "eva"
+        catalog = load_catalog(media_config)
+
+        if call.voice_key == OWN:
+            voice_asset = await biometric_service.active_asset(db, user.id, "voice")
+            if voice_asset is None:
+                raise MediaNotReadyError("no_active_voice")
+            if voice_asset.provider != tts_provider:
+                raise MediaNotReadyError("voice_provider_mismatch")
+            voice_id = voice_asset.asset_id
+        else:
             try:
-                voice = media_id(media_config, slug, "voice", tts_provider)
-                avatar = (
-                    media_id(media_config, slug, "avatar", avatar_provider)
-                    if avatar_provider
-                    else None
-                )
-                # Yerel görsel (``file:``) yalnızca fotoğraftan çalışan sağlayıcıda anlamlı.
-                image = None
-                if avatar and avatar.startswith(FILE_PREFIX):
-                    if not avatar_accepts_image:
-                        raise MediaNotConfiguredError(f"{avatar_provider} cannot use an image")
-                    image = media_image(media_config, avatar)
+                voice_id = catalog.provider_id("voice", call.voice_key, tts_provider)
             except MediaNotConfiguredError as exc:
                 raise MediaNotReadyError("persona_media_not_configured") from exc
-            return CallMedia(voice_id=voice, avatar_id=avatar, avatar_image=image)
 
-        voice_asset = await biometric_service.active_asset(db, user.id, "voice")
-        if voice_asset is None:
-            raise MediaNotReadyError("no_active_voice")
-        if voice_asset.provider != tts_provider:
-            raise MediaNotReadyError("voice_provider_mismatch")
-        avatar_id = None
-        if avatar_provider:
+        if not avatar_provider:
+            return CallMedia(voice_id=voice_id, avatar_id=None)
+
+        avatar_key = call.avatar_key or catalog.default(persona.slug or "eva", "avatar")
+        if avatar_key == OWN:
             avatar_asset = await biometric_service.active_asset(db, user.id, "face")
             if avatar_asset is None:
                 raise MediaNotReadyError("no_active_avatar")
             if avatar_asset.provider != avatar_provider:
                 raise MediaNotReadyError("avatar_provider_mismatch")
-            avatar_id = avatar_asset.asset_id
-            if avatar_accepts_image:
-                if store is None:
-                    raise ValueError("store is required for image avatars")
-                photo = await biometric_service.face_photo(
-                    db, store, user.id, avatar_asset.enrollment_id
-                )
-                if photo is None:
-                    raise MediaNotReadyError("no_avatar_photo")
-                return CallMedia(
-                    voice_id=voice_asset.asset_id,
-                    avatar_id=avatar_id,
-                    avatar_image=EnrollmentSample(photo.data, photo.media_type),
-                )
-        return CallMedia(voice_id=voice_asset.asset_id, avatar_id=avatar_id)
+            if not avatar_accepts_image:
+                return CallMedia(voice_id=voice_id, avatar_id=avatar_asset.asset_id)
+            if store is None:
+                raise ValueError("store is required for image avatars")
+            photo = await biometric_service.face_photo(
+                db, store, user.id, avatar_asset.enrollment_id
+            )
+            if photo is None:
+                raise MediaNotReadyError("no_avatar_photo")
+            return CallMedia(
+                voice_id=voice_id,
+                avatar_id=avatar_asset.asset_id,
+                avatar_image=EnrollmentSample(photo.data, photo.media_type),
+            )
+
+        try:
+            avatar_id = catalog.provider_id("avatar", avatar_key, avatar_provider)
+            image = None
+            # Yerel görsel (``file:``) yalnızca fotoğraftan çalışan sağlayıcıda anlamlı.
+            if avatar_id.startswith(FILE_PREFIX):
+                if not avatar_accepts_image:
+                    raise MediaNotConfiguredError(f"{avatar_provider} cannot use an image")
+                image = media_image(media_config, avatar_id)
+        except MediaNotConfiguredError as exc:
+            raise MediaNotReadyError("persona_media_not_configured") from exc
+        return CallMedia(voice_id=voice_id, avatar_id=avatar_id, avatar_image=image)
 
     async def media_still_allowed(self, db: AsyncSession, call_id: uuid.UUID) -> bool:
-        """Kendi klonuyla yapılan görüşmede rıza hâlâ geçerli mi? Her turda sorulur:
+        """Kendi klonu/fotoğrafıyla yapılan görüşmede rıza hâlâ geçerli mi? Her turda sorulur:
         rıza geri alınırsa görüşme o an biter (§11.3 "kullanım anında durur")."""
         call = await db.get(CallSession, call_id)
         if call is None:
             return False
-        if call.media_source != "self":
-            return True
-        if await biometric_service.active_asset(db, call.user_id, "voice") is None:
+        if (
+            call.voice_key == OWN
+            and await biometric_service.active_asset(db, call.user_id, "voice") is None
+        ):
             return False
         return not (
             call.mode == "video"
+            and call.avatar_key == OWN
             and await biometric_service.active_asset(db, call.user_id, "face") is None
         )
 

@@ -1,22 +1,46 @@
-# Sistem personalarının (şimdilik sadece EVA) sesi ve yüzü: sağlayıcı adı -> o sağlayıcıdaki id.
-# Gizli bilgi değildir. Sağlayıcı providers.yaml'da değişince burada karşılığı olmalı.
+# Ses ve yüz kataloğu. Kullanıcı EVA'yı buradaki herhangi bir sesle ve herhangi bir yüzle
+# kullanabilir (ses ve yüz birbirinden bağımsız seçilir). Ayrıca kendi onaylı klon sesini ve
+# kendi fotoğrafını seçebilir; onlar burada değil, rızalı kayıttan gelir ("own").
 #
-# Sahibin kararı (2026-10-16): EVA'nın özgün sesi/yüzü sonra tasarlanacak; o zamana kadar
-# sağlayıcının hazır (stok) bir sesi ve avatarı kullanılır. Ses: genç yetişkin, sıcak bir
-# kadın sesi. Boş olanlar anahtar gelince seçilecek:
-#   ElevenLabs:  GET /v1/voices  (Türkçe'yi iyi okuyan, sıcak bir kadın sesi)
-#   LiveAvatar:  GET /v1/avatars/public
-#   Anam:        Anam Lab > Avatars (ya da GET https://api.anam.ai/v1/avatars)
-#   LemonSlice:  lemonslice.com > oluşturulan avatarın (agent) id'si
-eva:
-  voice:
+# Her seçenek: name (ekranda görünen ad) + sağlayıcı adı -> o sağlayıcıdaki id. Gizli bilgi
+# değildir. Bir seçenek yalnızca providers.yaml'da seçili sağlayıcıda id'si varsa listelenir
+# (boş bırakılan görünmez). Anahtarlar küçük harf: a-z, 0-9, - ve _ ("own" ayrılmış).
+#
+# Hazır sesler: ElevenLabs'in ücretsiz planda da API'den kullanılabilen hazır (premade) sesleri
+# (GET /v2/voices?voice_type=default, 2026-10-17). Kütüphane sesleri ücretli planda eklenebilir.
+# Yüzler: LemonSlice için lemonslice.com'da oluşturulan avatarın id'si, herkese açık bir görselin
+# https adresi ya da bu klasöre göre yerel bir görsel: "file:media/<ad>.png" (2x3 dikey, yüz ve
+# omuzlar kadrajı doldursun). config/media/ git'e girmez (görsellerin lisansı bize ait olmalı).
+# Diğer sağlayıcılar: LiveAvatar GET /v1/avatars/public · Anam Lab > Avatars.
+
+# Personaların varsayılanı. Sahibin kararı: EVA'nın sesi EVA'ya özgü (özgün ses tasarlanana kadar
+# ElevenLabs'in hazır sesi Jessica; genç yetişkin, sıcak bir kadın sesi).
+personas:
+  eva: { voice: eva, avatar: eva }
+
+voices:
+  eva:
+    name: EVA
     mock: eva-mock
-    elevenlabs: "cgSgspJ2msm6clMCkdW9"   # Jessica (hazır ses; ücretsiz planda kütüphane sesleri API'de yok)
-  avatar:
+    elevenlabs: "cgSgspJ2msm6clMCkdW9"   # Jessica
+  sarah:   { name: Sarah,   mock: sarah-mock,   elevenlabs: "EXAVITQu4vr4xnSDxMaL" }
+  laura:   { name: Laura,   mock: laura-mock,   elevenlabs: "FGY2WhTYpPnrIDTdsKH5" }
+  lily:    { name: Lily,    mock: lily-mock,    elevenlabs: "pFZP5JQG7iQjIQuC4Bku" }
+  matilda: { name: Matilda, mock: matilda-mock, elevenlabs: "XrExE9yKIg1WjnnlVkGX" }
+  brian:   { name: Brian,   mock: brian-mock,   elevenlabs: "nPczCjzI2devNBz1zQrb" }
+  george:  { name: George,  mock: george-mock,  elevenlabs: "JBFqnCBsd6RMkjVDRZzb" }
+  liam:    { name: Liam,    mock: liam-mock,    elevenlabs: "TX3LPaxmHKxFdv7VOQHJ" }
+  will:    { name: Will,    mock: will-mock,    elevenlabs: "bIHbv24MWmeRgasZH58o" }
+  daniel:  { name: Daniel,  mock: daniel-mock,  elevenlabs: "onwK4e9ZLuTAKqWW03F9" }
+
+avatars:
+  eva:
+    name: EVA
     mock: eva-mock
     liveavatar: ""
     anam: "edf6fdcb-acab-44b8-b974-ded72665ee26"   # Mia (studio)
-    # LemonSlice: lemonslice.com'da oluşturulan avatarın id'si, herkese açık bir görselin https
-    # adresi ya da bu klasöre göre yerel bir görsel: "file:media/eva.png" (2x3 dikey, yüz ve
-    # omuzlar kadrajı doldursun). config/media/ git'e girmez (görselin lisansı bize ait olmalı).
     lemonslice: ""
+  # Yeni bir yüz eklemek için (ör. config/media/deniz.png koyup):
+  # deniz:
+  #   name: Deniz
+  #   lemonslice: "file:media/deniz.png"

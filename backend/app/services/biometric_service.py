@@ -618,7 +618,7 @@ def asset_kind(kind: Kind) -> str:
 # --- önizleme ---------------------------------------------------------------------
 
 
-def _wav(pcm: bytes, sample_rate: int) -> bytes:
+def pcm_to_wav(pcm: bytes, sample_rate: int) -> bytes:
     """Ham 16 bit mono PCM'i tarayıcının çalabileceği WAV dosyasına sarar."""
     header = b"RIFF" + (36 + len(pcm)).to_bytes(4, "little") + b"WAVEfmt "
     header += (16).to_bytes(4, "little") + (1).to_bytes(2, "little") + (1).to_bytes(2, "little")
@@ -657,4 +657,4 @@ async def voice_preview(
         meta={"sentence": sentence_index},
     )
     await db.commit()
-    return _wav(pcm, fmt.sample_rate)
+    return pcm_to_wav(pcm, fmt.sample_rate)

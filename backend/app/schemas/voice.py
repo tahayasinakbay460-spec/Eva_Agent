@@ -8,8 +8,6 @@ from pydantic import BaseModel, ConfigDict
 class CallCreate(BaseModel):
     persona_id: uuid.UUID | None = None
     mode: Literal["voice", "video"] = "voice"
-    # Kendi rızalı ses (ve görüntülüde yüz) klonunla önizleme görüşmesi (Faz 3).
-    use_my_media: bool = False
 
 
 class CallOut(BaseModel):
@@ -19,7 +17,9 @@ class CallOut(BaseModel):
     call_id: uuid.UUID
     conversation_id: uuid.UUID
     mode: Literal["voice", "video"]
-    media_source: Literal["persona", "self"]
+    # Bu görüşmenin sesi ve yüzü (katalog anahtarı ya da "own"); seçim /media/preferences'ta.
+    voice_key: str
+    avatar_key: str | None
     livekit_url: str
     token: str
     max_duration_s: int
