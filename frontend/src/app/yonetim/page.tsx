@@ -179,7 +179,10 @@ function ReviewCard({
               )}
             </div>
             {urls[f.id] &&
-              (f.media_type.startsWith("video/") ? (
+              (f.media_type.startsWith("image/") ? (
+                // eslint-disable-next-line @next/next/no-img-element -- şifreli dosyanın geçici blob adresi
+                <img src={urls[f.id]} alt="" className="max-h-96 rounded-xl" />
+              ) : f.media_type.startsWith("video/") ? (
                 <video
                   src={urls[f.id]}
                   controls

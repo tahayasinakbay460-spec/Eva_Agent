@@ -301,7 +301,7 @@ function Collecting({
     };
   }, [enrollment.kind]);
 
-  async function upload(role: FileRole, blob: Blob, durationS: number) {
+  async function upload(role: FileRole, blob: Blob, durationS?: number) {
     setBusy(true);
     setError(null);
     try {
@@ -343,7 +343,8 @@ function Collecting({
           {samples.map((f, i) => (
             <li key={f.id} className="flex items-center justify-between text-xs text-muted">
               <span>
-                {t.sample} {i + 1} · {f.duration_s ?? "?"} sn
+                {t.sample} {i + 1} ·{" "}
+                {f.media_type.startsWith("image/") ? t.photo : `${f.duration_s ?? "?"} sn`}
               </span>
               <button
                 type="button"
@@ -357,12 +358,17 @@ function Collecting({
           ))}
         </ul>
         {samples.length < 5 && (
-          <RecorderButton
-            kind={sampleKind}
-            maxSeconds={180}
-            disabled={busy}
-            onRecorded={(r) => void upload("sample", r.blob, r.durationS)}
-          />
+          <div className="space-y-2">
+            {enrollment.kind === "face" && (
+              <PhotoButton disabled={busy} onPicked={(file) => void upload("sample", file)} />
+            )}
+            <RecorderButton
+              kind={sampleKind}
+              maxSeconds={180}
+              disabled={busy}
+              onRecorded={(r) => void upload("sample", r.blob, r.durationS)}
+            />
+          </div>
         )}
       </div>
 
@@ -394,6 +400,42 @@ function Collecting({
       </div>
       {error && <ErrorText>{error}</ErrorText>}
     </div>
+  );
+}
+
+/** Yüz fotoğrafı: telefonda ön kamerayı açar, bilgisayarda dosya seçtirir. Sunucu fotoğrafı
+ * yeniden kodlar (konum bilgisi silinir); burada yalnızca tür kısıtlanır. */
+function PhotoButton({
+  disabled,
+  onPicked,
+}: {
+  disabled: boolean;
+  onPicked: (file: File) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="user"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) onPicked(file);
+        }}
+      />
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => input.current?.click()}
+        className="w-full rounded-xl border border-border bg-white/5 py-3 text-sm font-semibold disabled:opacity-50"
+      >
+        {t.addPhoto}
+      </button>
+    </>
   );
 }
 

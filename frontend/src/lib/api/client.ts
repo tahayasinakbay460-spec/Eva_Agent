@@ -280,15 +280,16 @@ export async function uploadEnrollmentFile(
   id: string,
   role: FileRole,
   blob: Blob,
-  durationS: number,
+  durationS?: number,
 ): Promise<EnrollmentFile> {
   const headers = new Headers({ "Content-Type": blob.type || "application/octet-stream" });
   const token = tokenStore.get();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const params = new URLSearchParams({
-    role,
-    duration_s: String(Math.max(1, Math.round(durationS))),
-  });
+  // Fotoğrafın süresi yok; yalnızca ses/video kayıtlarında gönderilir.
+  const params = new URLSearchParams({ role });
+  if (durationS !== undefined) {
+    params.set("duration_s", String(Math.max(1, Math.round(durationS))));
+  }
   const res = await fetch(`${API_URL}/biometrics/enrollments/${id}/files?${params}`, {
     method: "POST",
     headers,

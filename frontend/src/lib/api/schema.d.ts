@@ -2632,6 +2632,9 @@ export interface operations {
                 "audio/mp4": string;
                 "video/webm": string;
                 "video/mp4": string;
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
             };
         };
         responses: {

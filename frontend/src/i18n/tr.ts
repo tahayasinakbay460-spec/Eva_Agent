@@ -230,7 +230,9 @@ export const tr = {
     voiceSampleHint:
       "Aşağıdaki metni sessiz bir odada, doğal bir tonda sesli oku. Toplam 1–2 dakika yeterli; istersen birkaç parça halinde kaydet.",
     faceSampleHint:
-      "Kameraya bakarak yaklaşık 2 dakika konuş: biraz dinliyormuş gibi dur, biraz konuş, biraz sessiz kal. Yüzün iyi aydınlatılmış olsun.",
+      "Net, iyi aydınlatılmış bir yüz fotoğrafı ekle: kameraya düz bak, yüz ifaden sakin olsun, yüzün ve omuzların kadrajı doldursun. İstersen kısa bir video da kaydedebilirsin.",
+    addPhoto: "Fotoğraf ekle",
+    photo: "Fotoğraf",
     record: "Kaydı başlat",
     stop: "Durdur ve kaydet",
     recording: "Kaydediliyor",
@@ -274,6 +276,10 @@ export const tr = {
       unsupported: "Bu tarayıcı kayıt yapamıyor.",
       file_too_large: "Kayıt çok uzun; daha kısa parçalar halinde kaydet.",
       too_many_samples: "En fazla 5 örnek yükleyebilirsin.",
+      image_unreadable: "Bu fotoğraf açılamadı; JPEG ya da PNG bir fotoğraf dene.",
+      image_too_large: "Fotoğrafın çözünürlüğü çok yüksek; daha küçük bir fotoğraf dene.",
+      unsupported_media_type: "Bu dosya türü desteklenmiyor.",
+      media_type_mismatch: "Dosyanın içeriği türüyle uyuşmuyor.",
       enrollment_unavailable: "Bu özellik şu an kullanılamıyor.",
       enrollment_exists: "Bu tür için zaten açık bir kaydın var.",
     },

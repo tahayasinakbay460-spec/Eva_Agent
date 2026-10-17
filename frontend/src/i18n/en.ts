@@ -232,7 +232,9 @@ export const en: Messages = {
     voiceSampleHint:
       "Read the text below aloud in a quiet room, in a natural tone. 1–2 minutes in total is enough; you can record several parts.",
     faceSampleHint:
-      "Look at the camera and talk for about 2 minutes: listen a bit, talk a bit, stay silent a bit. Make sure your face is well lit.",
+      "Add a clear, well-lit photo of your face: look straight at the camera with a calm expression, face and shoulders filling the frame. You can also record a short video.",
+    addPhoto: "Add photo",
+    photo: "Photo",
     record: "Start recording",
     stop: "Stop and save",
     recording: "Recording",
@@ -276,6 +278,10 @@ export const en: Messages = {
       unsupported: "This browser cannot record.",
       file_too_large: "The recording is too long; record shorter parts.",
       too_many_samples: "You can upload at most 5 samples.",
+      image_unreadable: "This photo could not be opened; try a JPEG or PNG photo.",
+      image_too_large: "The photo resolution is too high; try a smaller photo.",
+      unsupported_media_type: "This file type is not supported.",
+      media_type_mismatch: "The file content does not match its type.",
       enrollment_unavailable: "This feature is not available right now.",
       enrollment_exists: "You already have an open enrollment of this kind.",
     },
