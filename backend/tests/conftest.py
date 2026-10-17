@@ -39,6 +39,11 @@ def make_settings(tmp_path: Path, **overrides: Any) -> Settings:
         "cors_origins": ["http://localhost:3000"],
         "storage_dir": tmp_path / "storage",
         "dev_master_key_file": tmp_path / "dev_master_key",
+        # Yerel backend/.env'deki gerçek LiveKit ayarları testlere sızmasın (sesli görüşme
+        # testleri kendi sahte ayarlarını açıkça verir).
+        "livekit_url": None,
+        "livekit_api_key": None,
+        "livekit_api_secret": None,
     }
     base.update(overrides)
     return Settings(_env_file=None, **base)
