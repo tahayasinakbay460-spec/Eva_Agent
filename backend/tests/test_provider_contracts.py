@@ -46,6 +46,11 @@ from app.providers.registry import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = (EnrollmentSample(b"sample-bytes", "audio/wav"),)
+# Yüz kaydı: video örnek + fotoğraf (fotoğraftan çalışan sağlayıcılar fotoğrafı ister).
+FACE_SAMPLES = (
+    EnrollmentSample(b"video-bytes", "video/webm"),
+    EnrollmentSample(b"\x89PNG\r\n\x1a\nphoto", "image/png"),
+)
 
 
 async def _audio(texts: Sequence[str]) -> AsyncIterator[AudioChunk]:
@@ -155,7 +160,7 @@ async def test_voice_enrollment_contract(name: str) -> None:
 @pytest.mark.parametrize("name", registered_adapters("avatar_enrollment", offline_only=True))
 async def test_avatar_enrollment_contract(name: str) -> None:
     provider = cast(AvatarEnrollmentProvider, create_adapter("avatar_enrollment", name))
-    a = await provider.create_avatar(SAMPLES, label="owner")
+    a = await provider.create_avatar(FACE_SAMPLES, label="owner")
     assert a.provider == provider.name and a.asset_id
     await provider.delete_avatar(a.asset_id)
     await provider.delete_avatar(a.asset_id)  # iki kez silmek de hata vermez

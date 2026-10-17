@@ -26,7 +26,7 @@ from app.providers.base import (
 )
 from app.providers.dev_mailbox import DevMailboxMessagingProvider
 from app.providers.elevenlabs import ElevenLabsTTSProvider, ElevenLabsVoiceEnrollmentProvider
-from app.providers.lemonslice import LemonSliceProvider
+from app.providers.lemonslice import LemonSliceAvatarEnrollmentProvider, LemonSliceProvider
 from app.providers.liveavatar import LiveAvatarProvider
 from app.providers.mock import (
     MockAvatarEnrollmentProvider,
@@ -143,7 +143,10 @@ _FACTORIES: dict[ProviderKind, dict[str, Callable[..., object]]] = {
         "anam": AnamProvider,
         "lemonslice": LemonSliceProvider,
     },
-    "avatar_enrollment": {"mock": MockAvatarEnrollmentProvider},
+    "avatar_enrollment": {
+        "mock": MockAvatarEnrollmentProvider,
+        "lemonslice": LemonSliceAvatarEnrollmentProvider,
+    },
     "embedding": {"mock": MockEmbeddingProvider},
     "moderation": {"mock": MockModerationProvider},
     "messaging": {"mock": MockMessagingProvider, "dev_mailbox": DevMailboxMessagingProvider},
@@ -158,10 +161,17 @@ _NETWORK_ADAPTERS: frozenset[str] = frozenset(
 )
 
 
+# Ağa çıkan bir sağlayıcının adını taşısa da hiç ağa çıkmayan adaptörler: LemonSlice'ın yüz
+# "kaydı" sağlayıcıya bir şey göndermez (fotoğraf bizde kalır), sözleşme testlerinden geçer.
+_OFFLINE_ADAPTERS: frozenset[tuple[ProviderKind, str]] = frozenset(
+    {("avatar_enrollment", "lemonslice")}
+)
+
+
 def registered_adapters(kind: ProviderKind, *, offline_only: bool = False) -> list[str]:
     names = sorted(_FACTORIES[kind])
     if offline_only:
-        return [n for n in names if n not in _NETWORK_ADAPTERS]
+        return [n for n in names if n not in _NETWORK_ADAPTERS or (kind, n) in _OFFLINE_ADAPTERS]
     return names
 
 

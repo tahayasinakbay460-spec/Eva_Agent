@@ -47,3 +47,5 @@ infra/livekit/bin/
 # yerel sağlayıcı denemesi
 config/providers.local.yaml
 config/media.local.yaml
+# Yerel persona görselleri (media.yaml'da file:media/...); lisanslı görseller repoya girmez.
+config/media/

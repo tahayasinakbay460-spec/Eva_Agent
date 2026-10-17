@@ -28,6 +28,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "openai>=3.31,<4",
     "livekit-api>=1.2.2,<2",
+    "pillow>=11",
 ]
 
 [dependency-groups]

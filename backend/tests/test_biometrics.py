@@ -4,6 +4,7 @@ Faz 3 çıkış şartı: "rıza doğrulaması, iptal ve sağlayıcıdan silme te
 """
 
 import hashlib
+import io
 import uuid
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ from typing import Any
 import httpx
 import pytest
 from fastapi import FastAPI
+from PIL import Image
 from sqlalchemy import select
 
 from app.core.security import hash_token
@@ -622,6 +624,9 @@ def test_mock_enrollment_providers_are_unavailable_outside_dev(
         (b"RIFF\x00\x00\x00\x00WAVEfmt ", "wav"),
         (b"\x00\x00\x00\x20ftypisom", "mp4"),
         (b"ID3\x03", "mpeg"),
+        (b"\x89PNG\r\n\x1a\n\x00", "png"),
+        (b"\xff\xd8\xff\xe0", "jpeg"),
+        (b"RIFF\x00\x00\x00\x00WEBPVP8 ", "webp"),
         (b"\x89PNG\r\n", None),
     ],
 )
@@ -703,3 +708,188 @@ async def test_call_with_my_media_needs_an_active_consented_clone(
         assert not await turns.media_still_allowed(db, uuid.UUID(call_id))
     with pytest.raises(MediaNotReadyError):
         await _media(lk_app, call_id)
+
+
+# --- yüz fotoğrafı (fotoğraftan çalışan avatarlar, ör. LemonSlice) -------------------
+
+
+def _photo(fmt: str = "JPEG", size: tuple[int, int] = (300, 400), *, gps: bool = False) -> bytes:
+    image = Image.new("RGB", size, (200, 150, 120))
+    exif = Image.Exif()
+    if gps:
+        exif[0x8825] = {2: (41.0, 0.0, 0.0), 4: (29.0, 0.0, 0.0)}  # GPS konum bilgisi
+        exif[0x0112] = 6  # telefon: "90 derece döndür"
+    out = io.BytesIO()
+    image.save(out, format=fmt, exif=exif)
+    return out.getvalue()
+
+
+async def _stored_sample(app: FastAPI, sample_id: str) -> tuple[bytes, EnrollmentSample]:
+    async with app.state.session_factory() as db:
+        row = await db.get(EnrollmentSample, uuid.UUID(sample_id))
+        assert row is not None
+        data = await app.state.store.get(db, row.user_id, "biometric", row.blob_key)
+        return data, row
+
+
+async def test_face_photo_is_reencoded_without_metadata(
+    app: FastAPI, client: httpx.AsyncClient
+) -> None:
+    headers = await _user(client, app, "ayse")
+    eid = (await _start(client, headers, "face"))["id"]
+    r = await _upload(client, headers, eid, _photo(gps=True), "image/jpeg")
+    assert r.status_code == 201, r.text
+    assert r.json()["media_type"] == "image/png"
+    data, row = await _stored_sample(app, r.json()["id"])
+    assert row.duration_s is None and row.sha256 == hashlib.sha256(data).hexdigest()
+    with Image.open(io.BytesIO(data)) as stored:
+        assert stored.format == "PNG"
+        assert not stored.getexif(), "EXIF / location must be stripped"
+        assert stored.size == (400, 300), "phone rotation is applied"
+
+
+async def test_face_photo_is_downscaled(app: FastAPI, client: httpx.AsyncClient) -> None:
+    headers = await _user(client, app, "ayse")
+    eid = (await _start(client, headers, "face"))["id"]
+    r = await _upload(client, headers, eid, _photo("PNG", (3000, 2000)), "image/png")
+    assert r.status_code == 201, r.text
+    data, _ = await _stored_sample(app, r.json()["id"])
+    with Image.open(io.BytesIO(data)) as stored:
+        assert max(stored.size) == biometric_service.IMAGE_MAX_SIDE
+
+
+async def test_face_photo_rejects_fakes_and_oversize(
+    app: FastAPI, client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    headers = await _user(client, app, "ayse")
+    eid = (await _start(client, headers, "face"))["id"]
+    r = await _upload(client, headers, eid, b"\xff\xd8\xff" + b"<script>" * 50, "image/jpeg")
+    assert r.status_code == 422 and r.json() == {"detail": "image_unreadable"}
+    r = await _upload(client, headers, eid, _photo("PNG"), "image/jpeg")
+    assert r.status_code == 415 and r.json() == {"detail": "media_type_mismatch"}
+    r = await _upload(client, headers, eid, _photo(), "image/jpeg", role="consent_recording")
+    assert r.status_code == 415, "consent must stay a video (live reading of the code)"
+    monkeypatch.setattr(biometric_service, "IMAGE_MAX_PIXELS", 100 * 100)
+    r = await _upload(client, headers, eid, _photo(), "image/jpeg")
+    assert r.status_code == 413 and r.json() == {"detail": "image_too_large"}
+    monkeypatch.setattr(biometric_service, "IMAGE_SIZE_LIMIT", 100)
+    r = await _upload(client, headers, eid, _photo(), "image/jpeg")
+    assert r.status_code == 413 and r.json() == {"detail": "file_too_large"}
+    voice = (await _start(client, headers, "voice"))["id"]
+    r = await _upload(client, headers, voice, _photo(), "image/jpeg")
+    assert r.status_code == 415, "photos are face samples only"
+
+
+def _lemonslice_config(tmp_path: Path) -> Path:
+    from app.core.config import Settings
+
+    text = Settings(_env_file=None).providers_config.read_text(encoding="utf-8")
+    old = "avatar_enrollment:\n  default: { provider: mock }"
+    assert old in text
+    path = tmp_path / "providers.yaml"
+    path.write_text(
+        text.replace(old, "avatar_enrollment:\n  default: { provider: lemonslice }"),
+        encoding="utf-8",
+    )
+    return path
+
+
+@pytest.fixture
+async def ls_app(tmp_path: Path) -> Any:
+    from tests.conftest import build_app
+    from tests.test_voice import LK
+
+    settings = make_settings(tmp_path, providers_config=_lemonslice_config(tmp_path), **LK)
+    application = await build_app(settings)
+    yield application
+    await application.state.engine.dispose()
+
+
+@pytest.fixture
+async def ls_client(ls_app: FastAPI) -> Any:
+    transport = httpx.ASGITransport(app=ls_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+
+
+async def _ready_face_photo(
+    client: httpx.AsyncClient, headers: dict[str, str], photo: bytes | None
+) -> dict[str, Any]:
+    enrollment = await _start(client, headers, "face")
+    eid = enrollment["id"]
+    if photo is None:
+        assert (await _upload(client, headers, eid, WEBM, "video/webm")).status_code == 201
+    else:
+        assert (await _upload(client, headers, eid, photo, "image/jpeg")).status_code == 201
+    r = await _upload(client, headers, eid, WEBM + b"consent", "video/webm", "consent_recording")
+    assert r.status_code == 201, r.text
+    assert (await client.post(f"/biometrics/enrollments/{eid}/submit", headers=headers)).is_success
+    return enrollment
+
+
+async def test_lemonslice_face_enrollment_keeps_the_photo_with_us(
+    ls_app: FastAPI, ls_client: httpx.AsyncClient
+) -> None:
+    from app.services.voice_service import CallTurns, MediaNotReadyError
+
+    user = await _user(ls_client, ls_app, "ayse")
+    voice = await _ready(ls_client, user)
+    face = await _ready_face_photo(ls_client, user, _photo())
+    admin = await _admin(ls_client, ls_app)
+    await _approve(ls_client, admin, voice["id"])
+    await _approve(ls_client, admin, face["id"])
+    await drain(ls_app.state.worker_context)
+    assert await _status(ls_client, user, face["id"]) == "active"
+    async with ls_app.state.session_factory() as db:
+        asset = (
+            await db.execute(select(ProviderAsset).where(ProviderAsset.kind == "avatar"))
+        ).scalar_one()
+    assert asset.provider == "lemonslice"
+
+    r = await ls_client.post(
+        "/voice/calls", headers=user, json={"use_my_media": True, "mode": "video"}
+    )
+    assert r.status_code == 201, r.text
+    call_id = uuid.UUID(r.json()["call_id"])
+
+    async def media() -> Any:
+        async with ls_app.state.session_factory() as db:
+            return await CallTurns(ls_app.state.chat_service).call_media(
+                db,
+                call_id,
+                media_config=ls_app.state.settings.media_config,
+                tts_provider="mock",
+                avatar_provider="lemonslice",
+                avatar_accepts_image=True,
+                store=ls_app.state.store,
+            )
+
+    result = await media()
+    assert result.avatar_image is not None and result.avatar_image.media_type == "image/png"
+    with Image.open(io.BytesIO(result.avatar_image.data)) as sent:
+        assert sent.size == (300, 400)
+    async with ls_app.state.session_factory() as db:
+        actions = (await db.execute(select(AuditLog.action))).scalars().all()
+    assert "biometric.used" in actions, "each use of the face photo is audited"
+
+    # Rıza geri alınınca fotoğraf bir daha gönderilmez; işçi ham dosyaları imha eder.
+    r = await ls_client.post(f"/biometrics/enrollments/{face['id']}/revoke", headers=user)
+    assert r.is_success
+    with pytest.raises(MediaNotReadyError):
+        await media()
+    await drain(ls_app.state.worker_context)
+    async with ls_app.state.session_factory() as db:
+        left = await db.execute(
+            select(EnrollmentSample).where(EnrollmentSample.enrollment_id == uuid.UUID(face["id"]))
+        )
+        assert list(left.scalars()) == []
+
+
+async def test_lemonslice_face_enrollment_needs_a_photo(
+    ls_app: FastAPI, ls_client: httpx.AsyncClient
+) -> None:
+    user = await _user(ls_client, ls_app, "ayse")
+    face = await _ready_face_photo(ls_client, user, None)  # yalnızca video örnek
+    await _approve(ls_client, await _admin(ls_client, ls_app), face["id"])
+    await drain(ls_app.state.worker_context)
+    assert await _status(ls_client, user, face["id"]) == "failed"

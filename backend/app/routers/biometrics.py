@@ -149,7 +149,16 @@ async def _read_body(request: Request, limit: int) -> bytes:
             "required": True,
             "content": {
                 t: {"schema": {"type": "string", "format": "binary"}}
-                for t in ("audio/webm", "audio/ogg", "audio/mp4", "video/webm", "video/mp4")
+                for t in (
+                    "audio/webm",
+                    "audio/ogg",
+                    "audio/mp4",
+                    "video/webm",
+                    "video/mp4",
+                    "image/jpeg",
+                    "image/png",
+                    "image/webp",
+                )
             },
         }
     },

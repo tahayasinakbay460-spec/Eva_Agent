@@ -16,5 +16,7 @@ eva:
     mock: eva-mock
     liveavatar: ""
     anam: "edf6fdcb-acab-44b8-b974-ded72665ee26"   # Mia (studio)
-    # LemonSlice ajan id'si ya da herkese açık bir görselin https adresi (368x560).
+    # LemonSlice: lemonslice.com'da oluşturulan avatarın id'si, herkese açık bir görselin https
+    # adresi ya da bu klasöre göre yerel bir görsel: "file:media/eva.png" (2x3 dikey, yüz ve
+    # omuzlar kadrajı doldursun). config/media/ git'e girmez (görselin lisansı bize ait olmalı).
     lemonslice: ""

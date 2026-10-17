@@ -6,13 +6,16 @@ Geri alma (adım-yukarı): kullanım anında durur; işçi klonu sağlayıcıdan
 imha eder. Onaysız hiçbir klon oluşturulmaz (sahibin kararı: her kayıt elle incelenir).
 """
 
+import asyncio
 import hashlib
+import io
 import secrets
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,9 +53,16 @@ SIZE_LIMITS: dict[tuple[Kind, FileRole], int] = {
 }
 AUDIO_TYPES = frozenset({"audio/webm", "audio/ogg", "audio/mp4", "audio/wav", "audio/mpeg"})
 VIDEO_TYPES = frozenset({"video/webm", "video/mp4"})
+# Yüz fotoğrafı: tek fotoğraftan avatar üreten sağlayıcılar (ör. LemonSlice) için.
+IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
+IMAGE_SIZE_LIMIT = 10 * MB
+# Çok büyük çözünürlüklü "sıkıştırma bombası" görsellere karşı (açınca belleği doldurur).
+IMAGE_MAX_PIXELS = 40_000_000
+# Saklanan fotoğrafın uzun kenarı en fazla bu kadar; avatar zaten küçük (ör. 368x560).
+IMAGE_MAX_SIDE = 1536
 ACCEPTED_TYPES: dict[tuple[Kind, FileRole], frozenset[str]] = {
     ("voice", "sample"): AUDIO_TYPES,
-    ("face", "sample"): VIDEO_TYPES,
+    ("face", "sample"): VIDEO_TYPES | IMAGE_TYPES,
     ("voice", "consent_recording"): VIDEO_TYPES,
     ("face", "consent_recording"): VIDEO_TYPES,
 }
@@ -90,6 +100,12 @@ def normalize_media_type(content_type: str | None) -> str:
 def sniff_container(data: bytes) -> str | None:
     """Dosyanın gerçek türü, ilk baytlarına ("sihirli baytlar") bakarak. Content-Type
     başlığına güvenilmez; tarayıcı/saldırgan istediğini yazabilir."""
+    if data[:3] == b"\xff\xd8\xff":
+        return "jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
     if data[:4] == b"\x1a\x45\xdf\xa3":
         return "webm"  # EBML (WebM/Matroska)
     if data[:4] == b"OggS":
@@ -105,6 +121,26 @@ def sniff_container(data: bytes) -> str | None:
 
 def _container_of(media_type: str) -> str:
     return media_type.split("/", 1)[1] if "/" in media_type else ""
+
+
+def normalize_face_image(data: bytes) -> bytes:
+    """Yüz fotoğrafını gerçekten çözüp PNG olarak yeniden kodlar.
+
+    Böylece EXIF/konum bilgisi ve görselin içine gizlenmiş başka veri atılır (§11.7), telefonun
+    döndürme bilgisi uygulanır ve çözülemeyen (sahte) dosyalar reddedilir.
+    """
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            if image.width * image.height > IMAGE_MAX_PIXELS:
+                raise BiometricError("image_too_large", status=413)
+            image.load()
+            upright = ImageOps.exif_transpose(image).convert("RGB")
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+        raise BiometricError("image_unreadable", status=422) from exc
+    upright.thumbnail((IMAGE_MAX_SIDE, IMAGE_MAX_SIDE))
+    out = io.BytesIO()
+    upright.save(out, format="PNG")
+    return out.getvalue()
 
 
 def provider_available(settings: Settings, registry: ProviderRegistry, kind: Kind) -> bool:
@@ -244,6 +280,13 @@ async def add_file(
         raise BiometricError("unsupported_media_type", status=415)
     if sniff_container(data) != _container_of(media_type):
         raise BiometricError("media_type_mismatch", status=415)
+    if media_type in IMAGE_TYPES:
+        if len(data) > IMAGE_SIZE_LIMIT:
+            raise BiometricError("file_too_large", status=413)
+        # Görsel çözmek işlemciyi meşgul eder; sunucu diğer isteklere bakabilsin.
+        data = await asyncio.to_thread(normalize_face_image, data)
+        media_type = "image/png"
+        duration_s = None
 
     existing = await _files(db, enrollment.id)
     if role == "sample" and sum(f.role == "sample" for f in existing) >= MAX_SAMPLES:
@@ -399,6 +442,44 @@ async def active_asset(db: AsyncSession, user_id: uuid.UUID, kind: Kind) -> Prov
         )
     )
     return result.scalars().first()
+
+
+@dataclass(frozen=True, slots=True)
+class FacePhoto:
+    data: bytes
+    media_type: str
+
+
+async def face_photo(
+    db: AsyncSession, store: EncryptedStore, user_id: uuid.UUID, enrollment_id: uuid.UUID
+) -> FacePhoto | None:
+    """Aktif yüz kaydının en son yüklenen fotoğrafı (fotoğraftan çalışan avatarlar için).
+    Her kullanım denetim kaydına yazılır: biyometrik veri kimin için ne zaman açıldı."""
+    sample = await db.scalar(
+        select(EnrollmentSample)
+        .where(
+            EnrollmentSample.enrollment_id == enrollment_id,
+            EnrollmentSample.user_id == user_id,
+            EnrollmentSample.role == "sample",
+            EnrollmentSample.media_type.in_(IMAGE_TYPES),
+        )
+        .order_by(EnrollmentSample.created_at.desc())
+        .limit(1)
+    )
+    if sample is None:
+        return None
+    data = await store.get(db, user_id, "biometric", sample.blob_key)
+    audit.record(
+        db,
+        action="biometric.used",
+        target_type="biometric_enrollment",
+        target_id=enrollment_id,
+        user_id=user_id,
+        actor_id=user_id,
+        meta={"kind": "face", "use": "avatar_session"},
+    )
+    await db.commit()
+    return FacePhoto(data, sample.media_type)
 
 
 # --- inceleme (admin) -------------------------------------------------------------

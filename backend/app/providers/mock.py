@@ -228,6 +228,7 @@ class MockAvatarSession:
 
 class MockAvatarProvider:
     name = "mock"
+    accepts_image = False
 
     def __init__(self) -> None:
         self._ids = itertools.count(1)

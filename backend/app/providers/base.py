@@ -226,6 +226,9 @@ class AvatarSessionRequest:
     max_duration_s: int
     idle_timeout_s: int
     room: MediaRoom | None = None
+    # Kullanıcının kendi yüz fotoğrafı (bizim şifreli depomuzdan, yalnızca bu görüşme için).
+    # Yalnızca ``accepts_image`` diyen sağlayıcılara verilir; o zaman ``avatar_id`` yerine geçer.
+    image: EnrollmentSample | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -296,6 +299,9 @@ class RoomAvatarSession(Protocol):
 
 class AvatarProvider(Protocol):
     name: str
+    # Tek bir fotoğraftan, önceden klon oluşturmadan konuşan yüz üretebiliyor mu (ör. LemonSlice)?
+    # Öyleyse kullanıcının yüzü sağlayıcıda saklanmaz; her görüşmede bizim depomuzdan gönderilir.
+    accepts_image: bool
 
     async def start_session(
         self, request: AvatarSessionRequest

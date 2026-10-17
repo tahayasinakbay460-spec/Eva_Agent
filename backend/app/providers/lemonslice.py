@@ -9,7 +9,8 @@ livekit-plugins-lemonslice 1.8.8):
 
 1. ``POST /api/liveai/sessions`` (``X-API-Key`` başlığı): ``transport_type=livekit``,
    ``properties`` = oda adresi + avatar token'ı + odanın oturum kimliği (room SID), avatar
-   (``agent_id`` ya da ``agent_image_url``) ve ``idle_timeout``. Cevap: ``session_id``.
+   (``agent_id``, ``agent_image_url`` ya da yüklenen görsel) ve ``idle_timeout``. Cevap:
+   ``session_id``. Görsel yüklenirken istek multipart olur: ``payload`` (bu JSON) + ``image``.
    Doküman bu ucu doğrudan değil SDK ile çağırmayı öneriyor; biz eklentinin gönderdiği
    gövdenin aynısını gönderiyoruz (sağlayıcı sınırı bizde kalsın diye, §2 kural 4).
 2. Ses 16 kHz PCM, data stream ile. Avatar "başladım / bitirdim" bildirimlerini yollar.
@@ -17,20 +18,32 @@ livekit-plugins-lemonslice 1.8.8):
    ``/{id}/control`` ucuna ``terminate`` gönderilir; oda kapanınca da avatar çıkar.
    Ajan çökerse ``idle_timeout`` (varsayılan 60 sn) oturumu keser; en uzun süre 30 dk.
 4. Oda adresi internetten erişilebilir olmalı (Anam'la aynı kontrol).
+5. Tek fotoğraftan çalışır (önceden klon/eğitim yok). Kullanıcının yüzü bu yüzden LemonSlice'ta
+   saklanmaz: rızalı fotoğraf bizim şifreli depomuzda durur, her görüşmede oradan yüklenir
+   (herkese açık adres yok, §11.3). Rıza geri alınınca bir sonraki görüşmede gönderilmez.
 
 Anahtar ``LEMONSLICE_API_KEY`` ortam değişkeninden okunur; asla loglanmaz, istemciye gitmez.
 """
 
+import json
 import os
+from collections.abc import Sequence
 from typing import Any, Literal
 
 import httpx
 
 from app.providers.anam import is_public_url
-from app.providers.base import AudioFormat, AvatarSessionRequest, ProviderError
+from app.providers.base import (
+    AudioFormat,
+    AvatarSessionRequest,
+    EnrollmentSample,
+    ProviderAssetRef,
+    ProviderError,
+)
 
 DEFAULT_API = "https://lemonslice.com/api/liveai/sessions"
 PCM_16K = AudioFormat(sample_rate=16_000)
+IMAGE_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
 
 
 def _api_key() -> str:
@@ -42,6 +55,7 @@ def _api_key() -> str:
 
 class LemonSliceProvider:
     name = "lemonslice"
+    accepts_image = True
 
     def __init__(
         self,
@@ -78,8 +92,6 @@ class LemonSliceProvider:
                 "lemonslice needs a publicly reachable livekit url (not localhost)",
                 retryable=False,
             )
-        # Avatar: LemonSlice'ta oluşturulmuş ajanın id'si ya da herkese açık bir görsel adresi.
-        source = "agent_image_url" if request.avatar_id.startswith("https://") else "agent_id"
         body: dict[str, Any] = {
             "transport_type": "livekit",
             "properties": {
@@ -87,26 +99,49 @@ class LemonSliceProvider:
                 "livekit_token": room.token,
                 "livekit_session_id": room.session_id,
             },
-            source: request.avatar_id,
             # Konuşma yokken ücret işlemesin: bizim boşta kalma sınırımızla aynı.
             "idle_timeout": request.idle_timeout_s,
             **self._options,
         }
-        data = await self._post(self._api_url, body)
+        image = request.image
+        if image is not None:
+            # Kullanıcının kendi fotoğrafı: bizim depomuzdan, yalnızca bu görüşme için.
+            if image.media_type not in IMAGE_TYPES:
+                raise ProviderError("lemonslice needs a png/jpeg/webp image", retryable=False)
+        elif request.avatar_id.startswith("https://"):
+            body["agent_image_url"] = request.avatar_id  # herkese açık bir görsel (ör. EVA)
+        else:
+            body["agent_id"] = request.avatar_id  # LemonSlice'ta oluşturulmuş avatar
+        data = await self._post(self._api_url, body, image=image)
         session_id = data.get("session_id")
         if not isinstance(session_id, str) or not session_id:
             raise ProviderError("lemonslice returned no session id", retryable=False)
         return LemonSliceSession(self, session_id)
 
     async def _post(
-        self, url: str, body: dict[str, Any], *, missing_ok: bool = False
+        self,
+        url: str,
+        body: dict[str, Any],
+        *,
+        missing_ok: bool = False,
+        image: EnrollmentSample | None = None,
     ) -> dict[str, Any]:
         headers = {"X-API-Key": _api_key()}
         try:
             async with httpx.AsyncClient(
                 headers=headers, timeout=60.0, transport=self._transport
             ) as client:
-                r = await client.post(url, json=body)
+                if image is None:
+                    r = await client.post(url, json=body)
+                else:
+                    ext = image.media_type.split("/", 1)[1]
+                    r = await client.post(
+                        url,
+                        files={
+                            "payload": (None, json.dumps(body), "application/json"),
+                            "image": (f"image.{ext}", image.data, image.media_type),
+                        },
+                    )
         except httpx.HTTPError as exc:
             raise ProviderError("lemonslice connection error", retryable=True) from exc
         if missing_ok and r.status_code == 404:
@@ -157,3 +192,26 @@ class LemonSliceSession:
             return
         self.closed = True
         await self._provider.terminate(self.session_id)
+
+
+class LemonSliceAvatarEnrollmentProvider:
+    """LemonSlice için yüz "kaydı": sağlayıcıya hiçbir şey gönderilmez.
+
+    LemonSlice tek fotoğraftan çalıştığı için önceden klon oluşturmaya gerek yok. Onaylanan
+    kaydın fotoğrafı bizim depomuzda kalır; burada yalnızca uygun bir fotoğraf olduğu kontrol
+    edilir. Silinecek bir şey de yok: ham fotoğrafı imha etmek işçinin işi (§11.3).
+    """
+
+    name = "lemonslice"
+
+    async def create_avatar(
+        self, samples: Sequence[EnrollmentSample], *, label: str
+    ) -> ProviderAssetRef:
+        if not samples:
+            raise ValueError("at least one sample is required")
+        if not any(s.media_type in IMAGE_TYPES for s in samples):
+            raise ProviderError("lemonslice needs a face photo sample", retryable=False)
+        return ProviderAssetRef(provider=self.name, asset_id=label)
+
+    async def delete_avatar(self, asset_id: str) -> None:
+        return None

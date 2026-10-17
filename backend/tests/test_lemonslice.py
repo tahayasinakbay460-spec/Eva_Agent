@@ -1,13 +1,20 @@
 """LemonSlice yalnızca-yüz adaptörü: sahte HTTP API'siyle, ağsız."""
 
 import json
+from email.parser import BytesParser
+from email.policy import default
 from typing import Any
 
 import httpx
 import pytest
 
-from app.providers.base import AvatarSessionRequest, MediaRoom, ProviderError
-from app.providers.lemonslice import LemonSliceProvider
+from app.providers.base import (
+    AvatarSessionRequest,
+    EnrollmentSample,
+    MediaRoom,
+    ProviderError,
+)
+from app.providers.lemonslice import LemonSliceAvatarEnrollmentProvider, LemonSliceProvider
 from app.providers.registry import create_adapter, registered_adapters
 
 ROOM = MediaRoom(url="wss://eva.livekit.cloud", token="avatar-jwt", session_id="RM_abc")
@@ -27,12 +34,33 @@ class FakeApi:
         self.body = {"session_id": "s-1", "control_url": "x"} if body is None else body
         self.control_status = control_status
         self.calls: list[tuple[str, dict[str, Any], dict[str, str]]] = []
+        self.images: list[tuple[str, str, bytes]] = []  # (dosya adı, tür, içerik)
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
-        self.calls.append((request.url.path, json.loads(request.content), dict(request.headers)))
+        content_type = request.headers.get("content-type", "")
+        if content_type.startswith("multipart/form-data"):
+            body = self._multipart(content_type, request.content)
+        else:
+            body = json.loads(request.content)
+        self.calls.append((request.url.path, body, dict(request.headers)))
         if request.url.path.endswith("/control"):
             return httpx.Response(self.control_status, json={"success": True})
         return httpx.Response(self.status, json=self.body)
+
+    def _multipart(self, content_type: str, content: bytes) -> dict[str, Any]:
+        raw = f"Content-Type: {content_type}\r\n\r\n".encode() + content
+        message = BytesParser(policy=default).parsebytes(raw)
+        body: dict[str, Any] = {}
+        for part in message.iter_parts():
+            name = part.get_param("name", header="content-disposition")
+            data = part.get_payload(decode=True)
+            assert isinstance(data, bytes)
+            if name == "payload":
+                assert part.get_content_type() == "application/json"
+                body = json.loads(data)
+            elif name == "image":
+                self.images.append((part.get_filename() or "", part.get_content_type(), data))
+        return body
 
 
 def provider(api: FakeApi, **options: Any) -> LemonSliceProvider:
@@ -152,3 +180,59 @@ def test_registered_as_network_adapter() -> None:
     assert "lemonslice" not in registered_adapters("avatar", offline_only=True)
     adapter = create_adapter("avatar", "lemonslice", model="cwm-1")
     assert isinstance(adapter, LemonSliceProvider)
+
+
+PHOTO = EnrollmentSample(b"\x89PNG\r\n\x1a\nface", "image/png")
+WEBM = EnrollmentSample(b"\x1a\x45\xdf\xa3", "video/webm")
+
+
+async def test_uploads_the_users_own_photo_for_this_session() -> None:
+    api = FakeApi()
+    request = AvatarSessionRequest(
+        avatar_id="eva-enrollment-1",
+        room_name="r",
+        max_duration_s=60,
+        idle_timeout_s=30,
+        room=ROOM,
+        image=PHOTO,
+    )
+    session = await provider(api).start_session(request)
+
+    assert session.session_id == "s-1"
+    [(path, body, headers)] = api.calls
+    assert path == "/api/liveai/sessions" and headers["x-api-key"] == "ls-key"
+    # Fotoğraf multipart ile gider; herkese açık adres ya da LemonSlice'ta kayıtlı avatar yok.
+    assert api.images == [("image.png", "image/png", PHOTO.data)]
+    assert "agent_id" not in body and "agent_image_url" not in body
+    assert body["properties"]["livekit_session_id"] == "RM_abc"
+    assert body["idle_timeout"] == 30
+
+
+async def test_non_image_sample_is_refused_without_calling() -> None:
+    api = FakeApi()
+    request = AvatarSessionRequest(
+        avatar_id="x", room_name="r", max_duration_s=60, idle_timeout_s=30, room=ROOM, image=WEBM
+    )
+    with pytest.raises(ProviderError) as err:
+        await provider(api).start_session(request)
+    assert not err.value.retryable and api.calls == []
+
+
+def test_says_it_works_from_a_photo() -> None:
+    assert LemonSliceProvider.accepts_image is True
+
+
+async def test_enrollment_needs_a_photo_and_sends_nothing() -> None:
+    enrollment = LemonSliceAvatarEnrollmentProvider()
+    with pytest.raises(ProviderError) as err:
+        await enrollment.create_avatar([WEBM], label="eva-1")
+    assert not err.value.retryable
+    ref = await enrollment.create_avatar([WEBM, PHOTO], label="eva-1")
+    assert (ref.provider, ref.asset_id) == ("lemonslice", "eva-1")
+    await enrollment.delete_avatar(ref.asset_id)  # sağlayıcıda silinecek bir şey yok
+
+
+def test_enrollment_registered_as_offline_adapter() -> None:
+    assert "lemonslice" in registered_adapters("avatar_enrollment", offline_only=True)
+    adapter = create_adapter("avatar_enrollment", "lemonslice")
+    assert isinstance(adapter, LemonSliceAvatarEnrollmentProvider)

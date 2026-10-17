@@ -37,6 +37,8 @@ from app.providers.base import AvatarSessionRequest, LLMRequest, MediaRoom
 from app.providers.registry import ProviderRegistry, build_registry
 from app.services.chat_service import ChatService
 from app.services.voice_service import CallTurns, EndReason, TurnTimings
+from app.storage.encrypted import EncryptedStore
+from app.storage.factory import build_encrypted_store
 from eva_realtime.adapters import EvaLLM, EvaSTT, EvaTTS
 from eva_realtime.avatar import AvatarBridge, mint_avatar_token, room_avatar_output
 
@@ -54,6 +56,8 @@ class Runtime:
     session_factory: async_sessionmaker[AsyncSession]
     registry: ProviderRegistry
     turns: CallTurns
+    # Kullanıcının rızalı yüz fotoğrafı buradan okunur (fotoğraftan çalışan avatarlar).
+    store: EncryptedStore
 
 
 @lru_cache
@@ -66,6 +70,7 @@ def runtime() -> Runtime:
         session_factory=create_session_factory(create_engine(settings.database_url)),
         registry=registry,
         turns=CallTurns(chat),
+        store=build_encrypted_store(settings),
     )
 
 
@@ -126,6 +131,8 @@ async def entrypoint(ctx: JobContext) -> None:
             media_config=rt.settings.media_config,
             tts_provider=tts_provider.name,
             avatar_provider=avatar_provider.name if use_avatar else None,
+            avatar_accepts_image=use_avatar and avatar_provider.accepts_image,
+            store=rt.store,
         )
 
     async def prepare(item_id: str | None, text: str | None) -> LLMRequest:
@@ -227,10 +234,11 @@ async def entrypoint(ctx: JobContext) -> None:
                 room=MediaRoom(
                     url=str(rt.settings.livekit_url), token=token, session_id=await ctx.room.sid
                 ),
+                image=media.avatar_image,
             )
         )
         if avatar_session.audio_via_room:
-            # Anam gibi: ses odanın avatar kanalından gider; oda kapanınca avatar da çıkar.
+            # Anam / LemonSlice: ses odanın avatar kanalından gider; oda kapanınca avatar çıkar.
             session.output.replace_audio_tail(room_avatar_output(ctx.room, avatar_session))
             ctx.add_shutdown_callback(avatar_session.close)
         else:

@@ -59,6 +59,7 @@ def _api_key() -> str:
 
 class LiveAvatarProvider:
     name = "liveavatar"
+    accepts_image = False  # yüz, sağlayıcıda önceden oluşturulmuş avatardan gelir
 
     def __init__(
         self,

@@ -34,10 +34,11 @@ from app.models.call import CallSession, TurnLatency
 from app.models.conversation import Conversation, Message
 from app.models.persona import Persona
 from app.models.user import User
-from app.persona.media import MediaNotConfiguredError, media_id
-from app.providers.base import LLMRequest
+from app.persona.media import FILE_PREFIX, MediaNotConfiguredError, media_id, media_image
+from app.providers.base import EnrollmentSample, LLMRequest
 from app.services import biometric_service, memory_extraction, memory_retrieval, persona_service
 from app.services.chat_service import ChatService
+from app.storage.encrypted import EncryptedStore
 
 CallMode = Literal["voice", "video"]
 EndReason = Literal[
@@ -77,6 +78,8 @@ class CallMedia:
 
     voice_id: str
     avatar_id: str | None
+    # Fotoğraftan çalışan avatar (ör. LemonSlice) için kullanıcının rızalı yüz fotoğrafı.
+    avatar_image: EnrollmentSample | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -324,9 +327,14 @@ class CallTurns:
         media_config: Path,
         tts_provider: str,
         avatar_provider: str | None,
+        avatar_accepts_image: bool = False,
+        store: EncryptedStore | None = None,
     ) -> CallMedia:
         """Görüşmenin sesi ve (görüntülüde) yüzü. Kullanıcının kendi klonuysa rıza o an
-        kontrol edilir; klon başka bir sağlayıcıda oluşturulmuşsa kullanılamaz."""
+        kontrol edilir; klon başka bir sağlayıcıda oluşturulmuşsa kullanılamaz.
+
+        Avatar sağlayıcısı fotoğraftan çalışıyorsa (``avatar_accepts_image``) rızalı fotoğraf
+        şifreli depodan okunur ve yalnızca bu görüşme için sağlayıcıya verilir."""
         call, _conversation, persona, user = await self._load(db, call_id)
         if call.media_source != "self":
             slug = persona.slug or "eva"
@@ -337,9 +345,15 @@ class CallTurns:
                     if avatar_provider
                     else None
                 )
+                # Yerel görsel (``file:``) yalnızca fotoğraftan çalışan sağlayıcıda anlamlı.
+                image = None
+                if avatar and avatar.startswith(FILE_PREFIX):
+                    if not avatar_accepts_image:
+                        raise MediaNotConfiguredError(f"{avatar_provider} cannot use an image")
+                    image = media_image(media_config, avatar)
             except MediaNotConfiguredError as exc:
                 raise MediaNotReadyError("persona_media_not_configured") from exc
-            return CallMedia(voice_id=voice, avatar_id=avatar)
+            return CallMedia(voice_id=voice, avatar_id=avatar, avatar_image=image)
 
         voice_asset = await biometric_service.active_asset(db, user.id, "voice")
         if voice_asset is None:
@@ -354,6 +368,19 @@ class CallTurns:
             if avatar_asset.provider != avatar_provider:
                 raise MediaNotReadyError("avatar_provider_mismatch")
             avatar_id = avatar_asset.asset_id
+            if avatar_accepts_image:
+                if store is None:
+                    raise ValueError("store is required for image avatars")
+                photo = await biometric_service.face_photo(
+                    db, store, user.id, avatar_asset.enrollment_id
+                )
+                if photo is None:
+                    raise MediaNotReadyError("no_avatar_photo")
+                return CallMedia(
+                    voice_id=voice_asset.asset_id,
+                    avatar_id=avatar_id,
+                    avatar_image=EnrollmentSample(photo.data, photo.media_type),
+                )
         return CallMedia(voice_id=voice_asset.asset_id, avatar_id=avatar_id)
 
     async def media_still_allowed(self, db: AsyncSession, call_id: uuid.UUID) -> bool:

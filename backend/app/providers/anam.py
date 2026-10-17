@@ -57,6 +57,7 @@ def is_public_url(url: str) -> bool:
 
 class AnamProvider:
     name = "anam"
+    accepts_image = False  # yüz, sağlayıcıda önceden oluşturulmuş avatardan gelir
 
     def __init__(
         self,
