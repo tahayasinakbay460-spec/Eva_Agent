@@ -92,7 +92,8 @@ eva/
 │   │   ├── persona/         # domain çekirdeği: PersonaDefinition, safety_core, eva, PersonaCompiler, media
 │   │   ├── providers/       # sağlayıcı sınırı: base (9 arayüz), mock, registry; gerçek adaptörler:
 │   │   │                    # openai_llm, openai_stt, elevenlabs (TTS + ses klonu), liveavatar (LITE),
-│   │   │                    # anthropic, dev_mailbox
+│   │   │                    # anam ve lemonslice (yalnızca yüz; sesi LiveKit odasından alır), anthropic,
+│   │   │                    # dev_mailbox
 │   │   ├── storage/         # şifreli dosya deposu: kullanıcı başına veri anahtarı (AES-256-GCM), KMS arayüzü
 │   │   └── worker/          # arka plan işçisi (ADR 0001 eşlemesiyle `worker/` burada): queue, runner,
 │   │                        # handlers, jobs; `uv run python -m app.worker`
@@ -149,12 +150,12 @@ Lokal geliştirmede veritabanı varsayılan olarak SQLite'tır (`backend/eva_dev
 `EVA_DATABASE_URL=postgresql+asyncpg://eva:eva@localhost:5432/eva` ile Postgres'e geçilir.
 `EVA_LLM_PROVIDER_OVERRIDE=mock` ağsız çalıştırır; gerçek cevap için `OPENAI_API_KEY` gerekir (ADR 0004).
 Arka plan işleri veritabanındaki `jobs` tablosunda (ADR 0003); Redis gelince `app/worker/queue.py` değişir. E-posta sağlayıcısı seçilene kadar mailler `backend/dev_mailbox/` klasörüne yazılır (staging/prod bu adaptörle açılmaz). Testler `EVA_TEST_DATABASE_URL` verilirse Postgres'te koşar (CI'da `backend-postgres` işi).
-Sesli görüşme LiveKit ister (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`); yoksa `POST /voice/calls` 503 `voice_not_configured` döner. Ajan `backend/.env`'i okur; göreli yollar (SQLite, config) her zaman `backend/`'e göre çözülür. Biyometrik dosyalar `backend/storage/` altında şifreli; dev ana anahtarı `backend/.dev_master_key` (git'e girmez; staging/prod'da KMS zorunlu, yoksa uygulama açılmaz). Hassas uçlar `require_step_up` ister (10 dk geçerli).
+Sesli görüşme LiveKit ister (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`; Anam ve LemonSlice avatarları odaya kendisi katıldığı için `LIVEKIT_URL` internetten erişilebilir olmalı, ör. LiveKit Cloud); yoksa `POST /voice/calls` 503 `voice_not_configured` döner. Ajan `backend/.env`'i okur; göreli yollar (SQLite, config) her zaman `backend/`'e göre çözülür. Biyometrik dosyalar `backend/storage/` altında şifreli; dev ana anahtarı `backend/.dev_master_key` (git'e girmez; staging/prod'da KMS zorunlu, yoksa uygulama açılmaz). Hassas uçlar `require_step_up` ister (10 dk geçerli).
 Giriş: passkey (`/auth/passkey/{register,login}/{options,verify}`) veya e-posta + şifre + e-postaya gelen kod (`/auth/password/...`), ADR 0002 ve eki. WebAuthn RP ayarları `EVA_WEBAUTHN_RP_ID` ve `EVA_WEBAUTHN_ORIGINS`; frontend başka porttan açılırsa origin listesine eklenmeli. `POST /auth/dev-login` yalnızca `EVA_ENV=dev|test` için ve testlerde kalır; frontend kullanmaz. Testlerde passkey için `backend/tests/soft_authenticator.py` kullanılır.
 
 ### Ortam değişkenleri
 
-Sırlar yalnızca ortam değişkeni / secret manager'dan okunur. `backend/.env.example` sadece anahtar adlarını içerir: uygulama ayarları `EVA_` önekiyle (`EVA_ENV`, `EVA_DATABASE_URL`, `EVA_REDIS_URL`, `EVA_CORS_ORIGINS`, `EVA_LLM_PROVIDER_OVERRIDE`), sağlayıcı anahtarları öneksiz (`ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `LIVEAVATAR_API_KEY`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `KMS_KEY_ID`). `.env` git'e girmez; pre-commit'te gitleaks çalışır (kurulacak). Her ortamın (dev / staging / prod) anahtarları ayrıdır.
+Sırlar yalnızca ortam değişkeni / secret manager'dan okunur. `backend/.env.example` sadece anahtar adlarını içerir: uygulama ayarları `EVA_` önekiyle (`EVA_ENV`, `EVA_DATABASE_URL`, `EVA_REDIS_URL`, `EVA_CORS_ORIGINS`, `EVA_LLM_PROVIDER_OVERRIDE`), sağlayıcı anahtarları öneksiz (`ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `LIVEAVATAR_API_KEY`, `ANAM_API_KEY`, `LEMONSLICE_API_KEY`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `KMS_KEY_ID`). `.env` git'e girmez; pre-commit'te gitleaks çalışır (kurulacak). Her ortamın (dev / staging / prod) anahtarları ayrıdır.
 
 ---
 

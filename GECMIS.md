@@ -4,6 +4,57 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 
 ---
 
+## 17 Ekim 2026 (6. oturum) — İlk gerçek görüntülü görüşme (Anam), LemonSlice hazırlığı
+
+**Sonuç:** EVA ile **gerçek** görüntülü görüşme çalıştı. Seni anlıyor (OpenAI), cevap yazıyor (OpenAI GPT-6 Luna), Jessica sesiyle konuşuyor (ElevenLabs) ve ekranda **senin yüzün** (Anam) konuşuyor.
+
+### Ne yaptık?
+1. **Maliyet hesabı.** Etiket fiyatının ~%33'ü vergi + mağaza komisyonuna gidiyor; fiyat ≈ maliyet × 2. 10 kişilik test dahil deneme bütçesi ~135 $ (≈6.000 TL).
+2. **Anam adaptörü** (`backend/app/providers/anam.py`). Anam bizim LiveKit odamıza kendisi katılıp EVA'nın sesini odadan alıyor; bunun için arayüze `RoomAvatarSession` eklendi.
+3. **LiveKit Cloud** (ücretsiz Build planı) açıldı. Anam/LemonSlice internetten bağlandığı için `localhost` olmuyor. Backend, ajan ve veritabanı yine senin bilgisayarında; sadece görüşme odası bulutta.
+4. **Gerçek sağlayıcılar bağlandı ve tek tek denendi:** OpenAI (konuşma → yazı + cevap), ElevenLabs (ses, **Jessica**). Hepsi çalışıyor.
+5. **Kendi yüzün:** Anam Lab'de fotoğrafından "Taha" avatarı yapıldı, görüşmede çalıştı.
+6. **LemonSlice adaptörü yazıldı** (`backend/app/providers/lemonslice.py`), sahte HTTP ile test edildi; gerçek hesapla henüz denenmedi.
+
+### Kararlar
+- **Avatar: LemonSlice.** Anam'da aynı anda 1 görüşme var ve parayla esnetilemiyor (sınır aşılınca reddediyor). LemonSlice'ta Starter (8 $) 3 eşzamanlı, fazlası 2 kat ücretle. Anam kodu yedek olarak duruyor (tek ayar satırı).
+- **LemonSlice'ta avatar = her görüşmede gönderilen fotoğraf.** Önceden avatar oluşturmak gerekmiyor; fotoğrafı (bizde şifreli duruyor) görüşme isteğiyle birlikte yükleyeceğiz. Sağlayıcıda kalıcı kopya birikmiyor. *LemonSlice'a sorulacak:* kadrajlanmış kopyayı ne kadar saklıyor?
+- **Sahibe ücretsiz, diğer kullanıcılara ücretli** (admin rolü kotadan muaf) — ödeme altyapısıyla birlikte yapılacak.
+- **ElevenLabs klon sınırı** (Starter 10, Creator 30, Pro 160): çözüm, klonu görüşme başında oluşturup sonunda silmek (ham ses bizde). Uzun vadede kendi ses sunucumuz (Faz 7).
+- **LiveKit'i ev bilgisayarında açmıyoruz** (gerçek IP / port / yükleme hızı sorunu). 10 kişilik test için ~5 €/ay kiralık sunucu (ör. Hetzner) ya da o ay LiveKit Ship (50 $).
+
+### Harcananlar
+- OpenAI: 6 $ yüklendi (auto reload kapalı). Bir dakika sesli görüşme ≈ 0,02 $.
+- ElevenLabs: ücretsiz plan (ayda 10.000 karakter; kütüphanedeki Türkçe sesler ücretsiz planda API'de yok, bu yüzden hazır ses Jessica).
+- Anam: ücretsiz plan (ayda 30 dk; görüşme başına 3 dk, aynı anda 1, filigranlı). Birkaç dakika kullanıldı.
+- LiveKit Cloud: ücretsiz (aynı anda 5 görüşme).
+
+### Senin bilgisayarındaki yerel ayarlar (git'e girmez)
+- `config/providers.local.yaml`: STT/LLM = OpenAI, TTS = ElevenLabs, avatar = Anam. `.env`'deki `EVA_PROVIDERS_CONFIG` satırı gösteriyor.
+- `config/media.local.yaml`: EVA'nın sesi Jessica, yüzü senin Anam avatarın. `.env`'deki `EVA_MEDIA_CONFIG` satırı gösteriyor.
+- Bu iki satırı silersen her şey asıl ayara (mock) döner.
+- `.env`'de `EVA_LLM_PROVIDER_OVERRIDE=mock` kapatıldı (yazılı sohbet de gerçek OpenAI).
+
+### Öğrendiklerimiz (bir daha aynı hatayı yapmamak için)
+- Anam ücretsiz planda bölge seçimi yasak (403) → ayardan kaldırıldı.
+- Ayar dosyası değişince **backend ve ajan yeniden başlatılmalı** (yalnızca açılışta okunuyor).
+- Ses tarafında ilk denemede LLM'in ilk kelimesi 3,4 sn sürdü (bağlantı soğukken); gerçek görüşmede gecikme panosundan ölçülecek.
+
+### Çalıştırma (3 terminal; lokal `livekit-server` artık açılmıyor)
+1. `cd backend` → `uv run uvicorn app.main:app --reload --port 8000`
+2. `cd frontend` → `npm run dev`
+3. `cd realtime` → `uv run python -m eva_realtime dev`
+→ http://localhost:3000/gorusme → görüntülü.
+
+### Sıradaki adımlar
+1. LemonSlice Starter'ı al → `LEMONSLICE_API_KEY` `.env`'e.
+2. LemonSlice adaptörüne "fotoğrafı yükleyerek başlat" ekle; EVA'daki **Profil → Ses ve yüz** kaydına bağla (onaylanan fotoğraf → avatar). Faz 3'ün kalan parçası.
+3. Ardından Faz 4 (Karakter Stüdyosu) ve Faz 5 (Miras "şimdi paylaş").
+
+**Commit:** Bu oturumun kodu (Anam + LemonSlice adaptörleri, arayüz değişiklikleri, testler) henüz commit'lenmedi.
+
+**Not:** `tests/test_voice.py::test_voice_not_configured` senin `.env`'indeki LiveKit ayarları yüzünden lokalde düşüyor (önceden de böyleydi; CI'da geçer).
+
 ## 16 Ekim 2026 (5. oturum) — Faz 2 (sesli görüşme) ve Faz 3 (rızalı ses/yüz, avatar)
 
 Sen yokken çalıştım. Gitmeden verdiğin cevapların hepsi "senin önerin" olduğu için şöyle ilerledim:
