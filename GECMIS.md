@@ -38,6 +38,29 @@ Backend 316, realtime 12 test yeşil; ruff, mypy, ESLint, Prettier, tip kontrol�
 - **Zero-shot avatar:** Önceden eğitim/klon olmadan, tek fotoğraftan anında konuşan yüz üretmek.
 - **Sıkıştırma bombası:** Küçük görünen ama açınca devasa çözünürlükte olan, sunucunun belleğini dolduran görsel. Piksel sınırıyla engelliyoruz.
 
+### Aynı oturum, ikinci kısım — EVA'nın sesini ve yüzünü kullanıcı seçiyor
+
+**Senin kararın:** EVA'nın kendine özgü bir sesi var (varsayılan). Uygulamada hazır yüzler ve hazır sesler var; kullanıcı EVA'yı istediği yüzle ve istediği sesle kullanabiliyor. Kendi fotoğrafını yükleyen kullanıcı bu fotoğrafı herhangi bir hazır sesle ya da kendi klon sesiyle eşleştirebiliyor. ElevenLabs'in aynı anda 10 görüşme sınırı başlangıç için yeterli. LemonSlice'ın fotoğrafı saklama süresi şimdilik önemli değil, gerekirse sağlayıcı değişir.
+
+**Ne yaptık?**
+1. **Katalog** (`config/media.yaml`): 10 hazır ses (EVA = Jessica, Sarah, Laura, Lily, Matilda, Brian, George, Liam, Will, Daniel; hepsi ElevenLabs'in ücretsiz planda da çalışan hazır sesleri) + hazır yüzler (şimdilik yalnızca EVA). Yeni yüz eklemek: görseli `config/media/` klasörüne koyup dosyaya 3 satır yazmak.
+2. **Seçim kaydı:** yeni tablo `media_preferences` (kullanıcı + persona başına ses ve yüz). "Kendi sesim" / "Kendi fotoğrafım" ancak kaydın onaylanınca seçilebiliyor.
+3. **Görüşme:** seçim görüşme başlarken görüşmeye kopyalanıyor (`call_sessions.voice_key` / `avatar_key`). Kendi sesin ya da fotoğrafın seçiliyse rıza her turda yeniden kontrol ediliyor. Eski `use_my_media` bayrağı kaldırıldı; eski görüşme kayıtları migration'la taşındı.
+4. **Yeni uçlar:** `GET /media/options`, `PUT /media/preferences`, `POST /media/voices/{key}/preview` (hazır sesi sabit bir cümleyle dinletir), `GET /media/avatars/{key}/image`.
+5. **Web:** görüşme ekranında "EVA'nın sesi" (her seste ▶ dinle) ve görüntülüde "EVA'nın yüzü" seçicisi.
+6. Tarayıcıda denerken bir hata yakaladım ve düzelttim: CORS ayarı `PUT` isteğine izin vermiyordu (testi de eklendi).
+7. ADR 0008 yazıldı.
+
+**Testler:** backend 333, realtime 12; ruff, mypy, ESLint, Prettier, tip kontrolü, `alembic check` temiz. Migration ileri-geri denendi. Gerçek ElevenLabs ile George sesinin önizlemesi çalıştı; ekran Playwright ile açılıp seçim yapıldı, konsolda hata yok.
+
+**Nasıl denersin?**
+1. `cd backend` → `uv run alembic upgrade head` (yeni tablo; ben senin `eva_dev.db`'ne uyguladım bile, tekrar çalıştırmak zararsız).
+2. Backend, web ve ajanı her zamanki gibi aç.
+3. http://localhost:3000/gorusme → bir ses seç, ▶ ile dinle → "EVA'yı ara". EVA o sesle konuşmalı.
+4. Görüntülü için: EVA'nın LemonSlice yüzü boş, o yüzden "hazır yüz yok" yazıyor. Ya `LEMONSLICE_API_KEY` + `config/media/eva.png` ekle, ya da **Profil → Ses ve yüz**'den kendi fotoğrafını yükleyip onayla; sonra "Kendi fotoğrafım" + istediğin ses.
+
+**Not:** Denerken senin veritabanında `claude-test` adlı bir deneme kullanıcısı oluştu (seçimi George → Sarah). İstersen silebiliriz.
+
 ## 17 Ekim 2026 (6. oturum) — İlk gerçek görüntülü görüşme (Anam), LemonSlice hazırlığı
 
 **Sonuç:** EVA ile **gerçek** görüntülü görüşme çalıştı. Seni anlıyor (OpenAI), cevap yazıyor (OpenAI GPT-6 Luna), Jessica sesiyle konuşuyor (ElevenLabs) ve ekranda **senin yüzün** (Anam) konuşuyor.

@@ -82,13 +82,16 @@ eva/
 │   │   ├── models/          # users (role), sessions (step_up_at), passkeys, auth_*, personas,
 │   │   │                    # conversations, messages, memories, memory_embeddings, jobs,
 │   │   │                    # call_sessions, turn_latencies, user_data_keys, biometric_enrollments,
-│   │   │                    # enrollment_samples, provider_assets, consents, consent_records, audit_log
+│   │   │                    # enrollment_samples, provider_assets, consents, consent_records, audit_log,
+│   │   │                    # media_preferences (kullanıcının seçtiği ses/yüz)
 │   │   ├── schemas/         # Pydantic istek/cevap şemaları (SSE payload'ları dahil)
 │   │   ├── routers/         # health, auth (passkey + şifre + adım-yukarı), personas, chat, memories,
-│   │   │                    # voice (görüşme + gecikme panosu), biometrics (ses/yüz kaydı), admin (inceleme)
+│   │   │                    # voice (görüşme + gecikme panosu), biometrics (ses/yüz kaydı), admin (inceleme),
+│   │   │                    # media (ses/yüz kataloğu, seçim, hazır ses önizlemesi)
 │   │   ├── services/        # iş mantığı: auth, password_auth, persona, chat (akışlı tur),
 │   │   │                    # memory (CRUD), memory_retrieval (sıcak yol), memory_extraction (işçi),
-│   │   │                    # voice (görüşme + CallTurns), biometric, consent_texts, audit
+│   │   │                    # voice (görüşme + CallTurns), biometric, consent_texts, audit,
+│   │   │                    # media (EVA'nın sesi/yüzü: katalog ya da kullanıcının kendi klonu)
 │   │   ├── persona/         # domain çekirdeği: PersonaDefinition, safety_core, eva, PersonaCompiler, media
 │   │   ├── providers/       # sağlayıcı sınırı: base (9 arayüz), mock, registry; gerçek adaptörler:
 │   │   │                    # openai_llm, openai_stt, elevenlabs (TTS + ses klonu), liveavatar (LITE),
@@ -112,7 +115,7 @@ eva/
 ├── realtime/                # LiveKit Agents ajanı (ayrı uv projesi, backend'i yerel paket olarak kullanır;
 │                            # ADR 0005): eva_realtime/adapters (STT/LLM/TTS köprüsü), agent, avatar
 ├── mobile/                  # (§15 kararı sonrası) Expo
-├── config/                  # providers.yaml, media.yaml (EVA'nın ses/yüz id'leri), sensitive_figures.yaml,
+├── config/                  # providers.yaml, media.yaml (ses/yüz kataloğu + persona varsayılanları), sensitive_figures.yaml,
 │                            # blocked_franchises.yaml
 ├── evals/                   # persona kalitesi, karakter bütünlüğü, red-team
 ├── infra/                   # docker-compose.yml (postgres+pgvector, redis, minio)
@@ -200,6 +203,7 @@ Kurallar:
 - **Varlıklar bizimdir:** rızalı ham ses/yüz örnekleri kendi depomuzda şifreli tutulur; sağlayıcıdaki klon ID'leri yalnızca eşlemedir (`provider_assets`). Kendi sunucumuza geçişte kullanıcıdan yeniden kayıt istenmez; klon kendi örneklerimizden yeniden üretilir.
 - **Self-hosted sözleşmesi:** kendi sunucularımız `docs/contracts/` altındaki akış sözleşmesini (ses formatı, olaylar, kesme/iptal) uygular; adaptör ince bir istemci olur.
 - **Avatar yalnızca yüz:** STT/LLM/TTS bizim ajanımızda çalışır, avatar sağlayıcısı yalnızca yüzü üretir (LiveAvatar'da LITE modu; FULL modu persona, hafıza ve sağlayıcı seçimini HeyGen'e kilitler).
+- **Ses ve yüz seçimi (ADR 0008):** kullanıcı EVA'nın sesini ve yüzünü birbirinden bağımsız seçer: `config/media.yaml` kataloğundan ya da kendi onaylı klon sesi / fotoğrafı (`own`). Varsayılan EVA'nın kendi sesi ve yüzü. Seçim görüşme başlarken `call_sessions.voice_key/avatar_key`'e kopyalanır; `own` olan taraf için rıza her turda kontrol edilir.
 - **Fotoğraftan avatar (ADR 0007):** `AvatarProvider.accepts_image` diyen sağlayıcıya (LemonSlice) kullanıcının rızalı fotoğrafı her görüşmede şifreli depodan, yalnızca o oturum için gönderilir; sağlayıcıda klon tutulmaz. `avatar.realtime` ile `avatar_enrollment.default` aynı sağlayıcı olmalı (yoksa `avatar_provider_mismatch`).
 - **Maliyet ölçümü:** her sağlayıcı çağrısı kullanıcı ve özellik bazında ölçülür (karakter, saniye, dakika, token).
 
