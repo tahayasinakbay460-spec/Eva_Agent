@@ -215,6 +215,8 @@ class MediaRoom:
 
     url: str
     token: str
+    # Odanın sunucudaki oturum kimliği (LiveKit "room SID"); bazı sağlayıcılar ister (LemonSlice).
+    session_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,7 +244,10 @@ AvatarEvent = AvatarPlaybackStarted | AvatarPlaybackFinished
 
 
 class AvatarSession(Protocol):
+    """Sesi bizim gönderdiğimiz avatar (ör. LiveAvatar): TTS sesi ``send_audio`` ile gider."""
+
     session_id: str
+    audio_via_room: Literal[False]
     # Avatarın beklediği ses biçimi (ör. LiveAvatar: 24 kHz, 16 bit, mono).
     input_format: AudioFormat
 
@@ -268,10 +273,33 @@ class AvatarSession(Protocol):
         ...
 
 
+class RoomAvatarSession(Protocol):
+    """Sesi bizim medya odamızdan kendisi alan avatar (ör. Anam).
+
+    Avatar odaya katılımcı olarak girer; gerçek zamanlı katman TTS sesini odanın standart
+    avatar kanalıyla (LiveKit data stream) ona yollar. Söz kesme ve "oynatma bitti" bilgisi de
+    aynı kanaldan gelir; bu yüzden ``send_audio`` / ``events`` gibi metotlar yoktur.
+    """
+
+    session_id: str
+    audio_via_room: Literal[True]
+    # Odaya yollanacak sesin örnekleme hızı (ör. Anam: 24 kHz, LemonSlice: 16 kHz).
+    input_format: AudioFormat
+    # Avatar "konuşmaya başladım / bitirdim" bildirimini kendisi yolluyor mu? Yolluyorsa ilk
+    # konuşan kare süresi tahmin değil ölçümdür ve söz kesince bildirimi beklenir.
+    reports_playback: bool
+
+    async def close(self) -> None:
+        """İdempotent. Ücretlendirme avatar odadan çıkınca biter (oda kapanınca çıkar)."""
+        ...
+
+
 class AvatarProvider(Protocol):
     name: str
 
-    async def start_session(self, request: AvatarSessionRequest) -> AvatarSession: ...
+    async def start_session(
+        self, request: AvatarSessionRequest
+    ) -> AvatarSession | RoomAvatarSession: ...
 
 
 # --- embedding'ler (metni anlam vektörüne çevirme) ------------------------------

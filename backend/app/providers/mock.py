@@ -11,6 +11,7 @@ import hashlib
 import itertools
 import math
 from collections.abc import AsyncIterable, AsyncIterator, Sequence
+from typing import Literal
 
 from app.providers.base import (
     AudioChunk,
@@ -185,6 +186,7 @@ class MockAvatarEnrollmentProvider:
 class MockAvatarSession:
     """Görüntü üretmez; sesi sayar ve konuşma başladı/bitti olaylarını hemen verir."""
 
+    audio_via_room: Literal[False] = False
     input_format = AudioFormat(sample_rate=24_000)
 
     def __init__(self, session_id: str) -> None:

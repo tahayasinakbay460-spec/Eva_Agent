@@ -24,7 +24,7 @@ import json
 import os
 import uuid
 from collections.abc import AsyncIterator, Callable
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from websockets.asyncio.client import connect as ws_connect
@@ -143,6 +143,7 @@ class LiveAvatarProvider:
 
 
 class LiveAvatarSession:
+    audio_via_room: Literal[False] = False
     input_format = PCM_24K
 
     def __init__(

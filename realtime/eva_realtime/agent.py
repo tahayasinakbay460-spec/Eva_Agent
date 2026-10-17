@@ -38,7 +38,7 @@ from app.providers.registry import ProviderRegistry, build_registry
 from app.services.chat_service import ChatService
 from app.services.voice_service import CallTurns, EndReason, TurnTimings
 from eva_realtime.adapters import EvaLLM, EvaSTT, EvaTTS
-from eva_realtime.avatar import AvatarBridge, mint_avatar_token
+from eva_realtime.avatar import AvatarBridge, mint_avatar_token, room_avatar_output
 
 log = logging.getLogger("eva.realtime")
 
@@ -224,12 +224,19 @@ async def entrypoint(ctx: JobContext) -> None:
                 room_name=ctx.room.name,
                 max_duration_s=call.max_duration_s,
                 idle_timeout_s=call.idle_timeout_s,
-                room=MediaRoom(url=str(rt.settings.livekit_url), token=token),
+                room=MediaRoom(
+                    url=str(rt.settings.livekit_url), token=token, session_id=await ctx.room.sid
+                ),
             )
         )
-        bridge = AvatarBridge(avatar_session)
-        await bridge.attach(session.output.replace_audio_tail)
-        ctx.add_shutdown_callback(bridge.aclose)
+        if avatar_session.audio_via_room:
+            # Anam gibi: ses odanın avatar kanalından gider; oda kapanınca avatar da çıkar.
+            session.output.replace_audio_tail(room_avatar_output(ctx.room, avatar_session))
+            ctx.add_shutdown_callback(avatar_session.close)
+        else:
+            bridge = AvatarBridge(avatar_session)
+            await bridge.attach(session.output.replace_audio_tail)
+            ctx.add_shutdown_callback(bridge.aclose)
     await session.start(
         agent=Agent(instructions=""),
         room=ctx.room,

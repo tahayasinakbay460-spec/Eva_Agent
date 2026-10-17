@@ -43,3 +43,7 @@ Thumbs.db
 
 # LiveKit sunucu programı (indirilir, repoya girmez)
 infra/livekit/bin/
+
+# yerel sağlayıcı denemesi
+config/providers.local.yaml
+config/media.local.yaml

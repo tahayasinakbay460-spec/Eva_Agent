@@ -6,10 +6,15 @@
 # kadın sesi. Boş olanlar anahtar gelince seçilecek:
 #   ElevenLabs:  GET /v1/voices  (Türkçe'yi iyi okuyan, sıcak bir kadın sesi)
 #   LiveAvatar:  GET /v1/avatars/public
+#   Anam:        Anam Lab > Avatars (ya da GET https://api.anam.ai/v1/avatars)
+#   LemonSlice:  lemonslice.com > oluşturulan avatarın (agent) id'si
 eva:
   voice:
     mock: eva-mock
-    elevenlabs: ""
+    elevenlabs: "cgSgspJ2msm6clMCkdW9"   # Jessica (hazır ses; ücretsiz planda kütüphane sesleri API'de yok)
   avatar:
     mock: eva-mock
     liveavatar: ""
+    anam: "edf6fdcb-acab-44b8-b974-ded72665ee26"   # Mia (studio)
+    # LemonSlice ajan id'si ya da herkese açık bir görselin https adresi (368x560).
+    lemonslice: ""

@@ -9,8 +9,15 @@ from livekit import rtc
 from livekit.agents.voice.io import AudioOutput
 
 from app.core.config import Settings
+from app.providers.anam import AnamSession
+from app.providers.lemonslice import LemonSliceProvider, LemonSliceSession
 from app.providers.mock import MockAvatarSession
-from eva_realtime.avatar import AVATAR_IDENTITY, AvatarBridge, mint_avatar_token
+from eva_realtime.avatar import (
+    AVATAR_IDENTITY,
+    AvatarBridge,
+    mint_avatar_token,
+    room_avatar_output,
+)
 
 
 def _frame(ms: int = 100, rate: int = 24_000) -> rtc.AudioFrame:
@@ -85,3 +92,21 @@ def test_avatar_token_acts_on_behalf_of_the_agent() -> None:
     assert claims["attributes"] == {"lk.publish_on_behalf": "agent-1"}
     assert claims["video"]["room"] == "eva-room" and claims["video"]["roomJoin"]
     assert claims["exp"] - claims["nbf"] <= 300
+
+
+async def test_room_avatar_gets_audio_through_the_room() -> None:
+    # Anam gibi sesi odadan alan avatar: ajanın sesi yalnızca avatar katılımcısına, 24 kHz gider.
+    output = room_avatar_output(rtc.Room(), AnamSession("s1"))
+    assert output.sample_rate == 24_000
+    assert output._destination_identity == AVATAR_IDENTITY
+    assert output._wait_remote_track == rtc.TrackKind.KIND_VIDEO
+    assert not output._wait_playback_start
+
+
+async def test_lemonslice_reports_its_own_playback() -> None:
+    # LemonSlice 16 kHz ister ve "başladım / bitirdim" bildirimini kendisi yollar.
+    output = room_avatar_output(rtc.Room(), LemonSliceSession(LemonSliceProvider(), "s1"))
+    assert output.sample_rate == 16_000
+    assert output._destination_identity == AVATAR_IDENTITY
+    assert output._wait_playback_start
+    assert output._clear_buffer_timeout is None

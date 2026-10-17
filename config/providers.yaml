@@ -39,6 +39,15 @@ voice_enrollment:
 # Avatar (görüntülü görüşme). Anahtar gelince:
 #   avatar.realtime -> { provider: liveavatar, video_quality: high }   (LIVEAVATAR_API_KEY)
 #   Denemek için ücretsiz "sandbox": sandbox: true (yalnızca "Wayne" avatarı, ~1 dk).
+# Ya da Anam (ANAM_API_KEY):
+#   avatar.realtime -> { provider: anam, avatar_model: cara-4 }
+#   region: eu ücretsiz planda yasak (403 session_region_not_available); Anam zaten AB seçiyor.
+#   Ücretsiz plan: ayda 30 dk, görüşme başına 3 dk, aynı anda 1 görüşme, filigranlı.
+#   LIVEKIT_URL internetten erişilebilir olmalı (localhost olmaz): LiveKit Cloud ücretsiz planı.
+# Ya da LemonSlice (LEMONSLICE_API_KEY; ücretsiz planda API yok, en az Starter):
+#   avatar.realtime -> { provider: lemonslice }   (isteğe bağlı: model: cwm-1-lite, aspect_ratio: 9x16)
+#   Boşta geçen süre de ücretli; idle_timeout bizim boşta kalma sınırımızdan gelir.
+#   Aynı anda görüşme sınırını aşan görüşmeler 2 kat ücretlenir (Starter: 3).
 # avatar_enrollment'ın gerçek adaptörü YOK: LiveAvatar'da özel avatar oluşturma API'si yok
 # (2026-10-16, ADR 0006). Gerçek ortamda mock olduğu için yüz kaydı kapalı kalır.
 avatar:

@@ -16,14 +16,35 @@ from datetime import timedelta
 from typing import Any
 
 from livekit import api, rtc
-from livekit.agents.voice.avatar import AudioSegmentEnd, QueueAudioOutput
+from livekit.agents.voice.avatar import AudioSegmentEnd, DataStreamAudioOutput, QueueAudioOutput
 from livekit.agents.voice.io import AudioOutput
 from livekit.agents.voice.room_io import ATTRIBUTE_PUBLISH_ON_BEHALF
 
 from app.core.config import Settings
-from app.providers.base import AudioChunk, AvatarPlaybackStarted, AvatarSession
+from app.providers.base import AudioChunk, AvatarPlaybackStarted, AvatarSession, RoomAvatarSession
 
 AVATAR_IDENTITY = "eva-avatar"
+
+
+def room_avatar_output(room: rtc.Room, avatar: RoomAvatarSession) -> DataStreamAudioOutput:
+    """Sesi odadan kendisi alan avatar (ör. Anam, LemonSlice) için ajanın ses çıkışı.
+
+    Ses, LiveKit'in standart avatar kanalıyla (data stream) yalnızca avatar katılımcısına
+    gider. Söz kesince tampon temizleme ve "oynatma bitti" bilgisi aynı kanaldan gelir; bu
+    yüzden ``AvatarBridge`` gerekmez. Avatarın görüntüsü gelene kadar ses bekletilir ki ilk
+    söz kaybolmasın.
+
+    Avatar "başladım" bildirimi yolluyorsa (``reports_playback``) ilk konuşan kare ölçülür
+    ve söz kesince "bitti" bildirimi süre sınırı olmadan beklenir (resmî eklentiyle aynı).
+    """
+    return DataStreamAudioOutput(
+        room,
+        destination_identity=AVATAR_IDENTITY,
+        sample_rate=avatar.input_format.sample_rate,
+        wait_remote_track=rtc.TrackKind.KIND_VIDEO,
+        wait_playback_start=avatar.reports_playback,
+        clear_buffer_timeout=None if avatar.reports_playback else 2.0,
+    )
 
 
 def mint_avatar_token(settings: Settings, *, room_name: str, agent_identity: str) -> str:

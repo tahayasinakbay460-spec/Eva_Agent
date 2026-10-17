@@ -175,6 +175,8 @@ async def test_avatar_session_contract(name: str) -> None:
     session = await provider.start_session(request)
     other = await provider.start_session(request)
     assert session.session_id and session.session_id != other.session_id
+    # Ağsız adaptörlerin hepsi sesi bizden alır; odadan alanlar (Anam) kendi testinde.
+    assert not session.audio_via_room
     fmt = session.input_format
     assert fmt.encoding == "pcm_s16le" and fmt.channels == 1
 

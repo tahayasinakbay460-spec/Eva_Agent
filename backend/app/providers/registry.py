@@ -10,6 +10,7 @@ import yaml
 if TYPE_CHECKING:
     from app.core.config import Settings
 
+from app.providers.anam import AnamProvider
 from app.providers.anthropic import AnthropicLLMProvider
 from app.providers.base import (
     AvatarEnrollmentProvider,
@@ -25,6 +26,7 @@ from app.providers.base import (
 )
 from app.providers.dev_mailbox import DevMailboxMessagingProvider
 from app.providers.elevenlabs import ElevenLabsTTSProvider, ElevenLabsVoiceEnrollmentProvider
+from app.providers.lemonslice import LemonSliceProvider
 from app.providers.liveavatar import LiveAvatarProvider
 from app.providers.mock import (
     MockAvatarEnrollmentProvider,
@@ -135,7 +137,12 @@ _FACTORIES: dict[ProviderKind, dict[str, Callable[..., object]]] = {
         "mock": MockVoiceEnrollmentProvider,
         "elevenlabs": ElevenLabsVoiceEnrollmentProvider,
     },
-    "avatar": {"mock": MockAvatarProvider, "liveavatar": LiveAvatarProvider},
+    "avatar": {
+        "mock": MockAvatarProvider,
+        "liveavatar": LiveAvatarProvider,
+        "anam": AnamProvider,
+        "lemonslice": LemonSliceProvider,
+    },
     "avatar_enrollment": {"mock": MockAvatarEnrollmentProvider},
     "embedding": {"mock": MockEmbeddingProvider},
     "moderation": {"mock": MockModerationProvider},
@@ -146,7 +153,9 @@ _FACTORIES: dict[ProviderKind, dict[str, Callable[..., object]]] = {
 # İnternete çıkan (gerçek sağlayıcı) adaptörler. Ortak sözleşme testleri bunları ağsız
 # çalıştıramaz; onlar kendi sahte bağlantılı testlerinden ve anahtarla çalışan "integration"
 # testlerinden geçer.
-_NETWORK_ADAPTERS: frozenset[str] = frozenset({"openai", "elevenlabs", "liveavatar"})
+_NETWORK_ADAPTERS: frozenset[str] = frozenset(
+    {"openai", "elevenlabs", "liveavatar", "anam", "lemonslice"}
+)
 
 
 def registered_adapters(kind: ProviderKind, *, offline_only: bool = False) -> list[str]:
