@@ -7,8 +7,8 @@
  *
  * Ekranda: EVA'nın durumu (dinliyor / düşünüyor / konuşuyor), canlı yazıya dökülen konuşma,
  * kalan süre, mikrofon ve kapat düğmeleri; görüşme bitince gecikme panosu. Görüntülü
- * görüşmede EVA'nın avatarı (LiveAvatar) odaya katılıp yüz videosunu yayınlar. "Kendi sesimle"
- * seçilirse EVA, kullanıcının rızalı klon sesiyle (ve yüzüyle) konuşur (önizleme, Faz 3).
+ * görüşmede EVA'nın avatarı odaya katılıp yüz videosunu yayınlar. Görüşmeden önce EVA'nın sesi
+ * ve yüzü seçilir (hazır sesler/yüzler ya da kullanıcının kendi onaylı sesi/fotoğrafı).
  */
 
 import Link from "next/link";
@@ -20,9 +20,9 @@ import {
   type Participant,
   type RemoteTrack,
 } from "livekit-client";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
+import { MediaPicker } from "@/components/MediaPicker";
 import { ArrowLeft, MicIcon, MicOffIcon, PhoneOffIcon, VideoIcon } from "@/components/icons";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
@@ -47,23 +47,12 @@ export default function CallPage() {
   const { state, signedIn } = useSession();
   if (state.status === "needs_onboarding") return <AuthScreen onSignedIn={signedIn} />;
   if (state.status !== "ready") return null;
-  return (
-    <Suspense fallback={null}>
-      <CallFromUrl />
-    </Suspense>
-  );
+  return <VoiceCall />;
 }
 
-/** `?mine=1`: "Ses ve yüz" ekranındaki "Kendi sesimle EVA'yı ara" bağlantısı. */
-function CallFromUrl() {
-  const params = useSearchParams();
-  return <VoiceCall initialMine={params.get("mine") === "1"} />;
-}
-
-function VoiceCall({ initialMine }: { initialMine: boolean }) {
+function VoiceCall() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [mode, setMode] = useState<CallMode>("voice");
-  const [useMine, setUseMine] = useState(initialMine);
   const [hasVideo, setHasVideo] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +139,7 @@ function VoiceCall({ initialMine }: { initialMine: boolean }) {
     setPhase("connecting");
     let call: Call;
     try {
-      call = await startCall(mode, useMine);
+      call = await startCall(mode);
     } catch (err) {
       setPhase("idle");
       const code = errorCode(err);
@@ -158,6 +147,7 @@ function VoiceCall({ initialMine }: { initialMine: boolean }) {
       else if (err instanceof ApiError && err.status === 429) setError(t.call.quotaExceeded);
       else if (code === "no_active_voice") setError(t.call.noActiveVoice);
       else if (code === "no_active_avatar") setError(t.call.noActiveAvatar);
+      else if (code === "persona_media_not_configured") setError(t.call.mediaNotConfigured);
       else setError(t.call.failed);
       return;
     }
@@ -325,15 +315,7 @@ function VoiceCall({ initialMine }: { initialMine: boolean }) {
                 </button>
               ))}
             </div>
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <input
-                type="checkbox"
-                checked={useMine}
-                onChange={(e) => setUseMine(e.target.checked)}
-                className="h-4 w-4 accent-[var(--color-accent)]"
-              />
-              {t.call.useMine}
-            </label>
+            <MediaPicker mode={mode} />
             <button
               type="button"
               onClick={start}

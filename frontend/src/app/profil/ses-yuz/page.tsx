@@ -541,7 +541,7 @@ function VoiceActive() {
           <span className="text-accent">▶</span> {s}
         </button>
       ))}
-      <Link href="/gorusme?mine=1" className="block text-center text-sm text-accent underline">
+      <Link href="/gorusme" className="block text-center text-sm text-accent underline">
         {t.callWithMine}
       </Link>
       {error && <ErrorText>{error}</ErrorText>}

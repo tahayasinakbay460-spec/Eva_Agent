@@ -504,6 +504,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/media/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Options */
+        get: operations["get_options_media_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Preferences */
+        put: operations["set_preferences_media_preferences_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/voices/{key}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Voice Preview */
+        post: operations["voice_preview_media_voices__key__preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/avatars/{key}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Avatar Image */
+        get: operations["avatar_image_media_avatars__key__image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/biometrics/consent-text": {
         parameters: {
             query?: never;
@@ -833,11 +901,6 @@ export interface components {
              * @enum {string}
              */
             mode: "voice" | "video";
-            /**
-             * Use My Media
-             * @default false
-             */
-            use_my_media: boolean;
         };
         /**
          * CallOut
@@ -860,11 +923,10 @@ export interface components {
              * @enum {string}
              */
             mode: "voice" | "video";
-            /**
-             * Media Source
-             * @enum {string}
-             */
-            media_source: "persona" | "self";
+            /** Voice Key */
+            voice_key: string;
+            /** Avatar Key */
+            avatar_key: string | null;
             /** Livekit Url */
             livekit_url: string;
             /** Token */
@@ -1091,6 +1153,51 @@ export interface components {
                     [key: string]: number;
                 };
             };
+        };
+        /** MediaChoiceOut */
+        MediaChoiceOut: {
+            /** Voice */
+            voice: string;
+            /** Avatar */
+            avatar: string;
+        };
+        /** MediaOptionOut */
+        MediaOptionOut: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /**
+             * Has Image
+             * @default false
+             */
+            has_image: boolean;
+        };
+        /**
+         * MediaOptionsOut
+         * @description EVA'nın hangi sesle ve hangi yüzle konuşabileceği. ``own_*`` = kullanıcının onaylanmış
+         *     kendi sesi / fotoğrafı seçilebilir mi.
+         */
+        MediaOptionsOut: {
+            /** Voices */
+            voices: components["schemas"]["MediaOptionOut"][];
+            /** Avatars */
+            avatars: components["schemas"]["MediaOptionOut"][];
+            /** Own Voice */
+            own_voice: boolean;
+            /** Own Avatar */
+            own_avatar: boolean;
+            selected: components["schemas"]["MediaChoiceOut"];
+            defaults: components["schemas"]["MediaChoiceOut"];
+        };
+        /** MediaPreferenceIn */
+        MediaPreferenceIn: {
+            /** Persona Id */
+            persona_id?: string | null;
+            /** Voice */
+            voice?: string | null;
+            /** Avatar */
+            avatar?: string | null;
         };
         /** MemoryCreate */
         MemoryCreate: {
@@ -2480,6 +2587,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LatencyReportOut"];
+                };
+            };
+        };
+    };
+    get_options_media_options_get: {
+        parameters: {
+            query?: {
+                persona_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaOptionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_preferences_media_preferences_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaPreferenceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaOptionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voice_preview_media_voices__key__preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WAV audio */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    avatar_image_media_avatars__key__image_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

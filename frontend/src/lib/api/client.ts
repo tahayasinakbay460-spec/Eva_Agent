@@ -211,10 +211,39 @@ export type Call = Schemas["CallOut"];
 export type CallMode = Call["mode"];
 export type LatencyReport = Schemas["LatencyReportOut"];
 
-export const startCall = (mode: CallMode = "voice", useMyMedia = false) =>
-  post<Call>("/voice/calls", { mode, use_my_media: useMyMedia });
+// Ses ve yüz, görüşmeden önce seçilir (/media/preferences); görüşme o anki seçimi kullanır.
+export const startCall = (mode: CallMode = "voice") => post<Call>("/voice/calls", { mode });
 export const endCall = (callId: string) => post<void>(`/voice/calls/${callId}/end`, {});
 export const latencyReport = () => request<LatencyReport>("/voice/latency");
+
+/*
+ * EVA'nın sesi ve yüzü: hazır ses/yüz kataloğu ya da kullanıcının kendi onaylı sesi/fotoğrafı
+ * ("own"). Ses ve yüz birbirinden bağımsız seçilir.
+ */
+
+export type MediaOptions = Schemas["MediaOptionsOut"];
+export type MediaOption = Schemas["MediaOptionOut"];
+export const OWN_MEDIA = "own";
+
+export const mediaOptions = () => request<MediaOptions>("/media/options");
+export const setMediaPreference = (choice: { voice: string | null; avatar: string | null }) =>
+  request<MediaOptions>("/media/preferences", { method: "PUT", body: JSON.stringify(choice) });
+
+async function blobUrl(path: string, method: "GET" | "POST" = "GET"): Promise<string> {
+  const headers = new Headers();
+  const token = tokenStore.get();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${API_URL}${path}`, { method, headers });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return URL.createObjectURL(await res.blob());
+}
+
+/** Hazır bir sesi sabit bir cümleyle dinletir; çalınabilir bir adres döner. */
+export const catalogVoicePreview = (key: string) =>
+  blobUrl(`/media/voices/${encodeURIComponent(key)}/preview`, "POST");
+/** Katalogdaki bir yüzün küçük resmi (yalnızca yerel görseli olanlarda). */
+export const avatarImageUrl = (key: string) =>
+  blobUrl(`/media/avatars/${encodeURIComponent(key)}/image`);
 
 /** Backend hatasındaki kısa kod (ör. `{"detail": "step_up_required"}` -> "step_up_required"). */
 export function errorCode(err: unknown): string | null {

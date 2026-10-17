@@ -1362,6 +1362,195 @@
         ]
       }
     },
+    "/media/options": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Get Options",
+        "operationId": "get_options_media_options_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "persona_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Persona Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaOptionsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/media/preferences": {
+      "put": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Set Preferences",
+        "operationId": "set_preferences_media_preferences_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaPreferenceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaOptionsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/media/voices/{key}/preview": {
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Voice Preview",
+        "operationId": "voice_preview_media_voices__key__preview_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "WAV audio",
+            "content": {
+              "audio/wav": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/media/avatars/{key}/image": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Avatar Image",
+        "operationId": "avatar_image_media_avatars__key__image_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {},
+              "image/jpeg": {},
+              "image/webp": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/biometrics/consent-text": {
       "get": {
         "tags": [
@@ -2336,11 +2525,6 @@
             ],
             "title": "Mode",
             "default": "voice"
-          },
-          "use_my_media": {
-            "type": "boolean",
-            "title": "Use My Media",
-            "default": false
           }
         },
         "type": "object",
@@ -2366,13 +2550,20 @@
             ],
             "title": "Mode"
           },
-          "media_source": {
+          "voice_key": {
             "type": "string",
-            "enum": [
-              "persona",
-              "self"
+            "title": "Voice Key"
+          },
+          "avatar_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Media Source"
+            "title": "Avatar Key"
           },
           "livekit_url": {
             "type": "string",
@@ -2396,7 +2587,8 @@
           "call_id",
           "conversation_id",
           "mode",
-          "media_source",
+          "voice_key",
+          "avatar_key",
           "livekit_url",
           "token",
           "max_duration_s",
@@ -2916,6 +3108,132 @@
         ],
         "title": "LatencyReportOut",
         "description": "Gecikme panosu (§4.4): son turların aşama süreleri ve p50/p95 özetleri."
+      },
+      "MediaChoiceOut": {
+        "properties": {
+          "voice": {
+            "type": "string",
+            "title": "Voice"
+          },
+          "avatar": {
+            "type": "string",
+            "title": "Avatar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "voice",
+          "avatar"
+        ],
+        "title": "MediaChoiceOut"
+      },
+      "MediaOptionOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "has_image": {
+            "type": "boolean",
+            "title": "Has Image",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name"
+        ],
+        "title": "MediaOptionOut"
+      },
+      "MediaOptionsOut": {
+        "properties": {
+          "voices": {
+            "items": {
+              "$ref": "#/components/schemas/MediaOptionOut"
+            },
+            "type": "array",
+            "title": "Voices"
+          },
+          "avatars": {
+            "items": {
+              "$ref": "#/components/schemas/MediaOptionOut"
+            },
+            "type": "array",
+            "title": "Avatars"
+          },
+          "own_voice": {
+            "type": "boolean",
+            "title": "Own Voice"
+          },
+          "own_avatar": {
+            "type": "boolean",
+            "title": "Own Avatar"
+          },
+          "selected": {
+            "$ref": "#/components/schemas/MediaChoiceOut"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/MediaChoiceOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "voices",
+          "avatars",
+          "own_voice",
+          "own_avatar",
+          "selected",
+          "defaults"
+        ],
+        "title": "MediaOptionsOut",
+        "description": "EVA'nın hangi sesle ve hangi yüzle konuşabileceği. ``own_*`` = kullanıcının onaylanmış\nkendi sesi / fotoğrafı seçilebilir mi."
+      },
+      "MediaPreferenceIn": {
+        "properties": {
+          "persona_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona Id"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          }
+        },
+        "type": "object",
+        "title": "MediaPreferenceIn"
       },
       "MemoryCreate": {
         "properties": {
