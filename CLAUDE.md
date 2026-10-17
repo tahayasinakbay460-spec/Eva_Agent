@@ -92,7 +92,8 @@ eva/
 │   │   ├── persona/         # domain çekirdeği: PersonaDefinition, safety_core, eva, PersonaCompiler, media
 │   │   ├── providers/       # sağlayıcı sınırı: base (9 arayüz), mock, registry; gerçek adaptörler:
 │   │   │                    # openai_llm, openai_stt, elevenlabs (TTS + ses klonu), liveavatar (LITE),
-│   │   │                    # anam ve lemonslice (yalnızca yüz; sesi LiveKit odasından alır), anthropic,
+│   │   │                    # anam ve lemonslice (yalnızca yüz; sesi LiveKit odasından alır;
+│   │   │                    # lemonslice tek fotoğraftan çalışır, ADR 0007), anthropic,
 │   │   │                    # dev_mailbox
 │   │   ├── storage/         # şifreli dosya deposu: kullanıcı başına veri anahtarı (AES-256-GCM), KMS arayüzü
 │   │   └── worker/          # arka plan işçisi (ADR 0001 eşlemesiyle `worker/` burada): queue, runner,
@@ -185,8 +186,8 @@ Domain kodu sağlayıcıları yalnızca `libs/eva_providers` arayüzleriyle kull
 | `STTProvider` | akışlı konuşma → metin + tur sonu tespiti | Türkçe testiyle seçilecek (§15) | kendi STT sunucumuz |
 | `TTSProvider` | akışlı metin → ses | ElevenLabs (WebSocket, düşük gecikmeli Flash ailesi) | kendi ses sunucumuz |
 | `VoiceEnrollmentProvider` | rızalı ses klonu oluştur / sil | ElevenLabs | kendi ses sunucumuz |
-| `AvatarProvider` | gerçek zamanlı konuşan yüz videosu | HeyGen LiveAvatar (LITE modu) | kendi simülasyon sunucumuz |
-| `AvatarEnrollmentProvider` | rızalı yüz avatarı oluştur / sil | HeyGen | kendi simülasyon sunucumuz |
+| `AvatarProvider` | gerçek zamanlı konuşan yüz videosu | LemonSlice (tek fotoğraftan, ADR 0007); Anam ve LiveAvatar adaptörleri de var | kendi simülasyon sunucumuz |
+| `AvatarEnrollmentProvider` | rızalı yüz avatarı oluştur / sil | LemonSlice: sağlayıcıya bir şey gitmez, fotoğraf bizde kalır | kendi simülasyon sunucumuz |
 | `EmbeddingProvider` | hafıza vektörleri | seçilecek | kendi |
 | `ModerationProvider` | girdi/çıktı güvenlik sınıflandırması | seçilecek | kendi |
 | `MessagingProvider` | e-posta / SMS (Miras anahtarı, OTP) | seçilecek | — |
@@ -198,7 +199,8 @@ Kurallar:
 - **Dayanıklılık:** zaman aşımı, yalnızca idempotent çağrılarda retry, circuit breaker, yedek zincir (ör. ana TTS düşerse ikincil).
 - **Varlıklar bizimdir:** rızalı ham ses/yüz örnekleri kendi depomuzda şifreli tutulur; sağlayıcıdaki klon ID'leri yalnızca eşlemedir (`provider_assets`). Kendi sunucumuza geçişte kullanıcıdan yeniden kayıt istenmez; klon kendi örneklerimizden yeniden üretilir.
 - **Self-hosted sözleşmesi:** kendi sunucularımız `docs/contracts/` altındaki akış sözleşmesini (ses formatı, olaylar, kesme/iptal) uygular; adaptör ince bir istemci olur.
-- **LiveAvatar:** LITE modu kullanılır — STT/LLM/TTS bizim ajanımızda çalışır, LiveAvatar yalnızca yüzü üretir. FULL modu kullanılmaz; persona, hafıza ve sağlayıcı seçimini HeyGen'e kilitler.
+- **Avatar yalnızca yüz:** STT/LLM/TTS bizim ajanımızda çalışır, avatar sağlayıcısı yalnızca yüzü üretir (LiveAvatar'da LITE modu; FULL modu persona, hafıza ve sağlayıcı seçimini HeyGen'e kilitler).
+- **Fotoğraftan avatar (ADR 0007):** `AvatarProvider.accepts_image` diyen sağlayıcıya (LemonSlice) kullanıcının rızalı fotoğrafı her görüşmede şifreli depodan, yalnızca o oturum için gönderilir; sağlayıcıda klon tutulmaz. `avatar.realtime` ile `avatar_enrollment.default` aynı sağlayıcı olmalı (yoksa `avatar_provider_mismatch`).
 - **Maliyet ölçümü:** her sağlayıcı çağrısı kullanıcı ve özellik bazında ölçülür (karakter, saniye, dakika, token).
 
 ### 4.3 Gerçek zamanlı boru hattı
@@ -504,7 +506,8 @@ Kullanıcıya sorulacak; karar verilene kadar ilgili özellik kapalı kalır.
 - [ ] Hassas figürler listesinin son hali (hukukçu görüşüyle)
 - [x] LLM sağlayıcısı → OpenAI GPT (ADR 0004, 2026-10-16)
 - [x] Biyometrik kayıt incelemesi → yüz eşleştirme / yaş tahmini sağlayıcısı yok; her kayıt bir admin tarafından elle onaylanır (ADR 0006, 2026-10-16)
-- [ ] Yüz avatarı sağlayıcısı: LiveAvatar'da özel avatar oluşturma API'si yok (yalnızca panel) ve silme "yumuşak silme". HeyGen'den kurumsal API + kalıcı silme teyidi mi, başka sağlayıcı mı? (Karar verilene kadar yüz kaydı gerçek ortamda kapalı.)
+- [x] Yüz avatarı sağlayıcısı → LemonSlice, tek fotoğraftan; kullanıcının fotoğrafı bizde kalır (ADR 0007, 2026-10-17)
+- [ ] LemonSlice her görüşmede yüklenen fotoğrafı ne kadar saklıyor, eğitimde kullanıyor mu? (DPA / yazılı teyit; KVKK m.9 aktarım ve DPIA'ya girecek)
 - [ ] EVA'nın stok sesi ve avatarı (`config/media.yaml`): anahtar gelince seçilecek (sahibin tercihi: genç yetişkin, sıcak bir kadın sesi)
 - [ ] Rıza kanıtının (rıza kaydı + özetler) hesap silindikten sonra saklanma süresi (hukukçu görüşü)
 - [ ] Yüz eşleştirme ve yaş tahmini sağlayıcısı (otomatik ön kontrol; inceleyicinin yükünü azaltır)

@@ -4,6 +4,40 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 
 ---
 
+## 17 Ekim 2026 (7. oturum) — Avatar LemonSlice'a geçti: tek fotoğraftan konuşan yüz
+
+**Sonuç:** Faz 3'ün eksik parçası tamam. Kullanıcı **Profil → Ses ve yüz**'de bir **fotoğraf** ekleyip rıza videosunu çekiyor; admin onaylayınca görüntülü görüşmede o fotoğraf LemonSlice ile konuşan yüze dönüşüyor. Fotoğraf hiçbir zaman LemonSlice'ta kalıcı durmuyor: bizim şifreli depomuzda, her görüşmede oradan yükleniyor. Gerçek LemonSlice anahtarıyla henüz denenmedi (anahtar yok).
+
+### Faz durumu (kontrol ettim)
+- **Faz 2 (sesli görüşme):** bitti. Gerçek sağlayıcılarla 6. oturumda çalıştı.
+- **Faz 3 (rıza + ses/yüz kaydı + avatar):** kod olarak bitti. Çıkış şartı (rıza doğrulaması, iptal, sağlayıcıdan silme testleri) testlerde var. Kalan tek şey: LemonSlice'la **gerçek** görüşme denemesi.
+
+### Ne yaptık?
+1. **Yüz kaydına fotoğraf.** JPEG / PNG / WebP kabul ediliyor. Sunucu fotoğrafı açıp PNG olarak yeniden kaydediyor: konum bilgisi (EXIF) siliniyor, telefonun döndürmesi düzeltiliyor, sahte dosya reddediliyor, büyük fotoğraf küçültülüyor. Bunun için **Pillow** paketi eklendi (Python'un standart görsel kütüphanesi).
+2. **LemonSlice fotoğrafı yükleyerek başlıyor** (`backend/app/providers/lemonslice.py`). Resmî LiveKit eklentisinin yaptığı gibi: istek "multipart" (JSON + fotoğraf dosyası birlikte).
+3. **LemonSlice "kayıt" adaptörü:** sağlayıcıya hiçbir şey göndermiyor, sadece fotoğraf var mı diye bakıyor. Silinecek bir şey de yok.
+4. **Sağlayıcıdan bağımsızlık:** arayüze tek bir bayrak eklendi: `accepts_image` ("tek fotoğraftan çalışırım"). LemonSlice `True`, Anam ve LiveAvatar `False`. İleride başka bir fotoğraf-tabanlı sağlayıcıya ya da kendi sunucumuza geçmek = yeni adaptör + ayar satırı.
+5. **Görüşme başlarken** ajan fotoğrafı şifreli depodan okuyor (her okuma denetim kaydına `biometric.used` olarak yazılıyor) ve sadece o görüşme için LemonSlice'a veriyor. Rıza geri alınırsa bir daha gönderilmiyor.
+6. **EVA'nın kendi yüzü** için `config/media.yaml`'da artık yerel bir görsel de verilebiliyor: `lemonslice: "file:media/eva.png"` (dosya `config/media/eva.png`; bu klasör git'e girmez).
+7. **Web:** kayıt sayfasında "Fotoğraf ekle" butonu (telefonda ön kamerayı açar), admin inceleme sayfası fotoğrafı gösteriyor.
+8. **Yerel ayarın** (`config/providers.local.yaml`) avatar satırları LemonSlice'a çevrildi. Anam'a dönmek tek satır (dosyadaki yorumda yazıyor).
+9. Lokalde hep düşen `test_voice_not_configured` düzeltildi: testler artık senin `.env`'indeki LiveKit ayarlarını görmüyor.
+10. Dokümanlar: **ADR 0007** (neden LemonSlice), tehdit modeline fotoğraf satırları, CLAUDE.md.
+
+### Testler
+Backend 316, realtime 12 test yeşil; ruff, mypy, ESLint, Prettier, tip kontrolü temiz. Yeni testler: fotoğrafın konum bilgisi silinerek kaydedilmesi, sahte/büyük fotoğrafın reddi, LemonSlice'a fotoğrafın multipart gitmesi, onay → görüşmede fotoğraf → rıza geri alınca fotoğrafın gitmemesi ve dosyaların imhası, fotoğrafsız yüz kaydının "oluşturulamadı" olması, EVA'nın yerel görseli.
+
+### Senin yapman gerekenler
+1. LemonSlice **Starter** planını al → `backend/.env`'de `LEMONSLICE_API_KEY=` satırını doldur.
+2. Backend ve ajanı yeniden başlat (ayarlar sadece açılışta okunuyor).
+3. EVA'nın yüzü için bir görsel seç (dikey, yüz + omuzlar kadrajı doldursun) → `config/media/eva.png` → `config/media.local.yaml`'da `lemonslice: "file:media/eva.png"`. (Senin fotoğrafın olabilir; kendi kararın.)
+
+### Yeni kavramlar
+- **Multipart istek:** Tek istekte hem yazı (JSON) hem dosya göndermenin standart yolu. Tarayıcıdaki dosya yükleme formları da böyle çalışır.
+- **EXIF:** Fotoğrafın içine gizli yazılan bilgiler: çekildiği yer (GPS), telefon modeli, tarih. Kişisel veri; o yüzden siliyoruz.
+- **Zero-shot avatar:** Önceden eğitim/klon olmadan, tek fotoğraftan anında konuşan yüz üretmek.
+- **Sıkıştırma bombası:** Küçük görünen ama açınca devasa çözünürlükte olan, sunucunun belleğini dolduran görsel. Piksel sınırıyla engelliyoruz.
+
 ## 17 Ekim 2026 (6. oturum) — İlk gerçek görüntülü görüşme (Anam), LemonSlice hazırlığı
 
 **Sonuç:** EVA ile **gerçek** görüntülü görüşme çalıştı. Seni anlıyor (OpenAI), cevap yazıyor (OpenAI GPT-6 Luna), Jessica sesiyle konuşuyor (ElevenLabs) ve ekranda **senin yüzün** (Anam) konuşuyor.

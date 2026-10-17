@@ -89,7 +89,7 @@ eski onayı kabul etmez. Yöntemler: passkey (yalnızca kullanıcının kendi pa
 
 Varlıklar: kullanıcının ham ses ve yüz örnekleri, rıza videosu, sağlayıcıdaki klonlar (ses/avatar
 id'leri), klonla üretilen ses/görüntü. En hassas veri sınıfı (§1, §11.3). Sınırlar: tarayıcı ↔ API,
-API ↔ şifreli depo, işçi ↔ sağlayıcı (ElevenLabs / LiveAvatar), inceleyici (admin) ↔ API.
+API ↔ şifreli depo, işçi/ajan ↔ sağlayıcı (ElevenLabs / LemonSlice), inceleyici (admin) ↔ API.
 
 Akış: adım-yukarı doğrulama → kayıt başlat (rastgele 6 haneli kod üretilir) → örnekler yüklenir →
 kişi, kodu içeren rıza cümlesini kamerada sesli okur → gönder (rıza kaydı yazılır) → **inceleme
@@ -106,6 +106,8 @@ siler ve ham dosyaları imha eder.
 | Kimlik sahtekârlığı | Admin kendi kaydını onaylar (görevler ayrılığı) | Prod'da kendi kaydını onaylamak yasak; dev'de tek kişilik geliştirme için izinli ve denetim kaydında işaretli | `test_self_approval_forbidden_outside_dev` |
 | Kurcalama | Rıza kaydını sonradan değiştirmek/silmek | `consent_records` yalnızca eklenir (ORM seviyesinde güncelleme/silme engelli); metin sürümü + metin özeti + kanıt (video) özeti | `test_consent_records_are_append_only` |
 | Kurcalama | Dosya adıyla/yoluyla depoyu kurcalamak | Depo anahtarları sunucuda uuid'den üretilir; kullanıcı girdisi asla yol olmaz | `test_blob_keys_cannot_escape_the_root` |
+| Kurcalama / Bilgi sızması | Sahte görsel (içine gizlenmiş veri) ya da konum bilgisi (EXIF) taşıyan yüz fotoğrafı; "sıkıştırma bombası" görsel | Fotoğraf Pillow ile gerçekten çözülüp PNG olarak yeniden kodlanır (EXIF/konum atılır, döndürme uygulanır), en çok 40 MP / 10 MB, uzun kenar 1536 px; çözülemeyen dosya reddedilir | `test_face_photo_is_reencoded_without_metadata`, `test_face_photo_rejects_fakes_and_oversize` |
+| Bilgi sızması | Fotoğraftan çalışan avatar (LemonSlice) için yüzün sağlayıcıda kalıcı tutulması / herkese açık adresle paylaşılması | Sağlayıcıda klon oluşturulmaz; fotoğraf yalnızca şifreli depomuzda; her görüşmede o oturum için multipart yüklenir (URL yok); her kullanım denetim kaydına yazılır; rıza geri alınınca gönderilmez (ADR 0007) | `test_lemonslice_face_enrollment_keeps_the_photo_with_us`, `test_uploads_the_users_own_photo_for_this_session` |
 | Kurcalama | Zararlı/yanlış dosya yüklemek | Boyut sınırı akış sırasında uygulanır; tür "sihirli baytlarla" (magic bytes) doğrulanır, Content-Type'a güvenilmez | `test_upload_rejects_wrong_magic_bytes`, `test_upload_size_limit` |
 | İnkâr | "Rıza vermedim" itirazı | Değiştirilemez rıza kaydı (kim, ne zaman, hangi metin sürümü, kanıt özeti) + `audit_log` | `test_submit_writes_consent_record` |
 | Bilgi sızması | Başka kullanıcının kaydına/örneğine erişmek (IDOR) | Her sorgu `user_id` kapsamlı; yoksa 404 | `test_users_cannot_touch_each_others_enrollments` |
@@ -119,6 +121,6 @@ siler ve ham dosyaları imha eder.
 
 Açık maddeler: yüz eşleştirme ve yaş tahmini sağlayıcısı (otomatik ön kontrol); zararlı yazılım
 taraması; video metadata (konum) temizleme — tarayıcı kaydında konum yok ama mobil yüklemede
-gerekecek; LiveAvatar'da özel avatar oluşturma API'si yok ve silme "yumuşak silme" (HeyGen'den
-kalıcı silme ve saklama süresi teyidi gerekiyor, §15); KMS (prod'da yerel ana anahtar kabul
+gerekecek; yüz avatarı sağlayıcısı LemonSlice (ADR 0007): her görüşmede yüklenen fotoğrafın
+LemonSlice'ta ne kadar saklandığı / eğitimde kullanılıp kullanılmadığı teyit edilmeli (§15); KMS (prod'da yerel ana anahtar kabul
 edilmez); rıza kanıtının hesap silindikten sonra ne kadar saklanacağı (hukukçu görüşü).
