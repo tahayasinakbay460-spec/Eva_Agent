@@ -20,7 +20,8 @@ import {
   type Participant,
   type RemoteTrack,
 } from "livekit-client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { MediaPicker } from "@/components/MediaPicker";
 import { ArrowLeft, MicIcon, MicOffIcon, PhoneOffIcon, VideoIcon } from "@/components/icons";
@@ -30,9 +31,11 @@ import {
   ApiError,
   endCall,
   errorCode,
+  getCharacter,
   latencyReport,
   startCall,
   type Call,
+  type Character,
   type CallMode,
   type LatencyReport,
 } from "@/lib/api/client";
@@ -47,10 +50,19 @@ export default function CallPage() {
   const { state, signedIn } = useSession();
   if (state.status === "needs_onboarding") return <AuthScreen onSignedIn={signedIn} />;
   if (state.status !== "ready") return null;
-  return <VoiceCall />;
+  return (
+    <Suspense fallback={null}>
+      <VoiceCall />
+    </Suspense>
+  );
 }
 
+/** ``?karakter=<id>`` verilirse o karakterle, yoksa EVA ile görüşme. */
 function VoiceCall() {
+  const personaId = useSearchParams().get("karakter");
+  const [character, setCharacter] = useState<Character | null>(null);
+  const name = personaId ? (character?.name ?? "") : "EVA";
+
   const [phase, setPhase] = useState<Phase>("idle");
   const [mode, setMode] = useState<CallMode>("voice");
   const [hasVideo, setHasVideo] = useState(false);
@@ -66,6 +78,24 @@ function VoiceCall() {
   const callRef = useRef<Call | null>(null);
   const audioHost = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!personaId) return;
+    let cancelled = false;
+    getCharacter(personaId)
+      .then((c) => {
+        if (cancelled) return;
+        setCharacter(c);
+        // Yüzü olan karakterle görüntülü görüşme daha doğal: varsayılan o olsun.
+        if (c.has_face) setMode("video");
+      })
+      .catch(() => {
+        if (!cancelled) setError(t.call.failed);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [personaId]);
 
   const loadReport = useCallback(async () => {
     try {
@@ -139,7 +169,7 @@ function VoiceCall() {
     setPhase("connecting");
     let call: Call;
     try {
-      call = await startCall(mode);
+      call = await startCall(mode, personaId ?? undefined);
     } catch (err) {
       setPhase("idle");
       const code = errorCode(err);
@@ -262,7 +292,7 @@ function VoiceCall() {
         {mode === "video" && phase === "in_call" && !hasVideo && agentState && (
           <p className="mt-2 max-w-md text-center text-xs text-amber">{t.call.mockAvatar}</p>
         )}
-        <p className="mt-4 text-lg font-semibold">EVA</p>
+        <p className="mt-4 text-lg font-semibold">{name}</p>
         {phase === "in_call" || phase === "connecting" ? (
           <p className="text-sm text-muted" aria-live="polite">
             {muted ? t.call.muted : statusText}
@@ -284,7 +314,7 @@ function VoiceCall() {
                 className={`text-[15px] leading-snug ${line.who === "user" ? "text-right text-white/80" : "text-cyan"} ${line.final ? "" : "opacity-70"}`}
               >
                 <span className="mr-1 text-[11px] text-muted">
-                  {line.who === "user" ? t.call.you : "EVA"}
+                  {line.who === "user" ? t.call.you : name}
                 </span>
                 {line.text}
               </p>
@@ -315,7 +345,11 @@ function VoiceCall() {
                 </button>
               ))}
             </div>
-            <MediaPicker mode={mode} />
+            <MediaPicker
+              mode={mode}
+              personaId={personaId ?? undefined}
+              personaName={character?.name}
+            />
             <button
               type="button"
               onClick={start}
@@ -326,7 +360,10 @@ function VoiceCall() {
             </button>
             <p className="text-center text-xs text-muted">{t.call.startHint}</p>
             {phase === "ended" && (
-              <Link href="/chat" className="block text-center text-sm text-muted underline">
+              <Link
+                href={personaId ? `/chat?karakter=${personaId}` : "/chat"}
+                className="block text-center text-sm text-muted underline"
+              >
                 {t.call.backToChat}
               </Link>
             )}

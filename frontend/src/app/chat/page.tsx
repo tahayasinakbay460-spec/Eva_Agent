@@ -1,18 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
-import { ArrowLeft, HeartIcon, SendIcon } from "@/components/icons";
+import { CharacterFace } from "@/components/characters/CharacterFace";
+import { ArrowLeft, HeartIcon, MicIcon, SendIcon } from "@/components/icons";
 import { SaveMemorySheet } from "@/components/memories/SaveMemorySheet";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
 import {
   createConversation,
+  getCharacter,
   listConversations,
   listMessages,
+  listPersonas,
   newIdempotencyKey,
   sendMessage,
+  type Character,
   type Message,
 } from "@/lib/api/client";
 
@@ -25,10 +30,19 @@ export default function ChatPage() {
   const { state, signedIn } = useSession();
   if (state.status === "needs_onboarding") return <AuthScreen onSignedIn={signedIn} />;
   if (state.status !== "ready") return null;
-  return <Chat />;
+  return (
+    <Suspense fallback={null}>
+      <Chat />
+    </Suspense>
+  );
 }
 
+/** ``?karakter=<id>`` verilirse o karakterle, yoksa EVA ile sohbet. */
 function Chat() {
+  const personaId = useSearchParams().get("karakter");
+  // Her personanın son sohbeti ayrı hatırlanır.
+  const storageKey = personaId ? `${CONVERSATION_KEY}.${personaId}` : CONVERSATION_KEY;
+  const [character, setCharacter] = useState<Character | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [draft, setDraft] = useState("");
@@ -40,32 +54,49 @@ function Chat() {
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Kayıtlı sohbete devam et; yoksa en son sohbeti aç; o da yoksa yeni bir sohbet oluştur.
+  useEffect(() => {
+    if (!personaId) return;
+    let cancelled = false;
+    getCharacter(personaId)
+      .then((c) => {
+        if (!cancelled) setCharacter(c);
+      })
+      .catch(() => {
+        if (!cancelled) setError(t.chat.errorFatal);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [personaId]);
+
+  // Kayıtlı sohbete devam et; yoksa bu personayla en son sohbeti aç; o da yoksa yenisini oluştur.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       let id: string | null = null;
       try {
-        id = localStorage.getItem(CONVERSATION_KEY);
+        id = localStorage.getItem(storageKey);
       } catch {
         /* localStorage okunamazsa görmezden gel */
       }
       try {
         if (!id) {
-          const [latest] = await listConversations();
-          id = latest?.id ?? (await createConversation()).id;
+          const target =
+            personaId ?? (await listPersonas()).find((p) => p.slug === "eva")?.id ?? null;
+          const latest = (await listConversations()).find((c) => c.persona_id === target);
+          id = latest?.id ?? (await createConversation(personaId ?? undefined)).id;
         }
         const history = await listMessages(id);
         if (cancelled) return;
-        localStorage.setItem(CONVERSATION_KEY, id);
+        localStorage.setItem(storageKey, id);
         setConversationId(id);
         setBubbles(history);
       } catch {
         if (cancelled) return;
         // kayıtlı ID artık geçersiz olabilir (başka kullanıcı / silinmiş veritabanı): yeniden başla
         try {
-          const created = await createConversation();
-          localStorage.setItem(CONVERSATION_KEY, created.id);
+          const created = await createConversation(personaId ?? undefined);
+          localStorage.setItem(storageKey, created.id);
           setConversationId(created.id);
           setBubbles([]);
         } catch (err) {
@@ -77,7 +108,7 @@ function Chat() {
       cancelled = true;
       abortRef.current?.abort();
     };
-  }, []);
+  }, [personaId, storageKey]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -161,12 +192,14 @@ function Chat() {
 
   async function startNew() {
     abortRef.current?.abort();
-    const created = await createConversation();
-    localStorage.setItem(CONVERSATION_KEY, created.id);
+    const created = await createConversation(personaId ?? undefined);
+    localStorage.setItem(storageKey, created.id);
     setConversationId(created.id);
     setBubbles([]);
     setError(null);
   }
+
+  const title = personaId ? (character?.name ?? "") : "EVA";
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -174,11 +207,20 @@ function Chat() {
         <Link href="/" aria-label="Geri" className="rounded-full p-1 text-muted hover:text-white">
           <ArrowLeft />
         </Link>
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-xs font-bold">
-          E
-        </span>
+        {character ? (
+          <CharacterFace
+            id={character.id}
+            name={character.name}
+            hasFace={character.has_face}
+            className="h-9 w-9 rounded-full text-xs"
+          />
+        ) : (
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-xs font-bold">
+            E
+          </span>
+        )}
         <span className="min-w-0 flex-1 leading-tight">
-          <span className="block font-semibold">EVA</span>
+          <span className="block truncate font-semibold">{title}</span>
           <span className="flex items-center gap-1 text-[11px] text-muted">
             <span className="h-1.5 w-1.5 rounded-full bg-mint" />
             {streaming ? t.chat.typing : t.chat.online}
@@ -188,6 +230,15 @@ function Chat() {
         <span className="rounded-full border border-amber/40 bg-amber/10 px-2 py-0.5 text-[10px] font-medium text-amber">
           {t.app.aiBadge}
         </span>
+        {personaId && (
+          <Link
+            href={`/gorusme?karakter=${personaId}`}
+            aria-label={t.characters.call}
+            className="rounded-full p-1 text-muted hover:text-white"
+          >
+            <MicIcon size={18} />
+          </Link>
+        )}
         <button
           onClick={startNew}
           title={t.chat.newConversation}
@@ -200,7 +251,9 @@ function Chat() {
 
       <main className="flex-1 space-y-2 px-4 py-4">
         {bubbles.length === 0 && (
-          <p className="pt-20 text-center text-sm text-muted">{t.chat.empty}</p>
+          <p className="pt-20 text-center text-sm text-muted">
+            {personaId ? t.chat.emptyCharacter : t.chat.empty}
+          </p>
         )}
         {bubbles.map((m) => (
           <BubbleView key={m.id} bubble={m} onSaveAsMemory={setSaving} />
@@ -230,7 +283,7 @@ function Chat() {
               submit(e);
             }
           }}
-          placeholder={t.chat.placeholder}
+          placeholder={personaId ? t.chat.placeholderCharacter : t.chat.placeholder}
           rows={1}
           maxLength={4000}
           className="max-h-32 min-h-[44px] flex-1 resize-none rounded-2xl border border-border bg-white/5 px-4 py-2.5 text-[15px] outline-none focus:border-accent"

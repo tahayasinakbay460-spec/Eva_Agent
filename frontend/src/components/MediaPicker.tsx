@@ -8,9 +8,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CharacterFace } from "@/components/characters/CharacterFace";
 import { messages } from "@/i18n";
 import {
   OWN_MEDIA,
+  PERSONA_MEDIA,
   avatarImageUrl,
   catalogVoicePreview,
   errorCode,
@@ -22,14 +24,23 @@ import {
 
 const t = messages().mediaPicker;
 
-export function MediaPicker({ mode }: { mode: CallMode }) {
+/** ``personaId`` verilirse o karakterin sesi/yüzü seçilir (karakterin kendi yüzü de seçenek). */
+export function MediaPicker({
+  mode,
+  personaId,
+  personaName,
+}: {
+  mode: CallMode;
+  personaId?: string;
+  personaName?: string;
+}) {
   const [options, setOptions] = useState<MediaOptions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    mediaOptions()
+    mediaOptions(personaId)
       .then((o) => {
         if (!cancelled) setOptions(o);
       })
@@ -39,7 +50,7 @@ export function MediaPicker({ mode }: { mode: CallMode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [personaId]);
 
   if (!options) return error ? <p className="text-xs text-red-300">{error}</p> : null;
   const { selected } = options;
@@ -50,13 +61,17 @@ export function MediaPicker({ mode }: { mode: CallMode }) {
     // boş = personanın varsayılanı.
     const usable = (key: string, list: { key: string }[], own: boolean) =>
       (key === OWN_MEDIA ? own : list.some((o) => o.key === key)) ? key : null;
+    const avatarKey =
+      avatar === PERSONA_MEDIA && options.persona_avatar
+        ? avatar
+        : usable(avatar, options.avatars, options.own_avatar);
     setError(null);
     try {
       setOptions(
-        await setMediaPreference({
-          voice: usable(voice, options.voices, options.own_voice),
-          avatar: usable(avatar, options.avatars, options.own_avatar),
-        }),
+        await setMediaPreference(
+          { voice: usable(voice, options.voices, options.own_voice), avatar: avatarKey },
+          personaId,
+        ),
       );
     } catch (err) {
       const code = errorCode(err);
@@ -83,7 +98,7 @@ export function MediaPicker({ mode }: { mode: CallMode }) {
   return (
     <div className="space-y-4 rounded-2xl bg-white/5 p-3">
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold">{t.voice}</h3>
+        <h3 className="text-sm font-semibold">{personaId ? t.voiceGeneric : t.voice}</h3>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t.voice}>
           {options.voices.map((v) => (
             <span
@@ -131,8 +146,25 @@ export function MediaPicker({ mode }: { mode: CallMode }) {
 
       {mode === "video" && (
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold">{t.face}</h3>
+          <h3 className="text-sm font-semibold">{personaId ? t.faceGeneric : t.face}</h3>
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t.face}>
+            {personaId && options.persona_avatar && (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selected.avatar === PERSONA_MEDIA}
+                onClick={() => void choose(selected.voice, PERSONA_MEDIA)}
+                className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-xs ${selected.avatar === PERSONA_MEDIA ? "border-accent bg-accent/15" : "border-border"}`}
+              >
+                <CharacterFace
+                  id={personaId}
+                  name={personaName ?? ""}
+                  hasFace
+                  className="aspect-[2/3] w-full rounded-lg"
+                />
+                <span className="truncate">{personaName ?? t.personaFace}</span>
+              </button>
+            )}
             {options.avatars.map((a) => (
               <FaceCard
                 key={a.key}
@@ -151,7 +183,7 @@ export function MediaPicker({ mode }: { mode: CallMode }) {
               />
             )}
           </div>
-          {options.avatars.length === 0 && !options.own_avatar && (
+          {options.avatars.length === 0 && !options.own_avatar && !options.persona_avatar && (
             <p className="text-xs text-amber">{t.noFaces}</p>
           )}
           {!options.own_avatar && (

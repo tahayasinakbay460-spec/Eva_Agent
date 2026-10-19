@@ -140,8 +140,15 @@ export const passwordResetFinish = (flowId: string, code: string, newPassword: s
 
 export const me = () => request<User>("/auth/me");
 export const listConversations = () => request<Conversation[]>("/chat/conversations");
-export const createConversation = () =>
-  request<Conversation>("/chat/conversations", { method: "POST", body: "{}" });
+/** ``personaId`` boşsa EVA ile, doluysa o karakterle yeni sohbet. */
+export const createConversation = (personaId?: string) =>
+  request<Conversation>("/chat/conversations", {
+    method: "POST",
+    body: JSON.stringify(personaId ? { persona_id: personaId } : {}),
+  });
+
+export type Persona = Schemas["PersonaOut"];
+export const listPersonas = () => request<Persona[]>("/personas");
 export const listMessages = (conversationId: string) =>
   request<Message[]>(`/chat/conversations/${conversationId}/messages`);
 
@@ -212,7 +219,8 @@ export type CallMode = Call["mode"];
 export type LatencyReport = Schemas["LatencyReportOut"];
 
 // Ses ve yüz, görüşmeden önce seçilir (/media/preferences); görüşme o anki seçimi kullanır.
-export const startCall = (mode: CallMode = "voice") => post<Call>("/voice/calls", { mode });
+export const startCall = (mode: CallMode = "voice", personaId?: string) =>
+  post<Call>("/voice/calls", personaId ? { mode, persona_id: personaId } : { mode });
 export const endCall = (callId: string) => post<void>(`/voice/calls/${callId}/end`, {});
 export const latencyReport = () => request<LatencyReport>("/voice/latency");
 
@@ -224,10 +232,22 @@ export const latencyReport = () => request<LatencyReport>("/voice/latency");
 export type MediaOptions = Schemas["MediaOptionsOut"];
 export type MediaOption = Schemas["MediaOptionOut"];
 export const OWN_MEDIA = "own";
+// Karakterin kendi yüz görseli (ADR 0009).
+export const PERSONA_MEDIA = "persona";
 
-export const mediaOptions = () => request<MediaOptions>("/media/options");
-export const setMediaPreference = (choice: { voice: string | null; avatar: string | null }) =>
-  request<MediaOptions>("/media/preferences", { method: "PUT", body: JSON.stringify(choice) });
+const personaQuery = (personaId?: string) =>
+  personaId ? `?persona_id=${encodeURIComponent(personaId)}` : "";
+
+export const mediaOptions = (personaId?: string) =>
+  request<MediaOptions>(`/media/options${personaQuery(personaId)}`);
+export const setMediaPreference = (
+  choice: { voice: string | null; avatar: string | null },
+  personaId?: string,
+) =>
+  request<MediaOptions>("/media/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ ...choice, persona_id: personaId ?? null }),
+  });
 
 async function blobUrl(path: string, method: "GET" | "POST" = "GET"): Promise<string> {
   const headers = new Headers();
@@ -244,6 +264,42 @@ export const catalogVoicePreview = (key: string) =>
 /** Katalogdaki bir yüzün küçük resmi (yalnızca yerel görseli olanlarda). */
 export const avatarImageUrl = (key: string) =>
   blobUrl(`/media/avatars/${encodeURIComponent(key)}/image`);
+
+/* Karakter Stüdyosu (Faz 4, ADR 0009). */
+
+export type Character = Schemas["CharacterOut"];
+export type CharacterIn = Schemas["CharacterIn"];
+
+export const listCharacters = (scope: "public" | "mine" = "public") =>
+  request<Character[]>(`/characters?scope=${scope}`);
+export const getCharacter = (id: string) =>
+  request<Character>(`/characters/${encodeURIComponent(id)}`);
+export const createCharacter = (body: CharacterIn) => post<Character>("/characters", body);
+export const updateCharacter = (id: string, body: CharacterIn) =>
+  request<Character>(`/characters/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+export const deleteCharacter = (id: string) =>
+  request<void>(`/characters/${encodeURIComponent(id)}`, { method: "DELETE" });
+export const removeCharacterFace = (id: string) =>
+  request<Character>(`/characters/${encodeURIComponent(id)}/face`, { method: "DELETE" });
+/** Karakterin yüz görselinin geçici adresi (kullanınca ``URL.revokeObjectURL``). */
+export const characterFaceUrl = (id: string) =>
+  blobUrl(`/characters/${encodeURIComponent(id)}/face`);
+
+/** Yüz görselini ham gövde olarak yükler; kullanıcı hak / 18+ beyanını onaylamış olmalı. */
+export async function uploadCharacterFace(id: string, file: Blob): Promise<Character> {
+  const headers = new Headers({ "Content-Type": file.type || "application/octet-stream" });
+  const token = tokenStore.get();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(
+    `${API_URL}/characters/${encodeURIComponent(id)}/face?rights_confirmed=true`,
+    { method: "PUT", headers, body: file },
+  );
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return (await res.json()) as Character;
+}
 
 /** Backend hatasındaki kısa kod (ör. `{"detail": "step_up_required"}` -> "step_up_required"). */
 export function errorCode(err: unknown): string | null {
