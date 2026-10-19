@@ -329,6 +329,9 @@ export const tr = {
     decided: "Karar kaydedildi.",
   },
   characters: {
+    builtin: "Hazır",
+    blockedName:
+      "Bu ad kullanılamıyor: telifli bir karakter ya da hassas bir figür olabilir. Başka bir ad dene.",
     title: "Keşfet",
     subtitle: "Karakterlerle tanış ya da kendi karakterini oluştur.",
     tabPublic: "Herkes",

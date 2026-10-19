@@ -1,0 +1,84 @@
+# Telifli karakter ve markalar (CLAUDE.md §9.1, §12 "Telif"). Kullanıcının oluşturduğu bir
+# karakterin ADI bunlardan birini içerirse karakter oluşturulamaz. (Kimlik metnine bakılmaz:
+# "Harry Potter hayranı bir genç" gibi masum açıklamalar engellenmesin.) Gerçek insan adı da
+# olabilen tek kelimeler (Elsa, Mario...) yerine tam karakter adı yazılır.
+# Eşleşme büyük/küçük harf ve Türkçe karakter duyarsız, tam kelime ya da kelime grubu olarak
+# yapılır (ör. "batman" eşleşir, "batmanlı" eşleşmez). Liste hukukçu görüşüyle genişletilir.
+# Kamu malı kurgusal karakterler (Sherlock Holmes, Keloğlan, Nasreddin Hoca, Dracula...) burada
+# YOK; onlar serbest.
+
+terms:
+  # Disney / Pixar / Marvel / Lucasfilm
+  - mickey mouse
+  - minnie mouse
+  - donald duck
+  - elsa arendelle
+  - buzz lightyear
+  - woody pride
+  - spider-man
+  - spiderman
+  - örümcek adam
+  - iron man
+  - demir adam
+  - captain america
+  - kaptan amerika
+  - incredible hulk
+  - thanos
+  - deadpool
+  - wolverine
+  - darth vader
+  - yoda
+  - luke skywalker
+  - star wars
+  - yıldız savaşları
+  - marvel
+  - disney
+  - pixar
+  # Warner / DC
+  - batman
+  - superman
+  - wonder woman
+  - harry potter
+  - hermione granger
+  - voldemort
+  - dumbledore
+  - bugs bunny
+  - tom ve jerry
+  - tom and jerry
+  - scooby doo
+  # Nintendo / Sega / Pokémon / anime
+  - pokemon
+  - pokémon
+  - pikachu
+  - super mario
+  - legend of zelda
+  - sonic the hedgehog
+  - naruto
+  - goku
+  - dragon ball
+  - one piece
+  - luffy
+  - doraemon
+  # Diğer
+  - shrek
+  - simpsons
+  - simpsonlar
+  - homer simpson
+  - spongebob
+  - sünger bob
+  - hello kitty
+  - barbie
+  - minions
+  - minyonlar
+  - peppa pig
+  - james bond
+  - frodo baggins
+  - gandalf
+  - yüzüklerin efendisi
+  # Türk telifli karakterler
+  - recep ivedik
+  - kral şakir
+  - rafadan tayfa
+  - pepee
+  - niloya
+  - kukuli

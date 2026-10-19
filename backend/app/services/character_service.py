@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models.persona import Persona
 from app.models.user import User
+from app.persona.blocklist import blocklist_for
+from app.persona.media import FILE_PREFIX, MediaNotConfiguredError
 from app.persona.types import PersonaDefinition
 from app.providers.registry import ProviderRegistry
 from app.schemas.character import CharacterIn, CharacterOut, Visibility
@@ -63,7 +65,21 @@ def _definition(data: CharacterIn) -> PersonaDefinition:
     )
 
 
-def to_out(persona: Persona, user: User) -> CharacterOut:
+def _catalog_avatar(settings: Settings | None, persona: Persona) -> str | None:
+    if settings is None or persona.slug is None:
+        return None
+    catalog = media_service.catalog(settings)
+    try:
+        key = catalog.default(persona.slug, "avatar")
+    except MediaNotConfiguredError:
+        return None
+    option = catalog.avatars.get(key)
+    if option is None or not any(v.startswith(FILE_PREFIX) for v in option.ids.values()):
+        return None
+    return key
+
+
+def to_out(persona: Persona, user: User, settings: Settings | None = None) -> CharacterOut:
     d = PersonaDefinition.model_validate(persona.definition)
     visibility: Visibility = "public" if persona.visibility == "public" else "private"
     return CharacterOut(
@@ -78,7 +94,18 @@ def to_out(persona: Persona, user: User) -> CharacterOut:
         voice_key=persona.voice_key,
         has_face=persona.face_blob_key is not None,
         is_mine=persona.owner_id == user.id,
+        builtin=persona.owner_id is None,
+        catalog_avatar=_catalog_avatar(settings, persona),
     )
+
+
+def _check_name(settings: Settings, name: str) -> None:
+    """Telifli karakter ve hassas figür adları engelli (§9.1)."""
+    match = blocklist_for(
+        settings.blocked_franchises_config, settings.sensitive_figures_config
+    ).check(name)
+    if match is not None:
+        raise CharacterError(f"blocked_{match.category}", status=422)
 
 
 def _check_voice(settings: Settings, registry: ProviderRegistry, key: str | None) -> None:
@@ -93,6 +120,7 @@ async def create(
     user: User,
     data: CharacterIn,
 ) -> Persona:
+    _check_name(settings, data.name)
     _check_voice(settings, registry, data.voice_key)
     count = await db.scalar(
         select(func.count())
@@ -122,6 +150,7 @@ async def update(
     persona: Persona,
     data: CharacterIn,
 ) -> Persona:
+    _check_name(settings, data.name)
     _check_voice(settings, registry, data.voice_key)
     persona.name = data.name
     persona.definition = _definition(data).model_dump()
@@ -144,7 +173,8 @@ async def list_public(db: AsyncSession, *, limit: int, offset: int) -> list[Pers
     result = await db.execute(
         select(Persona)
         .where(Persona.type == "character", Persona.visibility == "public")
-        .order_by(Persona.created_at.desc())
+        # Hazır karakterler önce, sonra en yeni kullanıcı karakterleri.
+        .order_by(Persona.owner_id.is_(None).desc(), Persona.created_at.desc())
         .limit(limit)
         .offset(offset)
     )

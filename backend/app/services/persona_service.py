@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.legacy import LegacyAccess
 from app.models.persona import Persona
 from app.models.user import User
+from app.persona.builtin import BUILTIN_CHARACTERS
 from app.persona.eva import EVA_DEFINITION, EVA_SLUG
 from app.persona.types import PersonaDefinition
 
@@ -33,6 +34,35 @@ async def ensure_default_eva(db: AsyncSession) -> Persona:
         db.add(persona)
         await db.commit()
     return persona
+
+
+async def ensure_builtin_characters(db: AsyncSession) -> None:
+    """Hazır karakterleri yazar ya da günceller (tanım kodda değiştiyse). Kimsenin malı değiller,
+    herkese açıklar (§9.1)."""
+    existing = {
+        p.slug: p
+        for p in (
+            await db.scalars(select(Persona).where(Persona.slug.in_(list(BUILTIN_CHARACTERS))))
+        ).all()
+    }
+    for slug, definition in BUILTIN_CHARACTERS.items():
+        persona = existing.get(slug)
+        if persona is None:
+            db.add(
+                Persona(
+                    type="character",
+                    owner_id=None,
+                    slug=slug,
+                    name=definition.name,
+                    definition=definition.model_dump(),
+                    policy={},
+                    visibility="public",
+                )
+            )
+        elif persona.definition != definition.model_dump() or persona.name != definition.name:
+            persona.name = definition.name
+            persona.definition = definition.model_dump()
+    await db.commit()
 
 
 async def get_default_eva(db: AsyncSession) -> Persona:

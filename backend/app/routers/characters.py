@@ -54,6 +54,7 @@ async def _owned(db: AsyncSession, user: User, character_id: uuid.UUID) -> Perso
 
 @router.get("", response_model=list[CharacterOut], dependencies=[default_limit])
 async def list_characters(
+    request: Request,
     user: CurrentUser,
     db: DB,
     scope: Annotated[Literal["public", "mine"], Query()] = "public",
@@ -64,7 +65,7 @@ async def list_characters(
         personas = await character_service.list_mine(db, user)
     else:
         personas = await character_service.list_public(db, limit=limit, offset=offset)
-    return [character_service.to_out(p, user) for p in personas]
+    return [character_service.to_out(p, user, request.app.state.settings) for p in personas]
 
 
 @router.post(
@@ -81,12 +82,16 @@ async def create_character(
         persona = await character_service.create(db, state.settings, state.registry, user, body)
     except character_service.CharacterError as exc:
         raise _raise(exc) from exc
-    return character_service.to_out(persona, user)
+    return character_service.to_out(persona, user, request.app.state.settings)
 
 
 @router.get("/{character_id}", response_model=CharacterOut, dependencies=[default_limit])
-async def get_character(character_id: uuid.UUID, user: CurrentUser, db: DB) -> CharacterOut:
-    return character_service.to_out(await _visible(db, user, character_id), user)
+async def get_character(
+    request: Request, character_id: uuid.UUID, user: CurrentUser, db: DB
+) -> CharacterOut:
+    return character_service.to_out(
+        await _visible(db, user, character_id), user, request.app.state.settings
+    )
 
 
 @router.put("/{character_id}", response_model=CharacterOut, dependencies=[default_limit])
@@ -99,7 +104,7 @@ async def update_character(
         persona = await character_service.update(db, state.settings, state.registry, persona, body)
     except character_service.CharacterError as exc:
         raise _raise(exc) from exc
-    return character_service.to_out(persona, user)
+    return character_service.to_out(persona, user, request.app.state.settings)
 
 
 @router.delete(
@@ -150,7 +155,7 @@ async def upload_face(
         )
     except character_service.CharacterError as exc:
         raise _raise(exc) from exc
-    return character_service.to_out(persona, user)
+    return character_service.to_out(persona, user, request.app.state.settings)
 
 
 @router.delete("/{character_id}/face", response_model=CharacterOut, dependencies=[default_limit])
@@ -159,7 +164,7 @@ async def delete_face(
 ) -> CharacterOut:
     persona = await _owned(db, user, character_id)
     await character_service.remove_face(db, _store(request), persona)
-    return character_service.to_out(persona, user)
+    return character_service.to_out(persona, user, request.app.state.settings)
 
 
 @router.get(

@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     @field_validator(
         "providers_config",
         "media_config",
+        "blocked_franchises_config",
+        "sensitive_figures_config",
         "storage_dir",
         "dev_master_key_file",
         "dev_legacy_pepper_file",
@@ -62,6 +64,9 @@ class Settings(BaseSettings):
         return value if value.is_absolute() else (_BACKEND_ROOT / value).resolve()
 
     providers_config: Path = _REPO_ROOT / "config" / "providers.yaml"
+    # Karakter engel listeleri (§9.1).
+    blocked_franchises_config: Path = _REPO_ROOT / "config" / "blocked_franchises.yaml"
+    sensitive_figures_config: Path = _REPO_ROOT / "config" / "sensitive_figures.yaml"
     media_config: Path = _REPO_ROOT / "config" / "media.yaml"
     # Tüm llm.* özelliklerini tek bir adaptöre zorlar (testler "mock" kullanır).
     llm_provider_override: str | None = None

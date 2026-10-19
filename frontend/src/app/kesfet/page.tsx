@@ -103,11 +103,17 @@ function Explore() {
                 id={c.id}
                 name={c.name}
                 hasFace={c.has_face}
+                catalogAvatar={c.catalog_avatar}
                 className="aspect-square w-full text-3xl"
               />
               <div className="flex flex-1 flex-col gap-1 p-3">
                 <span className="flex items-center gap-2 font-semibold">
                   <span className="truncate">{c.name}</span>
+                  {c.builtin && (
+                    <span className="rounded-full bg-accent/20 px-1.5 text-[10px] text-accent">
+                      {t.builtin}
+                    </span>
+                  )}
                   {c.visibility === "private" && (
                     <span className="rounded-full bg-white/10 px-1.5 text-[10px] text-muted">
                       {t.private}

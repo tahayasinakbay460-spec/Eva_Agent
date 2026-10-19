@@ -3764,6 +3764,21 @@
           "is_mine": {
             "type": "boolean",
             "title": "Is Mine"
+          },
+          "builtin": {
+            "type": "boolean",
+            "title": "Builtin"
+          },
+          "catalog_avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Avatar"
           }
         },
         "type": "object",
@@ -3778,7 +3793,8 @@
           "visibility",
           "voice_key",
           "has_face",
-          "is_mine"
+          "is_mine",
+          "builtin"
         ],
         "title": "CharacterOut"
       },

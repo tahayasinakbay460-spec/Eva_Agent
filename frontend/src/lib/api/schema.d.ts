@@ -1301,6 +1301,10 @@ export interface components {
             has_face: boolean;
             /** Is Mine */
             is_mine: boolean;
+            /** Builtin */
+            builtin: boolean;
+            /** Catalog Avatar */
+            catalog_avatar?: string | null;
         };
         /**
          * CodeFlowOut

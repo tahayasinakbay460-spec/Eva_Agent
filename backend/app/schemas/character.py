@@ -35,3 +35,8 @@ class CharacterOut(BaseModel):
     voice_key: str | None
     has_face: bool
     is_mine: bool
+    # Bizim yazdığımız hazır karakter (kimsenin malı değil, düzenlenemez).
+    builtin: bool
+    # config/media.yaml'da bu karakter için yerel görselli bir yüz varsa anahtarı
+    # (küçük resim: GET /media/avatars/{key}/image).
+    catalog_avatar: str | None = None

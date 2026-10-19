@@ -48,6 +48,7 @@ DEV_ONLY_MESSAGING = frozenset({"mock", "dev_mailbox"})
 async def seed_defaults(app: FastAPI) -> None:
     async with app.state.session_factory() as db:
         await persona_service.ensure_default_eva(db)
+        await persona_service.ensure_builtin_characters(db)
 
 
 def check_production_providers(app: FastAPI) -> None:

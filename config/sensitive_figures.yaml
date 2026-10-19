@@ -1,0 +1,80 @@
+# Hassas figürler (CLAUDE.md §9.1). Adı bu listedeki bir figürü içeren karakter oluşturulamaz.
+# (Kimlik metnine bakılmaz: "dindar bir dede" ya da "savaşta faşizme karşı savaşmış bir asker"
+# gibi açıklamalar engellenmesin.)
+# TASLAK: hukukçu görüşü alınana kadar (§15 "Hassas figürler listesinin son hali") çekinceli
+# her figür kapalı tutulur. Eşleşme büyük/küçük harf ve Türkçe karakter duyarsız, tam kelime ya
+# da kelime grubu; "hz." / "hazreti" ön ekleri yok sayılır.
+#
+# Türkiye'de yaygın gerçek insan adları (Muhammed, Ebubekir, Mustafa Kemal, İsa, Musa...) tek
+# başına engellenmez; yalnızca figürü açıkça işaret eden biçimler (hz., peygamber, soyadı) yazılır.
+#
+# Kategoriler:
+#   sacred   peygamberler ve kutsal sayılan figürler (engelli)
+#   hate     soykırım failleri, terör örgütü liderleri, nefret ve şiddetle özdeşleşmiş figürler (engelli)
+#   legal    Türk hukukunda özel korunan figürler, ör. 5816 sayılı Kanun (hukukçu onayı olmadan kapalı)
+#
+# Fatih Sultan Mehmet, Kanuni Sultan Süleyman, Selahaddin Eyyubi gibi tarihi hükümdarlar bu
+# listede değildir; saygılı bir dille hazır karakter olarak sunulur.
+
+sacred:
+  - hz muhammed
+  - muhammed peygamber
+  - peygamber efendimiz
+  - prophet muhammad
+  - peygamber
+  - resulullah
+  - isa mesih
+  - hz isa
+  - jesus christ
+  - musa peygamber
+  - moses
+  - ibrahim peygamber
+  - abraham
+  - nuh peygamber
+  - yusuf peygamber
+  - süleyman peygamber
+  - davud peygamber
+  - meryem ana
+  - virgin mary
+  - cebrail
+  - allah
+  - tanrı
+  - god
+  - hz ebubekir
+  - hz ömer
+  - hz osman
+  - hz ali
+  - hz fatıma
+  - hz hasan
+  - hz hüseyin
+  - buddha
+  - buda
+
+hate:
+  - hitler
+  - adolf hitler
+  - himmler
+  - goebbels
+  - mussolini
+  - stalin
+  - pol pot
+  - ratko mladic
+  - ratko mladiç
+  - radovan karadzic
+  - radovan karadziç
+  - slobodan milosevic
+  - usame bin ladin
+  - osama bin laden
+  - bin ladin
+  - el bağdadi
+  - al baghdadi
+  - ebubekir el bağdadi
+  - abdullah öcalan
+  - fethullah gülen
+  - anders breivik
+  - brenton tarrant
+
+legal:
+  - atatürk
+  - mustafa kemal atatürk
+  - gazi mustafa kemal

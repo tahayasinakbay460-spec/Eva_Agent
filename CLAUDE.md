@@ -92,7 +92,8 @@ eva/
 │   │   │                    # memory (CRUD), memory_retrieval (sıcak yol), memory_extraction (işçi),
 │   │   │                    # voice (görüşme + CallTurns), biometric, consent_texts, audit,
 │   │   │                    # media (EVA'nın sesi/yüzü: katalog ya da kullanıcının kendi klonu)
-│   │   ├── persona/         # domain çekirdeği: PersonaDefinition, safety_core, eva, PersonaCompiler, media
+│   │   ├── persona/         # domain çekirdeği: PersonaDefinition, safety_core, eva, builtin (hazır karakterler),
+│   │   │                    # blocklist (telif + hassas figür), PersonaCompiler, media
 │   │   ├── providers/       # sağlayıcı sınırı: base (9 arayüz), mock, registry; gerçek adaptörler:
 │   │   │                    # openai_llm, openai_stt, elevenlabs (TTS + ses klonu), liveavatar (LITE),
 │   │   │                    # anam ve lemonslice (yalnızca yüz; sesi LiveKit odasından alır;
@@ -514,7 +515,7 @@ Kullanıcıya sorulacak; karar verilene kadar ilgili özellik kapalı kalır.
 - [x] Karakterin yüzü/sesi → kullanıcının yüklediği görsel (kendi fotoğrafı, çizim ya da başka birinin fotoğrafı; hak + 18+ beyanıyla) + hazır ses (sahibin kararı, demo aşaması, ADR 0009, 2026-10-19). §2 kural 2'ye bu karar istisnadır.
 - [ ] Lansmandan önce: başka gerçek kişinin fotoğrafı için rıza / bildir-kaldır, herkese açık karakterlerde bildir/engelle, reşit olmayan yüzüne karşı kontrol (ADR 0009)
 - [ ] Gelir modeli ve plan kotaları (avatar dakikası maliyeti nedeniyle)
-- [ ] Hassas figürler listesinin son hali (hukukçu görüşüyle)
+- [ ] Hassas figürler listesinin son hali (hukukçu görüşüyle) — taslak `config/sensitive_figures.yaml` (2026-10-19), yalnızca karakter adına bakar
 - [x] LLM sağlayıcısı → OpenAI GPT (ADR 0004, 2026-10-16)
 - [x] Biyometrik kayıt incelemesi → yüz eşleştirme / yaş tahmini sağlayıcısı yok; her kayıt bir admin tarafından elle onaylanır (ADR 0006, 2026-10-16)
 - [x] Yüz avatarı sağlayıcısı → LemonSlice, tek fotoğraftan; kullanıcının fotoğrafı bizde kalır (ADR 0007, 2026-10-17)

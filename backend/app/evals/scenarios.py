@@ -14,6 +14,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.persona.builtin import BUILTIN_CHARACTERS
 from app.persona.eva import EVA_DEFINITION, EVA_SLUG
 from app.persona.types import PersonaDefinition
 
@@ -89,12 +90,13 @@ def load_eval_set(root: Path) -> EvalSet:
         suites_raw = _read_yaml(root / "suites.yaml") or {}
         suites = {str(k): Suite.model_validate(v) for k, v in suites_raw.items()}
 
-        personas: dict[str, PersonaDefinition] = {EVA_SLUG: EVA_DEFINITION}
+        # EVA ve hazır karakterler (slug ile) hazır gelir; personas.yaml yalnızca test personaları.
+        personas: dict[str, PersonaDefinition] = {EVA_SLUG: EVA_DEFINITION, **BUILTIN_CHARACTERS}
         personas_file = root / "personas.yaml"
         extra = _read_yaml(personas_file) if personas_file.exists() else {}
         for key, value in (extra or {}).items():
-            if key == EVA_SLUG:
-                raise EvalConfigError("personas.yaml: 'eva' is built in")
+            if key in personas:
+                raise EvalConfigError(f"personas.yaml: {key!r} is built in")
             personas[str(key)] = PersonaDefinition.model_validate(value)
 
         scenarios: dict[str, list[Scenario]] = {}

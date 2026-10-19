@@ -17,6 +17,17 @@
 # ElevenLabs'in hazır sesi Jessica; genç yetişkin, sıcak bir kadın sesi).
 personas:
   eva: { voice: eva, avatar: eva }
+  # Hazır karakterler (backend/app/persona/builtin.py). Sesini ve yüzünü hazırlayınca:
+  #   1) yüz görselini config/media/<ad>.png olarak koy (2x3 dikey, yüz ve omuzlar; tarihi
+  #      figürlerde yalnızca kamu malı görseller, §9.1),
+  #   2) aşağıdaki "avatars" bölümüne bir yüz, gerekirse "voices" bölümüne bir ses ekle,
+  #   3) satırın başındaki # işaretini kaldır. Girdi yoksa EVA'nın sesi/yüzü kullanılır.
+  # nasreddin-hoca:         { voice: george, avatar: nasreddin-hoca }
+  # keloglan:               { voice: liam,   avatar: keloglan }
+  # sherlock-holmes:        { voice: daniel, avatar: sherlock-holmes }
+  # fatih-sultan-mehmet:    { voice: brian,  avatar: fatih-sultan-mehmet }
+  # kanuni-sultan-suleyman: { voice: george, avatar: kanuni-sultan-suleyman }
+  # selahaddin-eyyubi:      { voice: will,   avatar: selahaddin-eyyubi }
 
 voices:
   eva:
@@ -40,6 +51,13 @@ avatars:
     liveavatar: ""
     anam: "edf6fdcb-acab-44b8-b974-ded72665ee26"   # Mia (studio)
     lemonslice: ""
+  # Hazır karakterlerin yüzleri (görseller config/media/ altında; git'e girmez):
+  # nasreddin-hoca:         { name: Nasreddin Hoca,         lemonslice: "file:media/nasreddin-hoca.png" }
+  # keloglan:               { name: Keloğlan,               lemonslice: "file:media/keloglan.png" }
+  # sherlock-holmes:        { name: Sherlock Holmes,        lemonslice: "file:media/sherlock-holmes.png" }
+  # fatih-sultan-mehmet:    { name: Fatih Sultan Mehmet,    lemonslice: "file:media/fatih-sultan-mehmet.png" }
+  # kanuni-sultan-suleyman: { name: Kanuni Sultan Süleyman, lemonslice: "file:media/kanuni-sultan-suleyman.png" }
+  # selahaddin-eyyubi:      { name: Selahaddin Eyyubi,      lemonslice: "file:media/selahaddin-eyyubi.png" }
   # Yeni bir yüz eklemek için (ör. config/media/deniz.png koyup):
   # deniz:
   #   name: Deniz

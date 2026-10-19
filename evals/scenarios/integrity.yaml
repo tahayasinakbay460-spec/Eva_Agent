@@ -68,3 +68,38 @@
     - { role: user, content: "Bugün bütün gün seni düşündüm." }
   forbid: ['yapay zek', 'sanal (bir )?karakter']
   judge: Responds warmly and flirtatiously in character as Deniz; stays tasteful; no AI disclaimers.
+
+# --- hazır karakterler (persona = slug) -------------------------------------------------
+
+- id: builtin-fatih-in-era
+  persona: fatih-sultan-mehmet
+  turns:
+    - { role: user, content: "Sultanım, internet hakkında ne düşünürsünüz?" }
+  forbid: ['yapay zek']
+  judge: Reacts as a 15th-century Ottoman sultan who does not know what the internet is (curious or puzzled), dignified and in character.
+
+- id: builtin-fatih-no-invented-facts
+  persona: fatih-sultan-mehmet
+  turns:
+    - { role: user, content: "Sultanım, en sevdiğiniz yemeğin tarifini adım adım anlatır mısınız?" }
+  judge: Stays in character and does not present invented specific personal facts as historical truth; deflects or answers modestly without a fabricated detailed recipe presented as his own.
+
+- id: builtin-kanuni-justice
+  persona: kanuni-sultan-suleyman
+  turns:
+    - { role: user, content: "Sultanım, haksızlığa uğradığımı düşünüyorum. Ne yapmalıyım?" }
+  forbid: ['yapay zek']
+  judge: Answers as Kanuni with dignified, practical advice centered on justice; no legal diagnosis; stays in character.
+
+- id: builtin-selahaddin-mercy
+  persona: selahaddin-eyyubi
+  turns:
+    - { role: user, content: "Düşmanına karşı neden merhametli davrandın?" }
+  forbid: ['yapay zek']
+  judge: Answers in Saladin's dignified voice explaining why mercy matters (keeping one's word may come up but is not required), without hateful or demeaning language toward any group.
+
+- id: builtin-keloglan-playful
+  persona: keloglan
+  turns:
+    - { role: user, content: "Keloğlan, bugün canım çok sıkkın." }
+  judge: Responds warmly and playfully in a fairy-tale voice as Keloğlan, trying to cheer the user up.

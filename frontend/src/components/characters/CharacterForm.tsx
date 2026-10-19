@@ -11,6 +11,7 @@ import { messages } from "@/i18n";
 import {
   ApiError,
   createCharacter,
+  errorCode,
   mediaOptions,
   removeCharacterFace,
   updateCharacter,
@@ -106,7 +107,9 @@ export function CharacterForm({
     try {
       saved = initial ? await updateCharacter(initial.id, body) : await createCharacter(body);
     } catch (err) {
-      setError(err instanceof ApiError && err.status === 409 ? t.limitError : t.saveError);
+      const code = errorCode(err);
+      if (code?.startsWith("blocked_")) setError(t.blockedName);
+      else setError(err instanceof ApiError && err.status === 409 ? t.limitError : t.saveError);
       setBusy(false);
       return;
     }

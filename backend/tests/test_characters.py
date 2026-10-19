@@ -104,7 +104,9 @@ async def test_create_list_and_public_visibility(client: httpx.AsyncClient) -> N
     assert {c["id"] for c in mine} == {public_id, private_id}
     assert all(c["is_mine"] for c in mine)
 
-    public = (await client.get("/characters", headers=mehmet)).json()
+    public = [
+        c for c in (await client.get("/characters", headers=mehmet)).json() if not c["builtin"]
+    ]
     assert [c["id"] for c in public] == [public_id]
     assert public[0]["is_mine"] is False and public[0]["has_face"] is False
 
@@ -247,3 +249,129 @@ async def test_chat_with_public_character(client: httpx.AsyncClient) -> None:
     private_id = await _create(client, ayse, visibility="private")
     r = await client.post("/chat/conversations", headers=mehmet, json={"persona_id": private_id})
     assert r.status_code == 404
+
+
+# --- engel listeleri (§9.1) -------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("name", "code"),
+    [
+        ("Batman", "blocked_copyright"),
+        ("Örümcek Adam", "blocked_copyright"),
+        ("SPIDER-MAN", "blocked_copyright"),
+        ("Harry Potter ve ben", "blocked_copyright"),
+        ("Hz. Muhammed", "blocked_sacred"),
+        ("Adolf Hitler", "blocked_hate"),
+        ("Mustafa Kemal Atatürk", "blocked_legal"),
+    ],
+)
+async def test_blocked_names_are_rejected(client: httpx.AsyncClient, name: str, code: str) -> None:
+    headers = await login(client, "ayse")
+    r = await client.post("/characters", headers=headers, json={**CHARACTER, "name": name})
+    assert r.status_code == 422 and r.json()["detail"] == code
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["Muhammed Yılmaz", "Elsa", "Mario", "Mustafa Kemal Demir", "Batmanlı Deniz", "Thor"],
+)
+async def test_ordinary_names_are_not_blocked(client: httpx.AsyncClient, name: str) -> None:
+    """Gerçek insan adı olabilen ya da kamu malı adlar engellenmez (yanlış pozitif yok)."""
+    headers = await login(client, "ayse")
+    r = await client.post("/characters", headers=headers, json={**CHARACTER, "name": name})
+    assert r.status_code == 201, r.text
+
+
+async def test_identity_text_is_not_scanned(client: httpx.AsyncClient) -> None:
+    headers = await login(client, "ayse")
+    body = {**CHARACTER, "identity": "Harry Potter hayranı, Allah'a inanan bir dede."}
+    assert (await client.post("/characters", headers=headers, json=body)).status_code == 201
+
+
+async def test_rename_into_a_blocked_name_is_rejected(client: httpx.AsyncClient) -> None:
+    headers = await login(client, "ayse")
+    cid = await _create(client, headers)
+    r = await client.put(
+        f"/characters/{cid}", headers=headers, json={**CHARACTER, "name": "Darth Vader"}
+    )
+    assert r.status_code == 422 and r.json()["detail"] == "blocked_copyright"
+
+
+# --- hazır karakterler -------------------------------------------------------------------
+
+
+async def test_builtin_characters_are_listed_first_and_read_only(
+    client: httpx.AsyncClient,
+) -> None:
+    from app.persona.builtin import BUILTIN_CHARACTERS
+
+    headers = await login(client, "ayse")
+    mine = await _create(client, headers)
+    public = (await client.get("/characters", headers=headers)).json()
+    builtin = [c for c in public if c["builtin"]]
+    assert {c["name"] for c in builtin} == {d.name for d in BUILTIN_CHARACTERS.values()}
+    assert public[: len(builtin)] == builtin, "built-ins come first"
+    assert public[-1]["id"] == mine
+    fatih = next(c for c in builtin if c["name"] == "Fatih Sultan Mehmet")
+    assert fatih["time_awareness"] == "in_era" and fatih["is_mine"] is False
+
+    # Kimse düzenleyemez, silemez, yüzünü değiştiremez.
+    fid = fatih["id"]
+    assert (
+        await client.put(f"/characters/{fid}", headers=headers, json=CHARACTER)
+    ).status_code == 404
+    assert (await client.delete(f"/characters/{fid}", headers=headers)).status_code == 404
+    assert (await _upload_face(client, headers, fid)).status_code == 404
+    # Ama herkes konuşabilir.
+    r = await client.post("/chat/conversations", headers=headers, json={"persona_id": fid})
+    assert r.status_code == 201
+
+
+async def test_builtin_definitions_are_system_and_updated_on_startup(app: FastAPI) -> None:
+    from app.models.persona import Persona
+    from app.persona.builtin import BUILTIN_CHARACTERS
+    from app.services import persona_service
+
+    async with app.state.session_factory() as db:
+        rows = (await db.scalars(select(Persona).where(Persona.owner_id.is_(None)))).all()
+        fatih = next(p for p in rows if p.slug == "fatih-sultan-mehmet")
+        assert fatih.definition["source"] == "system"
+        fatih.definition = {**fatih.definition, "identity": "eski"}
+        await db.commit()
+        await persona_service.ensure_builtin_characters(db)
+        await db.refresh(fatih)
+        assert fatih.definition == BUILTIN_CHARACTERS["fatih-sultan-mehmet"].model_dump()
+        # İkinci çalıştırma yeni satır eklemez.
+        again = (await db.scalars(select(Persona).where(Persona.owner_id.is_(None)))).all()
+        assert len(again) == len(rows)
+
+
+async def test_builtin_catalog_avatar_comes_from_media_yaml(
+    app: FastAPI, client: httpx.AsyncClient, tmp_path: Path
+) -> None:
+    """Sahip media.yaml'a görsel ekleyince kartta ve görüşmede o yüz kullanılır."""
+    media = tmp_path / "media"
+    media.mkdir(exist_ok=True)
+    out = io.BytesIO()
+    Image.new("RGB", (8, 12)).save(out, format="PNG")
+    (media / "fatih.png").write_bytes(out.getvalue())
+    config = tmp_path / "media.yaml"
+    config.write_text(
+        CATALOG.replace(
+            "personas:\n", "personas:\n  fatih-sultan-mehmet: { voice: deep, avatar: fatih }\n"
+        )
+        + '  fatih: { name: Fatih, mock: "file:media/fatih.png" }\n',
+        encoding="utf-8",
+    )
+    app.state.settings.media_config = config
+    _photo_avatar(app)
+    headers = await login(client, "ayse")
+    fatih = next(
+        c
+        for c in (await client.get("/characters", headers=headers)).json()
+        if c["name"] == "Fatih Sultan Mehmet"
+    )
+    assert fatih["catalog_avatar"] == "fatih"
+    options = (await client.get(f"/media/options?persona_id={fatih['id']}", headers=headers)).json()
+    assert options["defaults"] == {"voice": "deep", "avatar": "fatih"}

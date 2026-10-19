@@ -332,6 +332,9 @@ export const en: Messages = {
     decided: "Decision saved.",
   },
   characters: {
+    builtin: "Featured",
+    blockedName:
+      "This name can't be used: it may be a copyrighted character or a sensitive figure. Try another name.",
     title: "Explore",
     subtitle: "Meet characters or create your own.",
     tabPublic: "Everyone",
