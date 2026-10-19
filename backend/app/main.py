@@ -17,6 +17,7 @@ from app.core.middleware import RequestContextMiddleware
 from app.core.ratelimit import MemoryRateLimiter
 from app.core.telemetry import setup_telemetry
 from app.database import create_engine, create_session_factory
+from app.legacy.keys import LegacyConfigError, load_pepper
 from app.persona.compiler import PersonaCompiler
 from app.providers.registry import ProviderRegistry, build_registry
 from app.routers import (
@@ -55,6 +56,8 @@ def check_production_providers(app: FastAPI) -> None:
     if not settings.is_dev and registry.provider_name("messaging", "default") in DEV_ONLY_MESSAGING:
         raise RuntimeError("a real messaging provider is required outside dev/test")
     check_storage(app.state.store)
+    if app.state.legacy_pepper is None:
+        raise LegacyConfigError("EVA_LEGACY_KEY_PEPPER is required outside dev/test")
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -94,6 +97,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.rate_limiter = MemoryRateLimiter()
     app.state.registry = registry
     app.state.store = build_encrypted_store(settings)
+    # Miras anahtar özetlerinin biberi; gerçek ortamda yoksa uygulama açılışta durur (ADR 0010).
+    try:
+        app.state.legacy_pepper = load_pepper(
+            configured=(
+                settings.legacy_key_pepper.get_secret_value()
+                if settings.legacy_key_pepper
+                else None
+            ),
+            dev_file=settings.dev_legacy_pepper_file,
+            is_dev=settings.is_dev,
+        )
+    except LegacyConfigError:
+        app.state.legacy_pepper = None
     app.state.worker_context = WorkerContext(
         session_factory=app.state.session_factory,
         registry=registry,

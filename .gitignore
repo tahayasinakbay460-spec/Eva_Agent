@@ -21,6 +21,7 @@ backend/uploads/
 backend/dev_mailbox/
 backend/storage/
 backend/.dev_master_key
+backend/.dev_legacy_pepper
 
 # Node / Next.js
 node_modules/

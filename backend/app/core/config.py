@@ -50,7 +50,12 @@ class Settings(BaseSettings):
         return value
 
     @field_validator(
-        "providers_config", "media_config", "storage_dir", "dev_master_key_file", mode="after"
+        "providers_config",
+        "media_config",
+        "storage_dir",
+        "dev_master_key_file",
+        "dev_legacy_pepper_file",
+        mode="after",
     )
     @classmethod
     def _anchor_path(cls, value: Path) -> Path:
@@ -85,6 +90,15 @@ class Settings(BaseSettings):
     # Staging/prod'da yerel ana anahtar kabul edilmez, KMS gerekir (KMS_KEY_ID).
     storage_dir: Path = _BACKEND_ROOT / "storage"
     dev_master_key_file: Path = _BACKEND_ROOT / ".dev_master_key"
+
+    # Miras (ADR 0010). Anahtar özetlerinin "biberi": dev'de yerel dosya, staging/prod'da
+    # secret manager'dan EVA_LEGACY_KEY_PEPPER (base64, 32 bayt) zorunlu.
+    legacy_key_pepper: SecretStr | None = None
+    dev_legacy_pepper_file: Path = _BACKEND_ROOT / ".dev_legacy_pepper"
+    legacy_key_ttl_days: int = 30
+    legacy_max_grants: int = 5
+    legacy_redeem_max_failures: int = 5
+    legacy_redeem_lockout_s: int = 24 * 3600
 
     # Sesli/görüntülü görüşme (LiveKit, §4.3). Anahtarlar sağlayıcı adlarıyla, öneksiz okunur.
     # Lokal deneme: `livekit-server --dev` -> ws://localhost:7880, anahtar devkey / secret.
