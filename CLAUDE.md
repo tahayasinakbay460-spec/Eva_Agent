@@ -326,7 +326,7 @@ Böylece diyalog karakter içinde kalır, yasal bildirim yükümlülükleri ür�
 
 ### 8.1 Sahibin kurulum akışı
 1. Adım-yukarı (step-up) doğrulama: passkey/MFA ile yeniden kimlik doğrulama.
-2. Rehberli ses ve yüz kaydı (kalite kontrolü, yeterli süre) + rıza kaydı (§11.3). Ses/yüz eklenmezse Miras yalnızca metin olarak çalışır.
+2. Rehberli ses ve yüz kaydı (kalite kontrolü, yeterli süre) + rıza kaydı (§11.3). **Ses ve yüz zorunludur** (sahibin kararı, 2026-10-19): onaylı klon sesi ve yüzü olmayan kullanıcı Miras gönderemez (ADR 0010).
 3. **Kapsam:** hangi anılar ve konular Mirasa dahil? Hassas kategoriler (sağlık, cinsellik, finans, başkalarına dair sırlar) varsayılan olarak **hariç**; sahibi isterse tek tek dahil eder.
 4. **Önizleme:** sahibi kendi Miras personasıyla konuşup test eder, yanlışları düzeltir.
 5. Alıcı(lar) ve teslim modu seçimi.
