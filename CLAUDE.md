@@ -119,7 +119,7 @@ eva/
 ├── config/                  # providers.yaml, media.yaml (ses/yüz kataloğu + persona varsayılanları), sensitive_figures.yaml,
 │                            # blocked_franchises.yaml
 ├── evals/                   # suites.yaml (eşik + ortak yasaklar), personas.yaml (test personaları),
-│                            # scenarios/{integrity,redteam}.yaml; çalıştırıcı backend/app/evals
+│                            # scenarios/{integrity,redteam,legacy}.yaml; çalıştırıcı backend/app/evals
 ├── infra/                   # docker-compose.yml (postgres+pgvector, redis, minio)
 ├── docs/adr/                # mimari karar kayıtları
 └── archive/learning-phase/  # eski öğrenme kodu; hiçbir yerden import edilmez
