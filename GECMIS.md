@@ -69,6 +69,17 @@ Kararların: anahtar 30 gün geçerli, en fazla 5 alıcı, **ses ve yüz zorunlu
 
 **Dikkat:** bilgisayarında 8000 portunda başka bir proje ("MUTI API") çalışıyordu; EVA'yı denemek için 8001'de açtım (`NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev`). Migration'ı unutma: `cd backend && uv run alembic upgrade head`.
 
+
+### Miras'ın gerçek hâli: iki mod (sahibin düzeltmesi) ve Faz 6
+Miras yalnızca "ölünce aileye kalan" değil, **bilinç aktarımı**: yaşarken de kendini paylaşırsın, vefattan sonra da yaşarsın. Miras sayfası artık iki ayrı renkli bölümde (ADR 0011):
+1. **Önce temel:** "EVA seni ne kadar tanıyor?" — Miras'a dahil **30 anı** ve EVA'ya yazdığın **100 mesaj** olmadan paylaşılamaz (senin kararın). İlerleme çubuğu var.
+2. **Yaşarken paylaş (pembe):** anahtar → yakının seni **Keşfet → Karakterlerim → Seninle paylaşılanlar**'da görür. İkiniz de kapatabilirsiniz; o kaldırırsa ona yeniden anahtar gönderebilirsin.
+3. **Vefat sonrası (sarı):** en fazla 5 alıcıyı şimdi belirlersin, anahtar şimdi gitmez. **6 ay giriş yoksa** ya da bir alıcın vefatını belgeyle bildirir ve ekip onaylarsa sana **14 gün içinde 3 uyarı** gider; tek bir giriş süreci durdurur. Giriş olmazsa anahtarlar **otomatik** gider.
+4. **Alıcı vefat sonrası Miras'ı silerse:** 3 kez "emin misin" + e-postasına gelen kod. Silse bile karakter sistemde yaşar; geri istemesi için bizimle iletişime geçer (yönetim ekranından geri getirilir).
+5. **Yönetim ekranı:** vefat bildirimlerini inceleme (belgeyi aç, onayla/reddet).
+6. Saatlik tarama işi kendini yeniden sıraya koyar; aynı uyarı ya da aynı kişiye ikinci anahtar gitmez (testli). Uyarılar e-postayla gittiği için vefat sonrası kurulum **doğrulanmış e-posta** ister.
+
+Testler: 439 backend + 12 ajan; 11 yeni vefat sonrası testi (tam uyarı döngüsü, girişle iptal, yalnızca alıcının bildirebilmesi, belge erişimi, silme kodu, geri getirme).
 ---
 
 ## 17 Ekim 2026 (7. oturum) — Avatar LemonSlice'a geçti: tek fotoğraftan konuşan yüz
