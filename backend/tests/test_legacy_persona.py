@@ -19,6 +19,7 @@ from app.models.legacy import PersonaVersion
 from app.models.memory import Memory
 from app.models.session import AuthSession
 from app.providers.base import LLMEvent, LLMRequest, StreamEnd, TextDelta
+from app.services.legacy_grant_service import CONSENT_VERSION
 from app.worker.runner import drain
 from tests.conftest import login
 from tests.test_voice import LK
@@ -299,6 +300,9 @@ async def _step_up(app: FastAPI, headers: dict[str, str]) -> None:
 async def test_publish_needs_step_up_draft_voice_and_face(
     app: FastAPI, client: httpx.AsyncClient
 ) -> None:
+    # Bu testte "EVA seni yeterince tanıyor mu" eşiği konu dışı (ayrı testi var): düşür.
+    app.state.settings.legacy_min_memories = 1
+    app.state.settings.legacy_min_messages = 0
     headers = await login(client, "ahmet")
     await _memory(client, headers, "Kızıma parkta bisiklet sürmeyi öğrettim.")
     r = await client.post("/legacy/persona/publish", headers=headers)
@@ -354,3 +358,78 @@ async def test_legacy_call_always_uses_the_owners_own_voice_and_face(
     async with app.state.session_factory() as db:
         call = await db.get(CallSession, uuid.UUID(r.json()["call_id"]))
         assert call is not None and (call.voice_key, call.avatar_key) == ("own", "own")
+
+
+# --- "EVA seni yeterince tanıyor mu" eşiği (sahibin kararı: 30 anı + 100 mesaj) ---------
+
+
+async def _say_to_eva(client: httpx.AsyncClient, headers: dict[str, str], n: int) -> None:
+    conv = (await client.post("/chat/conversations", headers=headers, json={})).json()["id"]
+    for i in range(n):
+        r = await client.post(
+            f"/chat/conversations/{conv}/messages",
+            headers=headers,
+            json={"content": f"mesaj {i}", "idempotency_key": uuid.uuid4().hex},
+        )
+        assert r.status_code == 200
+
+
+async def test_sharing_needs_eva_to_know_you_enough(
+    app: FastAPI, client: httpx.AsyncClient
+) -> None:
+    settings = app.state.settings
+    assert (settings.legacy_min_memories, settings.legacy_min_messages) == (30, 100)
+    # Ölçüyü küçültüp aynı kuralı hızlıca dene: 3 anı + 4 mesaj.
+    settings.legacy_min_memories, settings.legacy_min_messages = 3, 4
+    headers = await login(client, "ahmet")
+    await client.put("/legacy/persona", headers=headers, json=DRAFT)
+    await _activate_media(app, headers, "voice")
+    await _activate_media(app, headers, "face")
+    await _step_up(app, headers)
+
+    for i in range(2):
+        await _memory(client, headers, f"Anı {i}")
+    await _memory(client, headers, "Hassas", sensitivity="sensitive")  # dahil değil, sayılmaz
+    await _say_to_eva(client, headers, 3)
+    body = (await client.get("/legacy/persona", headers=headers)).json()
+    assert (body["memory_count"], body["message_count"]) == (2, 3)
+    assert (body["min_memories"], body["min_messages"]) == (3, 4)
+    assert body["knows_you_enough"] is False
+    r = await client.post("/legacy/persona/publish", headers=headers)
+    assert r.status_code == 409 and r.json()["detail"] == "legacy_not_enough_data"
+
+    await _memory(client, headers, "Anı 3")
+    await _say_to_eva(client, headers, 1)
+    body = (await client.get("/legacy/persona", headers=headers)).json()
+    assert body["knows_you_enough"] is True
+    assert (await client.post("/legacy/persona/publish", headers=headers)).status_code == 201
+
+    # Sonradan anılar hariç tutulursa yeni anahtar gönderilemez.
+    settings.legacy_min_memories = 10
+    r = await client.post(
+        "/legacy/grants",
+        headers=headers,
+        json={
+            "recipient_email": "elif@ornek.com",
+            "consent_accepted": True,
+            "consent_text_version": CONSENT_VERSION,
+        },
+    )
+    assert r.status_code == 409 and r.json()["detail"] == "legacy_not_enough_data"
+
+
+async def test_messages_to_other_personas_do_not_count(
+    app: FastAPI, client: httpx.AsyncClient
+) -> None:
+    headers = await login(client, "ahmet")
+    await client.put("/legacy/persona", headers=headers, json=DRAFT)
+    pid = (await client.get("/legacy/persona", headers=headers)).json()["id"]
+    conv = (
+        await client.post("/chat/conversations", headers=headers, json={"persona_id": pid})
+    ).json()["id"]
+    await client.post(
+        f"/chat/conversations/{conv}/messages",
+        headers=headers,
+        json={"content": "önizleme", "idempotency_key": uuid.uuid4().hex},
+    )
+    assert (await client.get("/legacy/persona", headers=headers)).json()["message_count"] == 0

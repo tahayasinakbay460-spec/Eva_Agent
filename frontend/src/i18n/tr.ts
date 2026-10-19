@@ -329,6 +329,9 @@ export const tr = {
     decided: "Karar kaydedildi.",
   },
   characters: {
+    sharedWithYou: "Seninle paylaşılanlar",
+    sharedBadge: "Yakının seninle kendini paylaştı",
+    manageShared: "Paylaşılanları yönet / yeni anahtar gir",
     builtin: "Hazır",
     blockedName:
       "Bu ad kullanılamıyor: telifli bir karakter ya da hassas bir figür olabilir. Başka bir ad dene.",
@@ -381,6 +384,13 @@ export const tr = {
     back: "Geri",
   },
   legacy: {
+    familiarityTitle: "EVA seni ne kadar tanıyor?",
+    familiarityHint:
+      "Kendini paylaşabilmen için EVA'nın seni yeterince tanıması gerekiyor. Konuştukça dolar.",
+    familiarityMemories: "Miras'a dahil anılar",
+    familiarityMessages: "EVA'ya yazdığın mesajlar",
+    familiarityReady: "EVA seni paylaşacak kadar tanıyor.",
+    familiarityTalk: "EVA ile konuşmaya devam et",
     genericName: "Miras",
     title: "Miras'ım",
     subtitle:
@@ -448,6 +458,7 @@ export const tr = {
     },
     noGrants: "Henüz kimseye anahtar göndermedin.",
     errors: {
+      legacy_not_enough_data: "EVA seni henüz yeterince tanımıyor; biraz daha konuşun.",
       legacy_draft_missing: "Önce kişilik taslağını kaydet.",
       legacy_voice_missing: "Miras için onaylı klon sesin gerekli.",
       legacy_face_missing: "Miras için onaylı yüz fotoğrafın gerekli.",

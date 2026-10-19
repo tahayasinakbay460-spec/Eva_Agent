@@ -332,6 +332,9 @@ export const en: Messages = {
     decided: "Decision saved.",
   },
   characters: {
+    sharedWithYou: "Shared with you",
+    sharedBadge: "Someone close shared themselves with you",
+    manageShared: "Manage shared / enter a new key",
     builtin: "Featured",
     blockedName:
       "This name can't be used: it may be a copyrighted character or a sensitive figure. Try another name.",
@@ -384,6 +387,13 @@ export const en: Messages = {
     back: "Back",
   },
   legacy: {
+    familiarityTitle: "How well does EVA know you?",
+    familiarityHint:
+      "EVA needs to know you well enough before you can share yourself. It fills up as you talk.",
+    familiarityMemories: "Memories in your Legacy",
+    familiarityMessages: "Messages you wrote to EVA",
+    familiarityReady: "EVA knows you well enough to share.",
+    familiarityTalk: "Keep talking to EVA",
     genericName: "Legacy",
     title: "My Legacy",
     subtitle:
@@ -452,6 +462,7 @@ export const en: Messages = {
     },
     noGrants: "You haven't sent a key to anyone yet.",
     errors: {
+      legacy_not_enough_data: "EVA doesn't know you well enough yet; keep talking.",
       legacy_draft_missing: "Save your personality draft first.",
       legacy_voice_missing: "Your Legacy needs your approved voice clone.",
       legacy_face_missing: "Your Legacy needs your approved face photo.",

@@ -27,6 +27,12 @@ class LegacyPersonaOut(BaseModel):
     face_ready: bool
     # Alıcıların konuştuğu sürüm; hiç yayınlanmadıysa null.
     published_version: int | None
+    # EVA seni paylaşacak kadar tanıyor mu? (Miras'a dahil anı + EVA'ya yazdığın mesaj sayısı)
+    memory_count: int
+    message_count: int
+    min_memories: int
+    min_messages: int
+    knows_you_enough: bool
 
 
 class LegacyPublishOut(BaseModel):

@@ -44,6 +44,9 @@ def _grant_body(email: str = RECIPIENT, **extra: Any) -> dict[str, Any]:
 
 async def _owner_ready(app: FastAPI, client: httpx.AsyncClient) -> dict[str, str]:
     """Miras'ı yayınlanmış, sesi ve yüzü onaylı, adım-yukarı doğrulaması taze bir sahip."""
+    # Bu testte "EVA seni yeterince tanıyor mu" eşiği konu dışı (ayrı testi var): düşür.
+    app.state.settings.legacy_min_memories = 1
+    app.state.settings.legacy_min_messages = 0
     headers = await login(client, "ahmet")
     await _memory(client, headers, "Kızıma parkta bisiklet sürmeyi öğrettim.")
     await client.put("/legacy/persona", headers=headers, json=DRAFT)

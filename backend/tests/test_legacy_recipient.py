@@ -25,6 +25,7 @@ from app.persona.eva import EVA_DEFINITION
 from app.persona.types import PersonaDefinition, RelationshipState
 from app.providers.base import LLMEvent, LLMRequest, StreamEnd, TextDelta
 from app.services.chat_service import ConversationNotFoundError
+from app.services.legacy_grant_service import CONSENT_VERSION
 from app.services.legacy_service import LegacyNotReadyError
 from app.services.voice_service import CallTurns
 from app.worker.runner import drain
@@ -478,3 +479,49 @@ def test_compiler_uses_the_legacy_relationship_note() -> None:
     assert "share your legacy" in note and "just met" not in note
     eva = PersonaCompiler().compile(EVA_DEFINITION, relationship=RelationshipState())
     assert "just met" in eva.system[-1].text
+
+
+# --- yeniden anahtar (yaşarken paylaş) ---------------------------------------------------
+
+
+async def test_owner_can_rekey_someone_who_left_and_they_get_a_single_entry(
+    app: FastAPI, client: httpx.AsyncClient, llm: CapturingLLM
+) -> None:
+    owner, elif_, pid, _ = await _shared(app, client)
+    app.state.settings.legacy_max_grants = 1
+    access_id = (await client.get("/legacy/shared", headers=elif_)).json()[0]["access_id"]
+
+    # Elif hâlâ açıkken sınır dolu.
+    body = {
+        "recipient_email": "baska@ornek.com",
+        "consent_accepted": True,
+        "consent_text_version": CONSENT_VERSION,
+    }
+    r = await client.post("/legacy/grants", headers=owner, json=body)
+    assert r.status_code == 409 and r.json()["detail"] == "legacy_grant_limit"
+
+    # Elif kaldırınca yer açılır; sahip ona yeniden anahtar gönderebilir.
+    assert (
+        await client.post(f"/legacy/shared/{access_id}/archive", headers=elif_)
+    ).status_code == 200
+    created = await _send(client, owner)
+    r = await _redeem(app, client, elif_, created["key"])
+    assert r.status_code == 200
+    shared = (await client.get("/legacy/shared", headers=elif_)).json()
+    assert [(s["persona_id"], s["status"]) for s in shared] == [(pid, "active")]
+    conv = await _conversation(client, elif_, pid)
+    assert (await _say(client, elif_, conv, "Yeniden merhaba baba")).status_code == 200
+
+
+async def test_owner_can_rekey_after_closing_access(
+    app: FastAPI, client: httpx.AsyncClient, llm: CapturingLLM
+) -> None:
+    owner, elif_, _pid, grant_id = await _shared(app, client)
+    await _step_up(app, owner)
+    assert (
+        await client.post(f"/legacy/grants/{grant_id}/revoke", headers=owner)
+    ).status_code == 200
+    created = await _send(client, owner)
+    assert (await _redeem(app, client, elif_, created["key"])).status_code == 200
+    shared = (await client.get("/legacy/shared", headers=elif_)).json()
+    assert [s["status"] for s in shared] == ["active"]

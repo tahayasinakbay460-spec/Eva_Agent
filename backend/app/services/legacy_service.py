@@ -9,11 +9,13 @@ import uuid
 from dataclasses import dataclass
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.database import utcnow
 from app.legacy import synthesis
+from app.models.conversation import Conversation, Message
 from app.models.legacy import LegacyAccess, PersonaVersion
 from app.models.memory import Memory
 from app.models.persona import Persona
@@ -287,10 +289,58 @@ async def media_readiness(db: AsyncSession, owner_id: uuid.UUID) -> MediaReadine
     )
 
 
-async def publish(db: AsyncSession, persona: Persona, owner: User) -> PersonaVersion:
-    """Alıcıların konuşacağı dondurulmuş sürümü yayınlar. Ses ve yüz zorunlu (sahibin kararı)."""
+@dataclass(frozen=True, slots=True)
+class Familiarity:
+    """EVA kullanıcıyı paylaşacak kadar tanıyor mu (sahibin kararı: 30 anı + 100 mesaj)?"""
+
+    memories: int
+    messages: int
+    min_memories: int
+    min_messages: int
+
+    @property
+    def ready(self) -> bool:
+        return self.memories >= self.min_memories and self.messages >= self.min_messages
+
+
+async def familiarity(db: AsyncSession, settings: Settings, owner_id: uuid.UUID) -> Familiarity:
+    eva = await persona_service.get_default_eva(db)
+    memories = await db.scalar(
+        select(func.count())
+        .select_from(Memory)
+        .where(
+            Memory.user_id == owner_id,
+            Memory.persona_id == eva.id,
+            Memory.legacy_scope == "included",
+        )
+    )
+    messages = await db.scalar(
+        select(func.count())
+        .select_from(Message)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .where(
+            Conversation.user_id == owner_id,
+            Conversation.persona_id == eva.id,
+            Message.role == "user",
+        )
+    )
+    return Familiarity(
+        memories=int(memories or 0),
+        messages=int(messages or 0),
+        min_memories=settings.legacy_min_memories,
+        min_messages=settings.legacy_min_messages,
+    )
+
+
+async def publish(
+    db: AsyncSession, settings: Settings, persona: Persona, owner: User
+) -> PersonaVersion:
+    """Alıcıların konuşacağı dondurulmuş sürümü yayınlar. EVA sahibini yeterince tanımalı;
+    ses ve yüz zorunlu (sahibin kararları)."""
     if not view(persona).has_draft:
         raise LegacyNotReadyError("legacy_draft_missing")
+    if not (await familiarity(db, settings, owner.id)).ready:
+        raise LegacyNotReadyError("legacy_not_enough_data")
     media = await media_readiness(db, owner.id)
     if not media.voice:
         raise LegacyNotReadyError("legacy_voice_missing")

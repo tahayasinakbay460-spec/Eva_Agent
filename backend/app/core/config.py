@@ -104,6 +104,10 @@ class Settings(BaseSettings):
     # E-postalardaki bağlantılar yalnızca kendi alan adımıza gider (§8.3).
     web_url: str = "http://localhost:3000"
     legacy_max_grants: int = 5
+    # Paylaşmadan önce EVA kullanıcıyı yeterince tanımalı (sahibin kararı, 2026-10-19):
+    # Miras'a dahil en az bu kadar anı ve EVA'ya yazılmış en az bu kadar mesaj.
+    legacy_min_memories: int = 30
+    legacy_min_messages: int = 100
     legacy_redeem_max_failures: int = 5
     legacy_redeem_lockout_s: int = 24 * 3600
 

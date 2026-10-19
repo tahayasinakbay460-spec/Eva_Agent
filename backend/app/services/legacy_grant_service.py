@@ -116,7 +116,12 @@ async def _open_grant_count(db: AsyncSession, owner_id: uuid.UUID) -> int:
         .where(
             LegacyGrant.owner_id == owner_id,
             (
-                (LegacyGrant.status == "redeemed")
+                (
+                    (LegacyGrant.status == "redeemed")
+                    & LegacyGrant.id.in_(
+                        select(LegacyAccess.grant_id).where(LegacyAccess.status == "active")
+                    )
+                )
                 | ((LegacyGrant.status == "pending") & (LegacyGrant.expires_at > now))
             ),
         )
@@ -139,6 +144,8 @@ async def create_grant(
     persona = await legacy_service.get_persona(db, owner)
     if persona is None or await legacy_service.latest_version(db, persona.id) is None:
         raise LegacyGrantError("legacy_not_published")
+    if not (await legacy_service.familiarity(db, settings, owner.id)).ready:
+        raise LegacyGrantError("legacy_not_enough_data")
     media = await legacy_service.media_readiness(db, owner.id)
     if not media.voice:
         raise LegacyGrantError("legacy_voice_missing")
@@ -303,6 +310,18 @@ async def finish_redeem(
     if consumed.rowcount != 1:  # type: ignore[attr-defined]
         await db.rollback()
         raise await _fail(db, user, "consumed_concurrently", grant.id)
+    # Aynı kişi aynı Miras'ı daha önce açıp kapatmışsa (ya da hâlâ açıksa) eskisi yerini yeniye
+    # bırakır: alıcının listesinde tek kayıt görünür.
+    await db.execute(
+        update(LegacyAccess)
+        .where(
+            LegacyAccess.recipient_id == user.id,
+            LegacyAccess.persona_id == grant.persona_id,
+            LegacyAccess.status != "deleted",
+        )
+        .values(status="replaced", ended_at=now)
+        .execution_options(synchronize_session=False)
+    )
     access = LegacyAccess(
         grant_id=grant.id, recipient_id=user.id, persona_id=grant.persona_id, status="active"
     )
@@ -394,7 +413,10 @@ async def shared_with_me(db: AsyncSession, user: User) -> list[SharedLegacy]:
     rows = await db.execute(
         select(LegacyAccess, Persona.name)
         .join(Persona, Persona.id == LegacyAccess.persona_id)
-        .where(LegacyAccess.recipient_id == user.id, LegacyAccess.status != "deleted")
+        .where(
+            LegacyAccess.recipient_id == user.id,
+            LegacyAccess.status.not_in(("deleted", "replaced")),
+        )
         .order_by(LegacyAccess.created_at.desc())
     )
     return [SharedLegacy(access=a, owner_name=name) for a, name in rows.all()]

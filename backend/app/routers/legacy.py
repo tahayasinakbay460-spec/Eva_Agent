@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.core.ratelimit import rate_limited
 from app.core.security import CurrentUser, SteppedUpUser
 from app.database import get_db
@@ -40,8 +41,11 @@ grant_limit = Depends(rate_limited("legacy_grant", "rate_limit_call_per_minute")
 redeem_limit = Depends(rate_limited("legacy_redeem", "rate_limit_call_per_minute"))
 
 
-async def _out(db: AsyncSession, persona: Persona, user: User) -> LegacyPersonaOut:
+async def _out(
+    db: AsyncSession, settings: Settings, persona: Persona, user: User
+) -> LegacyPersonaOut:
     v = legacy_service.view(persona)
+    known = await legacy_service.familiarity(db, settings, user.id)
     d = v.definition
     media = await legacy_service.media_readiness(db, user.id)
     published = (persona.policy or {}).get("published_version")
@@ -58,13 +62,18 @@ async def _out(db: AsyncSession, persona: Persona, user: User) -> LegacyPersonaO
         voice_ready=media.voice,
         face_ready=media.face,
         published_version=published if isinstance(published, int) else None,
+        memory_count=known.memories,
+        message_count=known.messages,
+        min_memories=known.min_memories,
+        min_messages=known.min_messages,
+        knows_you_enough=known.ready,
     )
 
 
 @router.get("/persona", response_model=LegacyPersonaOut, dependencies=[default_limit])
-async def get_persona(user: CurrentUser, db: DB) -> LegacyPersonaOut:
+async def get_persona(request: Request, user: CurrentUser, db: DB) -> LegacyPersonaOut:
     persona = await legacy_service.get_or_create_persona(db, user)
-    return await _out(db, persona, user)
+    return await _out(db, request.app.state.settings, persona, user)
 
 
 @router.post(
@@ -73,14 +82,16 @@ async def get_persona(user: CurrentUser, db: DB) -> LegacyPersonaOut:
     status_code=status.HTTP_202_ACCEPTED,
     dependencies=[synthesis_limit],
 )
-async def synthesize(user: CurrentUser, db: DB) -> LegacyPersonaOut:
+async def synthesize(request: Request, user: CurrentUser, db: DB) -> LegacyPersonaOut:
     """Taslağı (yeniden) yazdırır. Sonuç işçide hazırlanır; durum ``GET /legacy/persona``'da."""
     persona = await legacy_service.request_synthesis(db, user)
-    return await _out(db, persona, user)
+    return await _out(db, request.app.state.settings, persona, user)
 
 
 @router.put("/persona", response_model=LegacyPersonaOut, dependencies=[default_limit])
-async def update_persona(body: LegacyDraftIn, user: CurrentUser, db: DB) -> LegacyPersonaOut:
+async def update_persona(
+    request: Request, body: LegacyDraftIn, user: CurrentUser, db: DB
+) -> LegacyPersonaOut:
     persona = await legacy_service.get_or_create_persona(db, user)
     persona = await legacy_service.update_draft(
         db,
@@ -90,7 +101,7 @@ async def update_persona(body: LegacyDraftIn, user: CurrentUser, db: DB) -> Lega
         speaking_style=body.speaking_style,
         example_dialogs=body.example_dialogs,
     )
-    return await _out(db, persona, user)
+    return await _out(db, request.app.state.settings, persona, user)
 
 
 @router.post(
@@ -100,12 +111,12 @@ async def update_persona(body: LegacyDraftIn, user: CurrentUser, db: DB) -> Lega
     dependencies=[default_limit],
     responses={403: {"description": "step_up_required"}, 409: {"description": "not ready"}},
 )
-async def publish(user: SteppedUpUser, db: DB) -> LegacyPublishOut:
+async def publish(request: Request, user: SteppedUpUser, db: DB) -> LegacyPublishOut:
     """Alıcıların konuşacağı sürümü dondurur. Adım-yukarı doğrulama, taslak, onaylı ses ve yüz
     gerekir."""
     persona = await legacy_service.get_or_create_persona(db, user)
     try:
-        version = await legacy_service.publish(db, persona, user)
+        version = await legacy_service.publish(db, request.app.state.settings, persona, user)
     except legacy_service.LegacyNotReadyError as exc:
         raise HTTPException(exc.status, exc.code) from exc
     return LegacyPublishOut(

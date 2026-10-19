@@ -9,7 +9,13 @@ import { MicIcon, SendIcon } from "@/components/icons";
 import { ErrorText, Heading } from "@/components/ui";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
-import { deleteCharacter, listCharacters, type Character } from "@/lib/api/client";
+import {
+  deleteCharacter,
+  listCharacters,
+  listSharedLegacies,
+  type Character,
+  type SharedLegacy,
+} from "@/lib/api/client";
 
 const t = messages().characters;
 
@@ -26,6 +32,20 @@ export default function ExplorePage() {
 function Explore() {
   const [scope, setScope] = useState<Scope>("public");
   const [items, setItems] = useState<Character[] | null>(null);
+  // Başkalarının seninle paylaştığı Miras personaları (anahtarla açılmış, hâlâ açık olanlar).
+  const [shared, setShared] = useState<SharedLegacy[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listSharedLegacies()
+      .then((list) => {
+        if (!cancelled) setShared(list.filter((s) => s.status === "active"));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [error, setError] = useState<string | null>(null);
   // Silme iki dokunuşla: ilki onay ister.
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -90,7 +110,47 @@ function Explore() {
         </div>
 
         {error && <ErrorText>{error}</ErrorText>}
-        {items && items.length === 0 && (
+
+        {scope === "mine" && shared.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold">{t.sharedWithYou}</h2>
+            <ul className="grid grid-cols-2 gap-3">
+              {shared.map((s) => (
+                <li
+                  key={s.access_id}
+                  className="flex flex-col gap-2 rounded-2xl border border-accent/30 bg-accent/10 p-3"
+                >
+                  <span className="flex items-center gap-2 font-semibold">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-xs">
+                      {s.owner_name.slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="truncate">{s.owner_name}</span>
+                  </span>
+                  <span className="text-[11px] text-muted">{t.sharedBadge}</span>
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/chat?miras=${s.persona_id}`}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-white/10 py-1.5 text-xs font-semibold"
+                    >
+                      <SendIcon size={12} /> {t.chat}
+                    </Link>
+                    <Link
+                      href={`/gorusme?miras=${s.persona_id}`}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-accent to-accent-2 py-1.5 text-xs font-semibold"
+                    >
+                      <MicIcon size={12} /> {t.call}
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <Link href="/miras/anahtar" className="block text-xs text-muted underline">
+              {t.manageShared}
+            </Link>
+          </section>
+        )}
+
+        {items && items.length === 0 && !(scope === "mine" && shared.length > 0) && (
           <p className="pt-10 text-center text-sm text-muted">
             {scope === "public" ? t.empty : t.emptyMine}
           </p>

@@ -136,6 +136,26 @@ function Legacy() {
       {error && <ErrorText>{error}</ErrorText>}
       {notice && <p className="text-sm text-mint">{notice}</p>}
 
+      <Section title={t.familiarityTitle} hint={t.familiarityHint}>
+        <Progress
+          label={t.familiarityMemories}
+          value={persona.memory_count}
+          goal={persona.min_memories}
+        />
+        <Progress
+          label={t.familiarityMessages}
+          value={persona.message_count}
+          goal={persona.min_messages}
+        />
+        {persona.knows_you_enough ? (
+          <p className="text-sm text-mint">{t.familiarityReady}</p>
+        ) : (
+          <Link href="/chat" className="block text-sm text-accent underline">
+            {t.familiarityTalk}
+          </Link>
+        )}
+      </Section>
+
       <Section title={t.statusTitle}>
         <ul className="space-y-1 text-sm">
           <Status label={t.stepDraft} ok={persona.has_draft} />
@@ -215,7 +235,7 @@ function Legacy() {
 
       <Section title={t.publishTitle} hint={t.publishHint}>
         <PrimaryButton
-          disabled={busy || !persona.has_draft || !mediaReady}
+          disabled={busy || !persona.has_draft || !mediaReady || !persona.knows_you_enough}
           onClick={() => void publish()}
         >
           {published ? t.republish : t.publish}
@@ -226,7 +246,7 @@ function Legacy() {
         <Recipients
           grants={grants}
           consent={consent}
-          canSend={published && mediaReady}
+          canSend={published && mediaReady && persona.knows_you_enough}
           ensure={ensure}
           onChanged={() => void reload().catch(() => setError(t.errors.generic))}
         />
@@ -263,6 +283,33 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
       </div>
       {children}
     </section>
+  );
+}
+
+function Progress({ label, value, goal }: { label: string; value: number; goal: number }) {
+  const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 100;
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-sm">
+        <span>{label}</span>
+        <span className="tabular-nums text-muted">
+          {Math.min(value, goal)} / {goal}
+        </span>
+      </div>
+      <div
+        className="h-2 overflow-hidden rounded-full bg-white/10"
+        role="progressbar"
+        aria-label={label}
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className={`h-full rounded-full ${pct >= 100 ? "bg-mint" : "bg-gradient-to-r from-accent to-accent-2"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
   );
 }
 

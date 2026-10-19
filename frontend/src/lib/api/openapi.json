@@ -4518,6 +4518,26 @@
               }
             ],
             "title": "Published Version"
+          },
+          "memory_count": {
+            "type": "integer",
+            "title": "Memory Count"
+          },
+          "message_count": {
+            "type": "integer",
+            "title": "Message Count"
+          },
+          "min_memories": {
+            "type": "integer",
+            "title": "Min Memories"
+          },
+          "min_messages": {
+            "type": "integer",
+            "title": "Min Messages"
+          },
+          "knows_you_enough": {
+            "type": "boolean",
+            "title": "Knows You Enough"
           }
         },
         "type": "object",
@@ -4533,7 +4553,12 @@
           "included_memories",
           "voice_ready",
           "face_ready",
-          "published_version"
+          "published_version",
+          "memory_count",
+          "message_count",
+          "min_memories",
+          "min_messages",
+          "knows_you_enough"
         ],
         "title": "LegacyPersonaOut",
         "description": "Sahibin Miras personası. ``has_draft=False`` iken metin alanları henüz boştur."

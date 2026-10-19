@@ -1629,6 +1629,16 @@ export interface components {
             face_ready: boolean;
             /** Published Version */
             published_version: number | null;
+            /** Memory Count */
+            memory_count: number;
+            /** Message Count */
+            message_count: number;
+            /** Min Memories */
+            min_memories: number;
+            /** Min Messages */
+            min_messages: number;
+            /** Knows You Enough */
+            knows_you_enough: boolean;
         };
         /** LegacyPublishOut */
         LegacyPublishOut: {
