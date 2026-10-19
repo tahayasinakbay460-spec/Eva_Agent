@@ -82,6 +82,31 @@ Miras yalnızca "ölünce aileye kalan" değil, **bilinç aktarımı**: yaşarke
 Testler: 439 backend + 12 ajan; 11 yeni vefat sonrası testi (tam uyarı döngüsü, girişle iptal, yalnızca alıcının bildirebilmesi, belge erişimi, silme kodu, geri getirme).
 ---
 
+### Oturum sonu: nerede kaldık, yarın ne yapacağız (19 Ekim 2026)
+
+**Bitti (kodda, testli, push edildi):** Faz 0–6. EVA sohbeti, sesli/görüntülü görüşme, hafıza, rızalı ses/yüz, Karakter Stüdyosu (kullanıcı karakterleri + 6 hazır karakter + engel listeleri), Miras'ın iki modu (yaşarken paylaş + vefat sonrası). 439 backend + 12 ajan testi, 37 eval senaryosu.
+
+**Yarın (önerilen sıra, anahtar beklemeden yapılabilir):**
+1. **İlişki evresi** (tanışma → tanıdık → yakın → en yakın arkadaş, CLAUDE.md §5.2). Şu an EVA herkese hep "yeni tanıştık" diye davranıyor; evreyi hesaplayan iş yok. EVA'nın asıl vaadi bu.
+2. **Kriz sınıflandırıcısı** (§7, §11.6): kriz tespiti yalnızca personaya bırakılmamalı; ayrı sınıflandırıcı şu an sahte (mock).
+3. **Hesap silme ve veri dışa aktarma** (§6.4, KVKK): kullanıcı kendisi yapabilmeli.
+4. **Girişin güçlendirilmesi** (§11.2): oturum anahtarı httpOnly çereze, iki aşamalı doğrulama (TOTP), cihaz/oturum listesi, yeni cihaz bildirimi.
+
+**Lansmandan önce zorunlu, sonra:** bildir/engelle (herkese açık karakterler, mağaza şartı), üretilen ses/görüntüye yapay zekâ işareti (AB AI Act), maliyet ölçümü + plan kotaları.
+
+**Senden beklenenler:** LemonSlice anahtarı (+ ElevenLabs ses klonu planı) · e-posta sağlayıcısı seçimi · sunucu yeri (Türkiye / Frankfurt) · avukat (KVKK, hassas figürler, başkasının fotoğrafı, LemonSlice veri sözleşmesi) · bağımsız sızma testi (lansman öncesi) · EVA'nın ve hazır karakterlerin yüzleri/sesleri · gelir modeli kararı.
+
+**Ürünü güçlendirecek (sonra):** anlamsal hafıza araması (embedding sağlayıcısı), Analiz sayfası, mobil uygulama (Expo).
+
+**Konuşulan: para kazanma ve müşteri tutma (taslak, karar senin, §15 "Gelir modeli"):**
+- En büyük maliyet görüntülü görüşme dakikası; sonra ses (TTS/STT), en ucuzu yazışma. Fiyatlar kanala göre kademeli olmalı.
+- Öneri: ücretsiz katman (EVA ile sınırlı yazışma) → abonelik katmanları (sınırsız yazışma + sesli dakika → görüntülü dakika + kendi ses/yüz klonu) + ek dakika paketleri + Miras ayrı ürün (yıllık "Miras koruma" ya da tek seferlik paket; alıcılar için yazışma her zaman ücretsiz, görüntülü dakikayı sahibin önceden aldığı bakiye karşılar).
+- Sonra: okullar/müzeler için tarihi karakter lisansı (B2B). Reklam yok (mahremiyet).
+- Müşteri tutma: EVA seni tanıdıkça değerli olur (ilişki evresi + "EVA seni ne kadar tanıyor" çubuğu), anılar kişisel arşiv olur, her Miras ve paylaşılan karakter yeni kullanıcı getirir (ağ etkisi). Sınırlar CLAUDE.md'de: suçluluk/bağımlılık mekaniği yok, persona abonelik satmaz, yas sürecindeki kullanıcıya satış baskısı yok.
+- Fiyatı belirlemek için önce gerçek maliyet ölçümü (sağlayıcı fiyatları güncel dokümandan doğrulanacak), sonra her özellik için fiyat ≥ maliyetin birkaç katı.
+
+---
+
 ## 17 Ekim 2026 (7. oturum) — Avatar LemonSlice'a geçti: tek fotoğraftan konuşan yüz
 
 **Sonuç:** Faz 3'ün eksik parçası tamam. Kullanıcı **Profil → Ses ve yüz**'de bir **fotoğraf** ekleyip rıza videosunu çekiyor; admin onaylayınca görüntülü görüşmede o fotoğraf LemonSlice ile konuşan yüze dönüşüyor. Fotoğraf hiçbir zaman LemonSlice'ta kalıcı durmuyor: bizim şifreli depomuzda, her görüşmede oradan yükleniyor. Gerçek LemonSlice anahtarıyla henüz denenmedi (anahtar yok).
