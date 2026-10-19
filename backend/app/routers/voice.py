@@ -18,7 +18,7 @@ from app.schemas.voice import (
     StageSummaryOut,
     TurnLatencyOut,
 )
-from app.services import persona_service, voice_service
+from app.services import legacy_service, persona_service, voice_service
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
@@ -58,6 +58,8 @@ async def start_call(request: Request, body: CallCreate, user: CurrentUser, db: 
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "video_quota_exceeded") from exc
     except persona_service.PersonaNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Persona not found") from exc
+    except legacy_service.LegacyNotReadyError as exc:
+        raise HTTPException(exc.status, exc.code) from exc
     call = started.call
     return CallOut(
         call_id=call.id,

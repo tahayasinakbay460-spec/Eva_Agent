@@ -21,7 +21,7 @@ from app.models.conversation import Conversation, Message
 from app.models.persona import Persona
 from app.models.user import User
 from app.persona.compiler import Channel, PersonaCompiler
-from app.persona.types import RelationshipState
+from app.persona.types import PersonaDefinition, RelationshipState
 from app.providers.base import (
     LLMMessage,
     LLMRequest,
@@ -31,7 +31,7 @@ from app.providers.base import (
     TextDelta,
 )
 from app.providers.registry import ProviderRegistry
-from app.services import memory_extraction, memory_retrieval, persona_service
+from app.services import legacy_service, memory_extraction, memory_retrieval, persona_service
 
 # --- iletim katmanına (SSE router'ı) gönderilen olaylar --------------------------
 
@@ -84,6 +84,7 @@ class ChatService:
             persona = await persona_service.get_default_eva(db)
         else:
             persona = await persona_service.get_persona_for_user(db, user, persona_id)
+        await legacy_service.ensure_can_talk(db, persona, user)
         conversation = Conversation(user_id=user.id, persona_id=persona.id, channel="text")
         db.add(conversation)
         await db.commit()
@@ -147,6 +148,11 @@ class ChatService:
         persona_row = await db.get(Persona, conversation.persona_id)
         if persona_row is None:  # pragma: no cover - FK bunu garanti eder
             raise ConversationNotFoundError(str(conversation_id))
+        # Miras'ta erişim her turda yeniden kontrol edilir (iptal anında etkili olsun).
+        try:
+            definition = await legacy_service.prompt_definition(db, persona_row, user)
+        except legacy_service.LegacyNotReadyError as exc:
+            raise ConversationNotFoundError(str(conversation_id)) from exc
         history = await self.load_history(db, conversation)
 
         user_created_at = utcnow_after(history[-1].created_at if history else None)
@@ -169,7 +175,9 @@ class ChatService:
         memories = await memory_retrieval.retrieve(
             db, user_id=user.id, persona_id=persona_row.id, query_text=content
         )
-        request = self.build_request(persona_row, user, history, content, memories)
+        request = self.build_request(
+            persona_row, user, history, content, memories, definition=definition
+        )
         provider, feature_cfg = self._registry.llm("chat")
         timer = TurnTimer(provider=provider.name, model=feature_cfg.model)
         parts: list[str] = []
@@ -256,10 +264,12 @@ class ChatService:
         *,
         feature: str = "chat",
         channel: Channel = "text",
+        definition: PersonaDefinition | None = None,
     ) -> LLMRequest:
         """Persona + ilişki + anılar + geçmiş + yeni mesaj -> LLM isteği. Sesli görüşme de
         aynı yolu kullanır (``feature="realtime"``, ``channel="voice"``)."""
-        definition = persona_service.definition_of(persona_row)
+        if definition is None:
+            definition = persona_service.definition_of(persona_row)
         relationship = RelationshipState(stage="introduction", user_display_name=user.display_name)
         prompt = self._compiler.compile(
             definition, relationship=relationship, retrieved_memories=memories, channel=channel

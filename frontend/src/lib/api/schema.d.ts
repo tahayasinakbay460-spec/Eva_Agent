@@ -441,6 +441,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/legacy/persona/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish
+         * @description Alıcıların konuşacağı sürümü dondurur. Adım-yukarı doğrulama, taslak, onaylı ses ve yüz
+         *     gerekir.
+         */
+        post: operations["publish_legacy_persona_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/conversations": {
         parameters: {
             query?: never;
@@ -1360,6 +1381,21 @@ export interface components {
             speaking_style: string;
             /** Example Dialogs */
             example_dialogs: components["schemas"]["ExampleDialog"][];
+            /** Included Memories */
+            included_memories: number;
+            /** Voice Ready */
+            voice_ready: boolean;
+            /** Face Ready */
+            face_ready: boolean;
+            /** Published Version */
+            published_version: number | null;
+        };
+        /** LegacyPublishOut */
+        LegacyPublishOut: {
+            /** Version */
+            version: number;
+            /** Memories */
+            memories: number;
         };
         /** MediaChoiceOut */
         MediaChoiceOut: {
@@ -1474,6 +1510,11 @@ export interface components {
              */
             sensitivity: "normal" | "sensitive";
             /**
+             * Legacy Scope
+             * @enum {string}
+             */
+            legacy_scope: "included" | "excluded";
+            /**
              * Created At
              * Format: date-time
              */
@@ -1501,6 +1542,8 @@ export interface components {
             emotion?: ("happy" | "sad" | "excited" | "calm" | "angry" | "anxious" | "nostalgic" | "proud" | "grateful") | null;
             /** Sensitivity */
             sensitivity?: ("normal" | "sensitive") | null;
+            /** Legacy Scope */
+            legacy_scope?: ("included" | "excluded") | null;
         };
         /** MessageOut */
         MessageOut: {
@@ -2726,6 +2769,40 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["LegacyPersonaOut"];
                 };
+            };
+        };
+    };
+    publish_legacy_persona_publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyPublishOut"];
+                };
+            };
+            /** @description step_up_required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not ready */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

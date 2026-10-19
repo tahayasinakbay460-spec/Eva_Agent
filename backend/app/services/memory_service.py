@@ -56,6 +56,7 @@ class MemoryPatch:
     emotion: str | None = None
     clear_emotion: bool = False
     sensitivity: str | None = None
+    legacy_scope: str | None = None
 
 
 def _as_utc(value: datetime | None) -> datetime | None:
@@ -161,6 +162,9 @@ async def update_memory(
     if patch.sensitivity is not None:
         memory.sensitivity = patch.sensitivity
         memory.legacy_scope = legacy_scope_for(patch.sensitivity)
+    if patch.legacy_scope is not None:
+        # Sahibin açık seçimi varsayılanı ezer (hassas bir anıyı bilerek dahil edebilir).
+        memory.legacy_scope = patch.legacy_scope
     if patch.content is not None or patch.people is not None:
         # Metin değişti: eski vektör artık yanlış; yenisini üret.
         await queue.enqueue(db, EMBED_MEMORY, {"memory_id": str(memory.id)})

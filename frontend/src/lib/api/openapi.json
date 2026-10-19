@@ -1249,6 +1249,39 @@
         ]
       }
     },
+    "/legacy/persona/publish": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Publish",
+        "description": "Alıcıların konuşacağı sürümü dondurur. Adım-yukarı doğrulama, taslak, onaylı ses ve yüz\ngerekir.",
+        "operationId": "publish_legacy_persona_publish_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyPublishOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "step_up_required"
+          },
+          "409": {
+            "description": "not ready"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/chat/conversations": {
       "get": {
         "tags": [
@@ -3899,6 +3932,29 @@
             },
             "type": "array",
             "title": "Example Dialogs"
+          },
+          "included_memories": {
+            "type": "integer",
+            "title": "Included Memories"
+          },
+          "voice_ready": {
+            "type": "boolean",
+            "title": "Voice Ready"
+          },
+          "face_ready": {
+            "type": "boolean",
+            "title": "Face Ready"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version"
           }
         },
         "type": "object",
@@ -3910,10 +3966,32 @@
           "identity",
           "personality",
           "speaking_style",
-          "example_dialogs"
+          "example_dialogs",
+          "included_memories",
+          "voice_ready",
+          "face_ready",
+          "published_version"
         ],
         "title": "LegacyPersonaOut",
         "description": "Sahibin Miras personası. ``has_draft=False`` iken metin alanları henüz boştur."
+      },
+      "LegacyPublishOut": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "memories": {
+            "type": "integer",
+            "title": "Memories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "memories"
+        ],
+        "title": "LegacyPublishOut"
       },
       "MediaChoiceOut": {
         "properties": {
@@ -4222,6 +4300,14 @@
             ],
             "title": "Sensitivity"
           },
+          "legacy_scope": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded"
+            ],
+            "title": "Legacy Scope"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -4245,6 +4331,7 @@
           "importance",
           "source",
           "sensitivity",
+          "legacy_scope",
           "created_at",
           "updated_at"
         ],
@@ -4345,6 +4432,21 @@
               }
             ],
             "title": "Sensitivity"
+          },
+          "legacy_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "included",
+                  "excluded"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legacy Scope"
           }
         },
         "type": "object",

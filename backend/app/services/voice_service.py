@@ -47,6 +47,7 @@ from app.providers.registry import ProviderRegistry
 from app.services import (
     biometric_service,
     character_service,
+    legacy_service,
     media_service,
     memory_extraction,
     memory_retrieval,
@@ -122,16 +123,24 @@ async def start_call(
         persona = await persona_service.get_default_eva(db)
     else:
         persona = await persona_service.get_persona_for_user(db, user, persona_id)
+    await legacy_service.ensure_can_talk(db, persona, user)
 
     # Kullanıcının seçtiği ses ve yüz (seçmediyse personanın varsayılanı). "Kendi" seçildiyse
     # rızalı kayıt şu an aktif olmalı; görüşme boyunca her turda yeniden kontrol edilir.
     choice = await media_service.chosen(db, settings, registry, user, persona)
-    if choice.voice == OWN and await biometric_service.active_asset(db, user.id, "voice") is None:
+    if persona.type == "legacy":
+        # Miras'ta ses ve yüz her zaman sahibinin klonu ve fotoğrafıdır (ADR 0010).
+        choice = media_service.Choice(voice=OWN, avatar=OWN)
+    media_owner = legacy_service.media_owner_id(persona, user)
+    if (
+        choice.voice == OWN
+        and await biometric_service.active_asset(db, media_owner, "voice") is None
+    ):
         raise MediaNotReadyError("no_active_voice")
     if (
         mode == "video"
         and choice.avatar == OWN
-        and await biometric_service.active_asset(db, user.id, "face") is None
+        and await biometric_service.active_asset(db, media_owner, "face") is None
     ):
         raise MediaNotReadyError("no_active_avatar")
 
@@ -361,9 +370,10 @@ class CallTurns:
         görüşme için sağlayıcıya verilir."""
         call, _conversation, persona, user = await self._load(db, call_id)
         catalog = load_catalog(media_config)
+        media_owner = legacy_service.media_owner_id(persona, user)
 
         if call.voice_key == OWN:
-            voice_asset = await biometric_service.active_asset(db, user.id, "voice")
+            voice_asset = await biometric_service.active_asset(db, media_owner, "voice")
             if voice_asset is None:
                 raise MediaNotReadyError("no_active_voice")
             if voice_asset.provider != tts_provider:
@@ -380,7 +390,7 @@ class CallTurns:
 
         avatar_key = call.avatar_key or catalog.default(persona.slug or "eva", "avatar")
         if avatar_key == OWN:
-            avatar_asset = await biometric_service.active_asset(db, user.id, "face")
+            avatar_asset = await biometric_service.active_asset(db, media_owner, "face")
             if avatar_asset is None:
                 raise MediaNotReadyError("no_active_avatar")
             if avatar_asset.provider != avatar_provider:
@@ -390,7 +400,7 @@ class CallTurns:
             if store is None:
                 raise ValueError("store is required for image avatars")
             photo = await biometric_service.face_photo(
-                db, store, user.id, avatar_asset.enrollment_id
+                db, store, media_owner, avatar_asset.enrollment_id
             )
             if photo is None:
                 raise MediaNotReadyError("no_avatar_photo")
@@ -429,19 +439,23 @@ class CallTurns:
 
     async def media_still_allowed(self, db: AsyncSession, call_id: uuid.UUID) -> bool:
         """Kendi klonu/fotoğrafıyla yapılan görüşmede rıza hâlâ geçerli mi? Her turda sorulur:
-        rıza geri alınırsa görüşme o an biter (§11.3 "kullanım anında durur")."""
-        call = await db.get(CallSession, call_id)
-        if call is None:
+        rıza geri alınırsa görüşme o an biter (§11.3 "kullanım anında durur"). Miras'ta ses ve
+        yüz sahibinindir; alıcının erişimi de her turda yeniden kontrol edilir."""
+        try:
+            call, _conversation, persona, user = await self._load(db, call_id)
+            await legacy_service.ensure_can_talk(db, persona, user)
+        except (CallNotFoundError, legacy_service.LegacyNotReadyError):
             return False
+        media_owner = legacy_service.media_owner_id(persona, user)
         if (
             call.voice_key == OWN
-            and await biometric_service.active_asset(db, call.user_id, "voice") is None
+            and await biometric_service.active_asset(db, media_owner, "voice") is None
         ):
             return False
         return not (
             call.mode == "video"
             and call.avatar_key == OWN
-            and await biometric_service.active_asset(db, call.user_id, "face") is None
+            and await biometric_service.active_asset(db, media_owner, "face") is None
         )
 
     async def is_ended(self, db: AsyncSession, call_id: uuid.UUID) -> bool:
@@ -487,8 +501,16 @@ class CallTurns:
             if user_text
             else []
         )
+        definition = await legacy_service.prompt_definition(db, persona, user)
         return self._chat.build_request(
-            persona, user, history, content, memories, feature="realtime", channel="voice"
+            persona,
+            user,
+            history,
+            content,
+            memories,
+            feature="realtime",
+            channel="voice",
+            definition=definition,
         )
 
     async def save_reply(

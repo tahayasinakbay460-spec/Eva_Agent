@@ -25,7 +25,7 @@ from app.schemas.chat import (
     SSEError,
     SSEMessageStart,
 )
-from app.services import persona_service
+from app.services import legacy_service, persona_service
 from app.services.chat_service import (
     ChatService,
     ConversationNotFoundError,
@@ -64,6 +64,8 @@ async def create_conversation(
         conversation = await _service(request).create_conversation(db, user, body.persona_id)
     except persona_service.PersonaNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Persona not found") from exc
+    except legacy_service.LegacyNotReadyError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.code) from exc
     return ConversationOut.model_validate(conversation)
 
 

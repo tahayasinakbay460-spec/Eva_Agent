@@ -43,9 +43,19 @@ görüşme); Miras rızası yeni video çekmeden, adım-yukarı doğrulama + aç
 
 ## Sırayla yapılacaklar
 
-1. Tehdit modeli (§6) ✔ · 2. veri modeli + anahtar modülü · 3. kişilik taslağı · 4. kapsam ·
-5. önizleme · 6. anahtar üretimi/teslimi · 7. kullanma (iki faktör) · 8. alıcı deneyimi (yazışma +
+1. Tehdit modeli (§6) ✔ · 2. veri modeli + anahtar modülü ✔ · 3. kişilik taslağı ✔ · 4. kapsam ✔ ·
+5. önizleme + yayın ✔ · 6. anahtar üretimi/teslimi · 7. kullanma (iki faktör) · 8. alıcı deneyimi (yazışma +
 sesli/görüntülü) · 9. iptal + bildirim · 10. Miras eval'leri · 11. web arayüzü.
+
+## Uygulama notları (adım 2–5)
+
+- Önizleme: sahip Miras personasıyla canlı taslak + şu an dahil anılar (kanon) ile konuşur;
+  taslak yoksa `legacy_draft_missing`. Ses/yüz her zaman sahibinin (`media_owner_id`).
+- Yayın: `POST /legacy/persona/publish` (adım-yukarı) taslak + onaylı ses + yüz ister; tanımı ve
+  kanon anıları `persona_versions`'a dondurur (sürüm 1, 2, ...). Sonraki düzenlemeler yeni yayına kadar
+  alıcıya gitmez.
+- Kapsam: `PATCH /memories/{id}` `legacy_scope` (`included` | `excluded`); sahibin açık seçimi
+  hassasiyet varsayılanını ezer.
 
 ## Sonuçlar
 

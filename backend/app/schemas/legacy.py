@@ -19,6 +19,18 @@ class LegacyPersonaOut(BaseModel):
     personality: str
     speaking_style: str
     example_dialogs: list[ExampleDialog]
+    # Miras'a şu an dahil anı sayısı (kapsam ekranı /memories'te, ``legacy_scope`` ile).
+    included_memories: int
+    # Paylaşım için ikisi de zorunlu (sahibin kararı, ADR 0010).
+    voice_ready: bool
+    face_ready: bool
+    # Alıcıların konuştuğu sürüm; hiç yayınlanmadıysa null.
+    published_version: int | None
+
+
+class LegacyPublishOut(BaseModel):
+    version: int
+    memories: int
 
 
 class LegacyDraftIn(BaseModel):

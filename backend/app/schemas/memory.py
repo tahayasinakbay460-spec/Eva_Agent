@@ -8,6 +8,8 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validat
 
 MemoryKind = Literal["episode", "fact"]
 Sensitivity = Literal["normal", "sensitive"]
+# Miras'a dahil mi (§8.1). Hassas anılar varsayılan olarak hariç; sahip tek tek dahil edebilir.
+LegacyScope = Literal["included", "excluded"]
 # Duygu etiketleri sabit bir listeden seçilir; ekranda Türkçe karşılıkları gösterilir.
 Emotion = Literal[
     "happy", "sad", "excited", "calm", "angry", "anxious", "nostalgic", "proud", "grateful"
@@ -56,6 +58,7 @@ class MemoryUpdate(BaseModel):
     people: list[Person] | None = Field(default=None, max_length=20)
     emotion: Emotion | None = None
     sensitivity: Sensitivity | None = None
+    legacy_scope: LegacyScope | None = None
 
     @field_validator("occurred_on")
     @classmethod
@@ -78,5 +81,6 @@ class MemoryOut(BaseModel):
     importance: float
     source: Literal["auto", "user_added", "owner_legacy", "recipient_added"]
     sensitivity: Sensitivity
+    legacy_scope: LegacyScope
     created_at: datetime
     updated_at: datetime

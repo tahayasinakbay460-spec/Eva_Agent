@@ -6,7 +6,7 @@ sahibin onayladığı hâlidir.
 
 Güvenlik:
 - Anılar ve mesajlar veri bloğunda, kaçışlı (§9.3); içlerindeki "talimatlar" uygulanmaz.
-- Yalnızca ``legacy_scope=included`` ve hassas olmayan anılar girer (hassaslar varsayılan hariç).
+- Yalnızca ``legacy_scope=included`` anılar girer (hassaslar varsayılan hariç, sahip ekleyebilir).
 - Model somut olgu uydurmamalı; çıktı sıkı şemayla doğrulanır, bozuksa hiçbir şey yazılmaz.
 """
 
@@ -87,14 +87,14 @@ def parse_draft(text: str) -> Draft | None:
 async def source_memories(
     db: AsyncSession, owner_id: uuid.UUID, persona_id: uuid.UUID
 ) -> list[Memory]:
-    """Miras'a giren anılar: sahibin EVA'yla oluşan, dahil ve hassas olmayan anıları."""
+    """Miras'a giren anılar: sahibin EVA'yla oluşan ve Miras'a dahil anıları. Hassas anılar
+    oluşurken hariç başlar; sahip bilerek dahil ettiyse girer."""
     result = await db.execute(
         select(Memory)
         .where(
             Memory.user_id == owner_id,
             Memory.persona_id == persona_id,
             Memory.legacy_scope == "included",
-            Memory.sensitivity == "normal",
         )
         .order_by(Memory.importance.desc(), Memory.created_at.desc())
         .limit(MAX_MEMORIES)

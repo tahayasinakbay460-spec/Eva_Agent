@@ -14,11 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import utcnow
 from app.legacy import synthesis
+from app.models.legacy import PersonaVersion
+from app.models.memory import Memory
 from app.models.persona import Persona
 from app.models.user import User
 from app.persona.types import ExampleDialog, PersonaDefinition
 from app.providers.registry import ProviderRegistry
-from app.services import audit, persona_service
+from app.services import audit, biometric_service, persona_service
 from app.worker import queue
 from app.worker.jobs import LEGACY_SYNTHESIZE
 
@@ -180,3 +182,112 @@ async def run_synthesis(
     )
     await db.commit()
     return "ready"
+
+
+# --- önizleme ve yayın (Faz 5, adım 5) -------------------------------------------------
+
+
+class LegacyNotReadyError(Exception):
+    def __init__(self, code: str, status: int = 409) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+
+
+# PersonaDefinition.canon_memories üst sınırı.
+MAX_CANON_MEMORIES = 200
+
+
+async def scope_memories(db: AsyncSession, owner_id: uuid.UUID) -> list[Memory]:
+    eva = await persona_service.get_default_eva(db)
+    return (await synthesis.source_memories(db, owner_id, eva.id))[:MAX_CANON_MEMORIES]
+
+
+async def preview_definition(db: AsyncSession, persona: Persona) -> PersonaDefinition:
+    """Sahibin şu anki taslağı + şu an Miras'a dahil anıları (kanon anılar olarak)."""
+    if persona.owner_id is None:
+        raise LegacyNotReadyError("legacy_not_found", status=404)
+    canon = [m.content for m in await scope_memories(db, persona.owner_id)]
+    current = PersonaDefinition.model_validate(persona.definition)
+    return current.model_copy(update={"canon_memories": canon})
+
+
+async def latest_version(db: AsyncSession, persona_id: uuid.UUID) -> PersonaVersion | None:
+    return await db.scalar(
+        select(PersonaVersion)
+        .where(PersonaVersion.persona_id == persona_id)
+        .order_by(PersonaVersion.version.desc())
+        .limit(1)
+    )
+
+
+async def ensure_can_talk(db: AsyncSession, persona: Persona, user: User) -> None:
+    """Miras personasıyla konuşmadan önce: sahibi için taslak hazır mı (önizleme)?
+    Alıcılar için erişim kontrolü 8. adımda buraya eklenir."""
+    if persona.type != "legacy":
+        return
+    if persona.owner_id == user.id:
+        if not view(persona).has_draft:
+            raise LegacyNotReadyError("legacy_draft_missing")
+        return
+    raise LegacyNotReadyError("legacy_not_found", status=404)
+
+
+async def prompt_definition(db: AsyncSession, persona: Persona, user: User) -> PersonaDefinition:
+    """Prompt'a girecek tanım. Miras'ta sahibi canlı taslakla (önizleme) konuşur."""
+    if persona.type != "legacy":
+        return persona_service.definition_of(persona)
+    await ensure_can_talk(db, persona, user)
+    return await preview_definition(db, persona)
+
+
+def media_owner_id(persona: Persona, user: User) -> uuid.UUID:
+    """ "Kendi sesi/yüzü" kimin? Miras'ta her zaman personanın sahibinin (ADR 0010)."""
+    if persona.type == "legacy" and persona.owner_id is not None:
+        return persona.owner_id
+    return user.id
+
+
+@dataclass(frozen=True, slots=True)
+class MediaReadiness:
+    voice: bool
+    face: bool
+
+
+async def media_readiness(db: AsyncSession, owner_id: uuid.UUID) -> MediaReadiness:
+    """Sahibin onaylı, aktif klon sesi ve yüzü var mı? Miras paylaşımı için ikisi de zorunlu."""
+    return MediaReadiness(
+        voice=await biometric_service.active_asset(db, owner_id, "voice") is not None,
+        face=await biometric_service.active_asset(db, owner_id, "face") is not None,
+    )
+
+
+async def publish(db: AsyncSession, persona: Persona, owner: User) -> PersonaVersion:
+    """Alıcıların konuşacağı dondurulmuş sürümü yayınlar. Ses ve yüz zorunlu (sahibin kararı)."""
+    if not view(persona).has_draft:
+        raise LegacyNotReadyError("legacy_draft_missing")
+    media = await media_readiness(db, owner.id)
+    if not media.voice:
+        raise LegacyNotReadyError("legacy_voice_missing")
+    if not media.face:
+        raise LegacyNotReadyError("legacy_face_missing")
+    definition = await preview_definition(db, persona)
+    previous = await latest_version(db, persona.id)
+    version = PersonaVersion(
+        persona_id=persona.id,
+        version=(previous.version + 1) if previous else 1,
+        definition=definition.model_dump(),
+    )
+    db.add(version)
+    persona.policy = {**(persona.policy or {}), "published_version": version.version}
+    audit.record(
+        db,
+        action="legacy.published",
+        target_type="persona",
+        target_id=persona.id,
+        user_id=owner.id,
+        actor_id=owner.id,
+        meta={"version": version.version, "memories": len(definition.canon_memories)},
+    )
+    await db.commit()
+    return version

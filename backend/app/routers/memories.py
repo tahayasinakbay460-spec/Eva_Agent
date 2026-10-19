@@ -88,6 +88,7 @@ async def update_memory(
         emotion=body.emotion,
         clear_emotion="emotion" in sent and body.emotion is None,
         sensitivity=body.sensitivity,
+        legacy_scope=body.legacy_scope,
     )
     try:
         memory = await memory_service.update_memory(db, user, memory_id, patch)
