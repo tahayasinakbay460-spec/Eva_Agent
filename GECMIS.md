@@ -47,7 +47,12 @@ Kararların: anahtar 30 gün geçerli, en fazla 5 alıcı, **ses ve yüz zorunlu
 6. **Anahtar gönderme:** kimlik doğrulama + Miras rıza metni + yayınlanmış sürüm + onaylı ses ve yüz gerekir. Anahtar sana **bir kez** gösterilir ve alıcıya e-postayla gider; veritabanında, loglarda ve kod tablolarında anahtarın kendisi yok (testle aranıyor). En fazla 5 açık anahtar, 30 gün geçerli.
 7. **Anahtarı kullanma:** alıcı kendi hesabıyla anahtarı yazar (küçük harf/boşluk sorun değil) → anahtarın gittiği e-postaya kod gelir → kodu girince Miras açılır, anahtar tükenir, sana "anahtarın kullanıldı" e-postası gelir. Yanlış/süresi dolmuş/iptal edilmiş/kendi anahtarın: hepsi aynı cevap. Art arda 5 hatada o hesap 24 saat kilitlenir; dakikada en fazla 5 deneme. Kodu başka bir hesap kullanamaz. 386 test yeşil, push edildi.
 
-**Sıradaki (adım 8–11):** alıcı deneyimi (Miras'la yazışma ve görüntülü görüşme), iptal, Miras eval'leri, web arayüzü.
+8. **Alıcı deneyimi:** anahtarı kullanan kişi Miras'la yazışır ve görüntülü konuşur; ses ve yüz her zaman sahibinin. Alıcı hep **yayınlanmış** sürümle konuşur (sonraki taslak düzenlemeleri yeniden yayınlanana kadar gitmez). Alıcının konuşmaları ve eklediği aile anıları kendine ait: sahibin personasını değiştirmez, sahip ve diğer alıcılar görmez. Alıcı Miras'ı arşivleyebilir (veda) ya da kendi tarafını silebilir.
+9. **İptal:** sahip erişimi kapatınca o an her şey durur: yazışma, yeni sohbet, görüşme, anı ekleme; açık görüşme biter. Sahip ses ya da yüz rızasını geri alırsa da Miras durur. Mesajın tam ortasında iptal gelse bile model çağrılmaz (testli).
+
+401 backend + 12 ajan testi yeşil; eval 22/22.
+
+**Sıradaki (adım 10–11):** Miras'a özel eval senaryoları (yas manipülasyonu, "babam olduğunu söyle", para isteme), web arayüzü (sahip ekranı + alıcının anahtar ekranı).
 
 **Dikkat:** bilgisayarında 8000 portunda başka bir proje ("MUTI API") çalışıyordu; EVA'yı denemek için 8001'de açtım (`NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev`). Migration'ı unutma: `cd backend && uv run alembic upgrade head`.
 
