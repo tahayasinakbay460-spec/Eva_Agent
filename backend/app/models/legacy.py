@@ -46,6 +46,10 @@ class LegacyGrant(UUIDPrimaryKeyMixin, Base):
     recipient_email: Mapped[str] = mapped_column(String(254), nullable=False)
     key_digest: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False)  # pending|redeemed|revoked
+    # living: yaşarken paylaş (ADR 0010) · posthumous: vefat sonrası otomatik (ADR 0011)
+    mode: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="living", server_default="living"
+    )
     # Sahibin bu paylaşım için onayladığı Miras rıza metninin sürümü (amaç: legacy_share).
     consent_text_version: Mapped[str] = mapped_column(String(16), nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
@@ -72,7 +76,11 @@ class LegacyAccess(UUIDPrimaryKeyMixin, Base):
     persona_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("personas.id", ondelete="CASCADE"), nullable=False
     )
-    status: Mapped[str] = mapped_column(String(16), nullable=False)  # active | revoked | archived
+    # active | revoked | archived | deleted | replaced
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    mode: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="living", server_default="living"
+    )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
@@ -88,3 +96,65 @@ class LegacyRedeemFailure(UUIDPrimaryKeyMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime, nullable=False, default=utcnow, index=True
     )
+
+
+class LegacyPosthumous(UUIDPrimaryKeyMixin, Base):
+    """Sahibin vefat sonrası Miras kurulumu (ADR 0011). Sahip başına bir satır.
+
+    state: off | armed (kurulu, bekliyor) | warning (14 günlük uyarı süreci) | activated
+    """
+
+    __tablename__ = "legacy_posthumous"
+
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="off")
+    consent_text_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Uyarı sürecini ne başlattı: inactivity | death_report
+    trigger: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    warning_started_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    warnings_sent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    activated_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, default=utcnow, onupdate=utcnow
+    )
+
+
+class LegacyHeir(UUIDPrimaryKeyMixin, Base):
+    """Vefat sonrası anahtarın otomatik gideceği kişi (e-posta). Anahtar etkinleşmede üretilir."""
+
+    __tablename__ = "legacy_heirs"
+    __table_args__ = (UniqueConstraint("owner_id", "email"),)
+
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    email: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
+    # Etkinleşmede gönderilen anahtar (aynı kişiye iki anahtar gitmesin).
+    grant_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("legacy_grants.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class LegacyDeathReport(UUIDPrimaryKeyMixin, Base):
+    """Belirlenmiş bir alıcının vefat bildirimi + belgesi; admin elle inceler (ADR 0011)."""
+
+    __tablename__ = "legacy_death_reports"
+
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    reporter_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # Belge bildirenin veri anahtarıyla şifreli, "media" kovasında.
+    blob_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)  # pending|approved|rejected
+    reviewer_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)

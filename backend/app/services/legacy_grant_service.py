@@ -323,7 +323,11 @@ async def finish_redeem(
         .execution_options(synchronize_session=False)
     )
     access = LegacyAccess(
-        grant_id=grant.id, recipient_id=user.id, persona_id=grant.persona_id, status="active"
+        grant_id=grant.id,
+        recipient_id=user.id,
+        persona_id=grant.persona_id,
+        status="active",
+        mode=grant.mode,
     )
     db.add(access)
     audit.record(
@@ -449,9 +453,12 @@ async def archive_access(db: AsyncSession, user: User, access_id: uuid.UUID) -> 
 
 
 async def delete_access(db: AsyncSession, user: User, access_id: uuid.UUID) -> None:
-    """Alıcı Miras'ı kendi tarafından siler: kendi konuşmaları ve kendi anıları da gider.
-    Sahibin personası ve diğer alıcılar etkilenmez."""
+    """Alıcı (yaşarken paylaşılan) Miras'ı kendi tarafından siler: kendi konuşmaları ve kendi
+    anıları da gider. Sahibin personası ve diğer alıcılar etkilenmez. Vefat sonrası Miras bu yoldan
+    silinemez; e-posta onaylı akış gerekir (``start_posthumous_delete``)."""
     access = await _own_access(db, user, access_id)
+    if access.mode == "posthumous":
+        raise LegacyGrantError("confirmation_required")
     await _end_calls(db, user.id, access.persona_id, "legacy_deleted")
     await db.execute(
         delete(Memory).where(Memory.user_id == user.id, Memory.persona_id == access.persona_id)
@@ -472,3 +479,80 @@ async def delete_access(db: AsyncSession, user: User, access_id: uuid.UUID) -> N
         actor_id=user.id,
     )
     await db.commit()
+
+
+# --- vefat sonrası Miras'ın silinmesi (ADR 0011) ---------------------------------------
+
+
+async def start_posthumous_delete(
+    db: AsyncSession, deps: password_auth_service.Deps, user: User, access_id: uuid.UUID
+) -> RedeemStarted:
+    """Arayüzdeki üç onaydan sonra: anahtarın geldiği e-postaya silme kodu gider."""
+    access = await _own_access(db, user, access_id)
+    if access.mode != "posthumous" or access.status != "active":
+        raise GrantNotFoundError(str(access_id))
+    grant = await db.get(LegacyGrant, access.grant_id)
+    if grant is None:  # pragma: no cover - yabancı anahtar bunu garanti eder
+        raise GrantNotFoundError(str(access_id))
+    flow_id = await password_auth_service.issue_code(
+        db,
+        deps,
+        purpose="legacy_delete",
+        email=grant.recipient_email,
+        locale=user.locale,
+        user_id=user.id,
+        payload={"access_id": str(access.id)},
+        template="legacy_delete_code",
+    )
+    return RedeemStarted(flow_id=flow_id, email_hint=mask_email(grant.recipient_email))
+
+
+async def finish_posthumous_delete(
+    db: AsyncSession, user: User, access_id: uuid.UUID, flow_id: uuid.UUID, code: str
+) -> LegacyAccess:
+    """Kod doğruysa yalnızca bu alıcının erişimi kapanır. Persona, yayınlanmış sürüm ve alıcının
+    geçmişi silinmez: karakter sistemde yaşamaya devam eder; geri getirmek için destek ekibi
+    (admin) ``restore_access`` kullanır."""
+    try:
+        row = await password_auth_service.check_code(db, flow_id, "legacy_delete", code)
+    except AuthFailedError as exc:
+        raise RedeemFailedError("code") from exc
+    if row.user_id != user.id or row.payload.get("access_id") != str(access_id):
+        raise RedeemFailedError("flow_mismatch")
+    access = await _own_access(db, user, access_id)
+    if access.mode != "posthumous" or access.status != "active":
+        raise GrantNotFoundError(str(access_id))
+    access.status = "deleted"
+    access.ended_at = utcnow()
+    await _end_calls(db, user.id, access.persona_id, "legacy_deleted")
+    audit.record(
+        db,
+        action="legacy.deleted_by_recipient",
+        target_type="legacy_access",
+        target_id=access.id,
+        user_id=user.id,
+        actor_id=user.id,
+        meta={"mode": "posthumous", "kept": True},
+    )
+    await db.commit()
+    return access
+
+
+async def restore_access(db: AsyncSession, admin: User, access_id: uuid.UUID) -> LegacyAccess:
+    """Destek: alıcının sildiği vefat sonrası Miras'ı geri getirir (alıcı bizimle iletişime
+    geçtiğinde)."""
+    access = await db.get(LegacyAccess, access_id)
+    if access is None or access.mode != "posthumous" or access.status != "deleted":
+        raise GrantNotFoundError(str(access_id))
+    access.status = "active"
+    access.ended_at = None
+    audit.record(
+        db,
+        action="legacy.access_restored",
+        target_type="legacy_access",
+        target_id=access.id,
+        user_id=access.recipient_id,
+        actor_id=admin.id,
+    )
+    await db.commit()
+    return access

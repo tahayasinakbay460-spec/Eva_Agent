@@ -67,6 +67,29 @@ _TEXTS: dict[str, dict[MessageTemplate, tuple[str, str]]] = {
             "Kod 10 dakika geçerli. Bunu sen yapmadıysan kodu kimseyle paylaşma ve bu "
             "e-postayı yok say.",
         ),
+        "legacy_posthumous_warning": (
+            "EVA: Miras'ın açılmak üzere",
+            "Bir süredir EVA'ya girmedin ya da bir yakının vefatını bildirdi. Belirlediğin "
+            "kişilere vefat sonrası Miras anahtarları {days_left} gün içinde otomatik "
+            "gönderilecek.\n\n"
+            "Sen buradaysan EVA'ya bir kez giriş yapman yeterli; süreç hemen durur: {link}\n\n"
+            "Bu e-postayı yakınların da görüyorsa: bu uyarı Miras'ın sahibine gönderilir.",
+        ),
+        "legacy_posthumous_delivery": (
+            "{owner_name} sana EVA'da bir Miras bıraktı",
+            "{owner_name}, vefatından sonra EVA'daki dijital Miras'ının sana ulaşmasını "
+            "istemişti. Başın sağ olsun.\n\n"
+            "Miras anahtarın: {key}\n\n"
+            "Açmak için EVA'ya kendi hesabınla gir ve anahtarı şu sayfada yaz: {link}\n"
+            "Ardından bu e-posta adresine bir doğrulama kodu gelecek.\n\n"
+            "Anahtar tek kullanımlık ve {expires_on} tarihine kadar geçerli. Kimseyle paylaşma. "
+            "EVA senden asla şifre, kart bilgisi ya da para istemez.",
+        ),
+        "legacy_delete_code": (
+            "EVA Miras silme onay kodun: {code}",
+            "Bir Miras'ı kendi listenden silmek istedin. Onaylamak için bu kodu gir: {code}\n\n"
+            "Kod 10 dakika geçerli. Bunu sen yapmadıysan bu e-postayı yok say.",
+        ),
         "legacy_key_used": (
             "Miras anahtarın kullanıldı",
             "{recipient_email} adresine gönderdiğin Miras anahtarı az önce kullanıldı; "
@@ -123,6 +146,28 @@ _TEXTS: dict[str, dict[MessageTemplate, tuple[str, str]]] = {
             "Enter this code to open the Legacy: {code}\n\n"
             "The code is valid for 10 minutes. If this wasn't you, don't share the code and "
             "ignore this email.",
+        ),
+        "legacy_posthumous_warning": (
+            "EVA: your Legacy is about to open",
+            "You haven't signed in to EVA for a while, or someone close reported your death. "
+            "Your posthumous Legacy keys will be sent automatically to the people you chose in "
+            "{days_left} days.\n\n"
+            "If you are here, just sign in to EVA once and the process stops right away: {link}",
+        ),
+        "legacy_posthumous_delivery": (
+            "{owner_name} left you a Legacy on EVA",
+            "{owner_name} wanted their digital Legacy on EVA to reach you after their death. "
+            "We are sorry for your loss.\n\n"
+            "Your Legacy key: {key}\n\n"
+            "To open it, sign in to EVA with your own account and enter the key here: {link}\n"
+            "We will then send a verification code to this email address.\n\n"
+            "The key works once and is valid until {expires_on}. Don't share it with anyone. "
+            "EVA never asks you for passwords, card details or money.",
+        ),
+        "legacy_delete_code": (
+            "Your EVA Legacy deletion code: {code}",
+            "You asked to remove a Legacy from your list. Enter this code to confirm: {code}\n\n"
+            "The code is valid for 10 minutes. If this wasn't you, ignore this email.",
         ),
         "legacy_key_used": (
             "Your Legacy key was used",

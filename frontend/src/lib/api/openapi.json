@@ -1668,6 +1668,319 @@
         }
       }
     },
+    "/legacy/posthumous": {
+      "get": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Get Posthumous",
+        "operationId": "get_posthumous_legacy_posthumous_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PosthumousSetupOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Configure Posthumous",
+        "description": "Vefat sonrası alıcıları belirler; anahtar şimdi gitmez, vefatta otomatik gider.",
+        "operationId": "configure_posthumous_legacy_posthumous_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PosthumousConfigureIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PosthumousSetupOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "step_up_required"
+          },
+          "409": {
+            "description": "not ready"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Turn Off Posthumous",
+        "operationId": "turn_off_posthumous_legacy_posthumous_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PosthumousSetupOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "step_up_required"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/legacy/heir-of": {
+      "get": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Heir Of",
+        "operationId": "heir_of_legacy_heir_of_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HeirOfOut"
+                  },
+                  "type": "array",
+                  "title": "Response Heir Of Legacy Heir Of Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/legacy/heir-of/{owner_id}/report": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Report Death",
+        "description": "Belirlenmiş alıcı vefatı belgeyle bildirir; admin inceler. Onay bile Miras'ı hemen\naçmaz: sahibe 14 günlük uyarı süreci başlar.",
+        "operationId": "report_death_legacy_heir_of__owner_id__report_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "owner_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Owner Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/pdf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/webp": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/legacy/shared/{access_id}/delete/start": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Start Shared Delete",
+        "description": "Vefat sonrası Miras'ı silmek: arayüzdeki 3 onaydan sonra e-postaya kod gider.",
+        "operationId": "start_shared_delete_legacy_shared__access_id__delete_start_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "access_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Access Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteStartedOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/legacy/shared/{access_id}/delete/verify": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Verify Shared Delete",
+        "operationId": "verify_shared_delete_legacy_shared__access_id__delete_verify_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "access_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Access Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteVerifyIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "invalid_or_expired"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/chat/conversations": {
       "get": {
         "tags": [
@@ -3295,6 +3608,180 @@
           }
         }
       }
+    },
+    "/admin/legacy/death-reports": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Legacy Death Reports",
+        "operationId": "legacy_death_reports_admin_legacy_death_reports_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeathReportOut"
+                  },
+                  "type": "array",
+                  "title": "Response Legacy Death Reports Admin Legacy Death Reports Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/legacy/death-reports/{report_id}/document": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Legacy Death Report Document",
+        "description": "Belgeyi açar; her açılış denetim kaydına yazılır.",
+        "operationId": "legacy_death_report_document_admin_legacy_death_reports__report_id__document_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/legacy/death-reports/{report_id}/{decision}": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Legacy Death Report Decide",
+        "description": "Onay Miras'ı hemen açmaz: sahibe 14 günlük uyarı süreci başlar.",
+        "operationId": "legacy_death_report_decide_admin_legacy_death_reports__report_id___decision__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          },
+          {
+            "name": "decision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "approve",
+                "reject"
+              ],
+              "type": "string",
+              "title": "Decision"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/legacy/access/{access_id}/restore": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Legacy Restore Access",
+        "description": "Destek: alıcının sildiği vefat sonrası Miras'ı geri getirir.",
+        "operationId": "legacy_restore_access_admin_legacy_access__access_id__restore_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "access_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Access Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3945,6 +4432,80 @@
         ],
         "title": "ConversationOut"
       },
+      "DeathReportOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "owner_name": {
+            "type": "string",
+            "title": "Owner Name"
+          },
+          "reporter_name": {
+            "type": "string",
+            "title": "Reporter Name"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "owner_name",
+          "reporter_name",
+          "media_type",
+          "created_at"
+        ],
+        "title": "DeathReportOut"
+      },
+      "DeleteStartedOut": {
+        "properties": {
+          "flow_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Flow Id"
+          },
+          "email_hint": {
+            "type": "string",
+            "title": "Email Hint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flow_id",
+          "email_hint"
+        ],
+        "title": "DeleteStartedOut"
+      },
+      "DeleteVerifyIn": {
+        "properties": {
+          "flow_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Flow Id"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flow_id",
+          "code"
+        ],
+        "title": "DeleteVerifyIn"
+      },
       "DevLoginRequest": {
         "properties": {
           "handle": {
@@ -4216,6 +4777,31 @@
           "version"
         ],
         "title": "HealthOut"
+      },
+      "HeirOfOut": {
+        "properties": {
+          "owner_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Owner Id"
+          },
+          "owner_name": {
+            "type": "string",
+            "title": "Owner Name"
+          },
+          "open_report": {
+            "type": "boolean",
+            "title": "Open Report"
+          }
+        },
+        "type": "object",
+        "required": [
+          "owner_id",
+          "owner_name",
+          "open_report"
+        ],
+        "title": "HeirOfOut",
+        "description": "Seni vefat sonrası alıcı olarak belirlemiş biri (vefatını bildirebilirsin)."
       },
       "LatencyReportOut": {
         "properties": {
@@ -5387,6 +5973,137 @@
         ],
         "title": "PersonaOut"
       },
+      "PosthumousConfigureIn": {
+        "properties": {
+          "emails": {
+            "items": {
+              "type": "string",
+              "format": "email"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Emails"
+          },
+          "consent_accepted": {
+            "type": "boolean",
+            "const": true,
+            "title": "Consent Accepted"
+          },
+          "consent_text_version": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Consent Text Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "emails",
+          "consent_accepted",
+          "consent_text_version"
+        ],
+        "title": "PosthumousConfigureIn"
+      },
+      "PosthumousHeirOut": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "sent": {
+            "type": "boolean",
+            "title": "Sent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "sent"
+        ],
+        "title": "PosthumousHeirOut"
+      },
+      "PosthumousSetupOut": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "off",
+              "armed",
+              "warning",
+              "activated"
+            ],
+            "title": "State"
+          },
+          "heirs": {
+            "items": {
+              "$ref": "#/components/schemas/PosthumousHeirOut"
+            },
+            "type": "array",
+            "title": "Heirs"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "inactivity",
+                  "death_report"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger"
+          },
+          "warning_started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning Started At"
+          },
+          "warnings_sent": {
+            "type": "integer",
+            "title": "Warnings Sent"
+          },
+          "inactivity_days": {
+            "type": "integer",
+            "title": "Inactivity Days"
+          },
+          "warning_days": {
+            "type": "integer",
+            "title": "Warning Days"
+          },
+          "consent_version": {
+            "type": "string",
+            "title": "Consent Version"
+          },
+          "consent_text": {
+            "type": "string",
+            "title": "Consent Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "heirs",
+          "trigger",
+          "warning_started_at",
+          "warnings_sent",
+          "inactivity_days",
+          "warning_days",
+          "consent_version",
+          "consent_text"
+        ],
+        "title": "PosthumousSetupOut"
+      },
       "PreviewRequest": {
         "properties": {
           "sentence": {
@@ -5602,6 +6319,14 @@
             ],
             "title": "Status"
           },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "living",
+              "posthumous"
+            ],
+            "title": "Mode"
+          },
           "since": {
             "type": "string",
             "format": "date-time",
@@ -5626,6 +6351,7 @@
           "persona_id",
           "owner_name",
           "status",
+          "mode",
           "since",
           "ended_at"
         ],

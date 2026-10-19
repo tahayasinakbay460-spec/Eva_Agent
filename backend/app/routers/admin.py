@@ -5,7 +5,7 @@ Admin olmayan için bu uçlar "yok"tur (404). Dosyaya bakmak ve karar vermek ayr
 adım-yukarı doğrulama ister; her dosya açılışı denetim kaydına yazılır."""
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,8 @@ from app.database import get_db
 from app.models.user import User
 from app.routers.biometrics import enrollment_out
 from app.schemas.biometric import AdminEnrollmentOut, ApproveRequest, RejectRequest
-from app.services import biometric_service
+from app.schemas.legacy import DeathReportOut
+from app.services import biometric_service, legacy_grant_service, legacy_posthumous_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -126,3 +127,73 @@ async def reject(
     except biometric_service.BiometricError as exc:
         raise HTTPException(exc.status, exc.code) from exc
     return await _admin_out(db, enrollment_id)
+
+
+# --- Miras: vefat bildirimleri ve geri getirme (ADR 0011) -----------------------------------
+
+
+@router.get(
+    "/legacy/death-reports", response_model=list[DeathReportOut], dependencies=[default_limit]
+)
+async def legacy_death_reports(admin: AdminUser, db: DB) -> list[DeathReportOut]:
+    items = await legacy_posthumous_service.pending_reports(db)
+    return [
+        DeathReportOut(
+            id=r.id,
+            owner_name=owner,
+            reporter_name=reporter,
+            media_type=r.media_type,
+            created_at=r.created_at,
+        )
+        for r, owner, reporter in items
+    ]
+
+
+@router.get("/legacy/death-reports/{report_id}/document", dependencies=[default_limit])
+async def legacy_death_report_document(
+    request: Request, report_id: uuid.UUID, admin: SteppedUpAdmin, db: DB
+) -> Response:
+    """Belgeyi açar; her açılış denetim kaydına yazılır."""
+    try:
+        data, media_type = await legacy_posthumous_service.report_document(
+            db, request.app.state.store, admin, report_id
+        )
+    except legacy_posthumous_service.PosthumousError as exc:
+        raise HTTPException(exc.status, exc.code) from exc
+    # Cache-Control: no-store güvenlik ara katmanından gelir.
+    return Response(content=data, media_type=media_type)
+
+
+@router.post(
+    "/legacy/death-reports/{report_id}/{decision}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[default_limit],
+)
+async def legacy_death_report_decide(
+    report_id: uuid.UUID,
+    decision: Literal["approve", "reject"],
+    admin: SteppedUpAdmin,
+    db: DB,
+) -> Response:
+    """Onay Miras'ı hemen açmaz: sahibe 14 günlük uyarı süreci başlar."""
+    try:
+        await legacy_posthumous_service.decide_report(
+            db, admin, report_id, approve=decision == "approve"
+        )
+    except legacy_posthumous_service.PosthumousError as exc:
+        raise HTTPException(exc.status, exc.code) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/legacy/access/{access_id}/restore",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[default_limit],
+)
+async def legacy_restore_access(access_id: uuid.UUID, admin: SteppedUpAdmin, db: DB) -> Response:
+    """Destek: alıcının sildiği vefat sonrası Miras'ı geri getirir."""
+    try:
+        await legacy_grant_service.restore_access(db, admin, access_id)
+    except legacy_grant_service.GrantNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

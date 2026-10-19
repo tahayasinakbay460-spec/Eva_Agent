@@ -370,6 +370,9 @@ MessageTemplate = Literal[
     "legacy_key_delivery",
     "legacy_redeem_code",
     "legacy_key_used",
+    "legacy_posthumous_warning",
+    "legacy_posthumous_delivery",
+    "legacy_delete_code",
 ]
 
 

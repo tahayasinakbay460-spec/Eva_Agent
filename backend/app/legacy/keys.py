@@ -15,6 +15,10 @@ import hashlib
 import hmac
 import secrets
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.core.config import Settings
 
 KEY_BYTES = 20  # 160 bit (§8.3: en az 128)
 PEPPER_BYTES = 32
@@ -110,3 +114,14 @@ def load_pepper(*, configured: str | None, dev_file: Path, is_dev: bool) -> byte
     if not is_dev:
         raise LegacyConfigError("EVA_LEGACY_KEY_PEPPER is required outside dev/test")
     return load_or_create_dev_pepper(dev_file)
+
+
+def pepper_from_settings(settings: "Settings") -> bytes:
+    """API ve işçi biberi aynı yerden okusun."""
+    return load_pepper(
+        configured=(
+            settings.legacy_key_pepper.get_secret_value() if settings.legacy_key_pepper else None
+        ),
+        dev_file=settings.dev_legacy_pepper_file,
+        is_dev=settings.is_dev,
+    )

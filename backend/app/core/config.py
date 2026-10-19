@@ -108,6 +108,13 @@ class Settings(BaseSettings):
     # Miras'a dahil en az bu kadar anı ve EVA'ya yazılmış en az bu kadar mesaj.
     legacy_min_memories: int = 30
     legacy_min_messages: int = 100
+    # Vefat sonrası Miras (ADR 0011): 6 ay hareketsizlik -> 14 günlük uyarı süreci (0., 7., 13.
+    # günlerde e-posta) -> anahtarlar alıcılara otomatik gider (365 gün geçerli).
+    legacy_inactivity_days: int = 180
+    legacy_warning_days: int = 14
+    legacy_warning_schedule_days: list[int] = [0, 7, 13]
+    legacy_posthumous_key_ttl_days: int = 365
+    legacy_sweep_interval_s: int = 3600
     legacy_redeem_max_failures: int = 5
     legacy_redeem_lockout_s: int = 24 * 3600
 

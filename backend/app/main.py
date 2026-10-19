@@ -17,7 +17,7 @@ from app.core.middleware import RequestContextMiddleware
 from app.core.ratelimit import MemoryRateLimiter
 from app.core.telemetry import setup_telemetry
 from app.database import create_engine, create_session_factory
-from app.legacy.keys import LegacyConfigError, load_pepper
+from app.legacy.keys import LegacyConfigError, pepper_from_settings
 from app.persona.compiler import PersonaCompiler
 from app.providers.registry import ProviderRegistry, build_registry
 from app.routers import (
@@ -36,7 +36,8 @@ from app.routers import (
 from app.services import persona_service
 from app.services.chat_service import ChatService
 from app.storage.factory import build_encrypted_store, check_storage
-from app.worker import handlers  # noqa: F401 - iş işleyicilerini kaydeder
+from app.worker import handlers, queue  # noqa: F401 - iş işleyicilerini kaydeder
+from app.worker.jobs import LEGACY_POSTHUMOUS_SWEEP
 from app.worker.runner import WorkerContext, run_forever
 
 log = logging.getLogger("eva")
@@ -49,6 +50,14 @@ async def seed_defaults(app: FastAPI) -> None:
     async with app.state.session_factory() as db:
         await persona_service.ensure_default_eva(db)
         await persona_service.ensure_builtin_characters(db)
+
+
+async def schedule_background(app: FastAPI) -> None:
+    """Periyodik işleri başlatır (yalnızca gerçek açılışta; testler kendisi çağırır)."""
+    async with app.state.session_factory() as db:
+        # Vefat sonrası Miras taraması (ADR 0011): kendini saatlik yeniden sıraya koyar.
+        await queue.enqueue(db, LEGACY_POSTHUMOUS_SWEEP, {}, dedupe_key=LEGACY_POSTHUMOUS_SWEEP)
+        await db.commit()
 
 
 def check_production_providers(app: FastAPI) -> None:
@@ -71,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         check_production_providers(app)
         await seed_defaults(app)
+        await schedule_background(app)
         stop = asyncio.Event()
         worker: asyncio.Task[None] | None = None
         if settings.run_worker_inprocess:
@@ -101,15 +111,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.store = build_encrypted_store(settings)
     # Miras anahtar özetlerinin biberi; gerçek ortamda yoksa uygulama açılışta durur (ADR 0010).
     try:
-        app.state.legacy_pepper = load_pepper(
-            configured=(
-                settings.legacy_key_pepper.get_secret_value()
-                if settings.legacy_key_pepper
-                else None
-            ),
-            dev_file=settings.dev_legacy_pepper_file,
-            is_dev=settings.is_dev,
-        )
+        app.state.legacy_pepper = pepper_from_settings(settings)
     except LegacyConfigError:
         app.state.legacy_pepper = None
     app.state.worker_context = WorkerContext(

@@ -10,11 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.ratelimit import rate_limited
 from app.core.security import CurrentUser, SteppedUpUser
+from app.core.uploads import read_body_limited
 from app.database import get_db
 from app.models.legacy import LegacyGrant
 from app.models.persona import Persona
 from app.models.user import User
 from app.schemas.legacy import (
+    DeleteStartedOut,
+    DeleteVerifyIn,
+    HeirOfOut,
     LegacyConsentTextOut,
     LegacyDraftIn,
     LegacyGrantCreate,
@@ -26,9 +30,18 @@ from app.schemas.legacy import (
     LegacyRedeemIn,
     LegacyRedeemStartedOut,
     LegacyRedeemVerifyIn,
+    PosthumousConfigureIn,
+    PosthumousHeirOut,
+    PosthumousSetupOut,
     SharedLegacyOut,
 )
-from app.services import legacy_grant_service, legacy_service, password_auth_service
+from app.services import (
+    biometric_service,
+    legacy_grant_service,
+    legacy_posthumous_service,
+    legacy_service,
+    password_auth_service,
+)
 
 router = APIRouter(prefix="/legacy", tags=["legacy"])
 
@@ -39,6 +52,8 @@ synthesis_limit = Depends(rate_limited("legacy_synthesis", "rate_limit_call_per_
 # Anahtar uçları sıkı: tahmin denemelerine karşı (hesap başına ayrıca 24 saat kilit var).
 grant_limit = Depends(rate_limited("legacy_grant", "rate_limit_call_per_minute"))
 redeem_limit = Depends(rate_limited("legacy_redeem", "rate_limit_call_per_minute"))
+# Vefat bildirimi belge yükler: sıkı sınır.
+report_limit = Depends(rate_limited("legacy_report", "rate_limit_call_per_minute"))
 
 
 async def _out(
@@ -268,6 +283,7 @@ def _shared_out(item: legacy_grant_service.SharedLegacy) -> SharedLegacyOut:
         persona_id=a.persona_id,
         owner_name=item.owner_name,
         status=a.status if a.status in ("active", "revoked", "archived") else "revoked",
+        mode="posthumous" if a.mode == "posthumous" else "living",
         since=a.created_at,
         ended_at=a.ended_at,
     )
@@ -299,6 +315,162 @@ async def delete_shared(access_id: uuid.UUID, user: CurrentUser, db: DB) -> Resp
     """Alıcı kendi tarafından siler: kendi konuşmaları ve anıları da gider."""
     try:
         await legacy_grant_service.delete_access(db, user, access_id)
+    except legacy_grant_service.GrantNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
+    except legacy_grant_service.LegacyGrantError as exc:
+        # Vefat sonrası Miras: önce /delete/start + /delete/verify (e-posta onayı).
+        raise HTTPException(exc.status, exc.code) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- vefat sonrası: sahip (ADR 0011) -------------------------------------------------------
+
+
+def _setup_out(
+    request: Request, user: User, setup: legacy_posthumous_service.Setup
+) -> PosthumousSetupOut:
+    settings = request.app.state.settings
+    texts = legacy_posthumous_service.CONSENT_TEXT
+    state = setup.state if setup.state in ("off", "armed", "warning", "activated") else "off"
+    trigger = setup.trigger if setup.trigger in ("inactivity", "death_report") else None
+    return PosthumousSetupOut(
+        state=state,
+        heirs=[PosthumousHeirOut(email=h.email, sent=h.grant_id is not None) for h in setup.heirs],
+        trigger=trigger,
+        warning_started_at=setup.warning_started_at,
+        warnings_sent=setup.warnings_sent,
+        inactivity_days=settings.legacy_inactivity_days,
+        warning_days=settings.legacy_warning_days,
+        consent_version=legacy_posthumous_service.CONSENT_VERSION,
+        consent_text=texts.get(user.locale, texts["tr"]),
+    )
+
+
+def _posthumous_error(exc: legacy_posthumous_service.PosthumousError) -> HTTPException:
+    return HTTPException(exc.status, exc.code)
+
+
+@router.get("/posthumous", response_model=PosthumousSetupOut, dependencies=[default_limit])
+async def get_posthumous(request: Request, user: CurrentUser, db: DB) -> PosthumousSetupOut:
+    return _setup_out(request, user, await legacy_posthumous_service.get_setup(db, user))
+
+
+@router.put(
+    "/posthumous",
+    response_model=PosthumousSetupOut,
+    dependencies=[default_limit],
+    responses={403: {"description": "step_up_required"}, 409: {"description": "not ready"}},
+)
+async def configure_posthumous(
+    request: Request, body: PosthumousConfigureIn, user: SteppedUpUser, db: DB
+) -> PosthumousSetupOut:
+    """Vefat sonrası alıcıları belirler; anahtar şimdi gitmez, vefatta otomatik gider."""
+    try:
+        setup = await legacy_posthumous_service.configure(
+            db,
+            request.app.state.settings,
+            user,
+            emails=[str(e) for e in body.emails],
+            consent_text_version=body.consent_text_version,
+        )
+    except legacy_posthumous_service.PosthumousError as exc:
+        raise _posthumous_error(exc) from exc
+    return _setup_out(request, user, setup)
+
+
+@router.delete(
+    "/posthumous",
+    response_model=PosthumousSetupOut,
+    dependencies=[default_limit],
+    responses={403: {"description": "step_up_required"}},
+)
+async def turn_off_posthumous(request: Request, user: SteppedUpUser, db: DB) -> PosthumousSetupOut:
+    try:
+        setup = await legacy_posthumous_service.turn_off(db, user)
+    except legacy_posthumous_service.PosthumousError as exc:
+        raise _posthumous_error(exc) from exc
+    return _setup_out(request, user, setup)
+
+
+# --- vefat sonrası: alıcı (bildirim ve silme) ------------------------------------------------
+
+
+@router.get("/heir-of", response_model=list[HeirOfOut], dependencies=[default_limit])
+async def heir_of(user: CurrentUser, db: DB) -> list[HeirOfOut]:
+    items = await legacy_posthumous_service.heir_of(db, user)
+    return [
+        HeirOfOut(owner_id=i.owner_id, owner_name=i.owner_name, open_report=i.open_report)
+        for i in items
+    ]
+
+
+@router.post(
+    "/heir-of/{owner_id}/report",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[report_limit],
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                t: {"schema": {"type": "string", "format": "binary"}}
+                for t in sorted(legacy_posthumous_service.DOCUMENT_TYPES)
+            },
+        }
+    },
+)
+async def report_death(
+    request: Request, owner_id: uuid.UUID, user: CurrentUser, db: DB
+) -> Response:
+    """Belirlenmiş alıcı vefatı belgeyle bildirir; admin inceler. Onay bile Miras'ı hemen
+    açmaz: sahibe 14 günlük uyarı süreci başlar."""
+    data = await read_body_limited(request, legacy_posthumous_service.DOCUMENT_SIZE_LIMIT)
+    try:
+        await legacy_posthumous_service.submit_report(
+            db,
+            request.app.state.store,
+            user,
+            owner_id,
+            media_type=biometric_service.normalize_media_type(request.headers.get("content-type")),
+            data=data,
+        )
+    except legacy_posthumous_service.PosthumousError as exc:
+        raise _posthumous_error(exc) from exc
+    return Response(status_code=status.HTTP_201_CREATED)
+
+
+@router.post(
+    "/shared/{access_id}/delete/start",
+    response_model=DeleteStartedOut,
+    dependencies=[redeem_limit],
+)
+async def start_shared_delete(
+    request: Request, access_id: uuid.UUID, user: CurrentUser, db: DB
+) -> DeleteStartedOut:
+    """Vefat sonrası Miras'ı silmek: arayüzdeki 3 onaydan sonra e-postaya kod gider."""
+    try:
+        started = await legacy_grant_service.start_posthumous_delete(
+            db, _deps(request), user, access_id
+        )
+    except legacy_grant_service.GrantNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
+    return DeleteStartedOut(flow_id=started.flow_id, email_hint=started.email_hint)
+
+
+@router.post(
+    "/shared/{access_id}/delete/verify",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[redeem_limit],
+    responses={400: {"description": _INVALID}},
+)
+async def verify_shared_delete(
+    access_id: uuid.UUID, body: DeleteVerifyIn, user: CurrentUser, db: DB
+) -> Response:
+    try:
+        await legacy_grant_service.finish_posthumous_delete(
+            db, user, access_id, body.flow_id, body.code
+        )
+    except legacy_grant_service.RedeemFailedError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, _INVALID) from exc
     except legacy_grant_service.GrantNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -33,7 +33,7 @@ from app.models.user import User
 from app.providers.base import MessageTemplate, MessagingProvider, OutboundMessage
 from app.services.auth_service import AuthFailedError
 
-Purpose = Literal["signup", "login", "reset", "step_up", "legacy"]
+Purpose = Literal["signup", "login", "reset", "step_up", "legacy", "legacy_delete"]
 
 CODE_TTL = timedelta(minutes=10)
 MAX_ATTEMPTS = 5

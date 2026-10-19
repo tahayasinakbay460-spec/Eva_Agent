@@ -617,6 +617,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/legacy/posthumous": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Posthumous */
+        get: operations["get_posthumous_legacy_posthumous_get"];
+        /**
+         * Configure Posthumous
+         * @description Vefat sonrası alıcıları belirler; anahtar şimdi gitmez, vefatta otomatik gider.
+         */
+        put: operations["configure_posthumous_legacy_posthumous_put"];
+        post?: never;
+        /** Turn Off Posthumous */
+        delete: operations["turn_off_posthumous_legacy_posthumous_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/heir-of": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Heir Of */
+        get: operations["heir_of_legacy_heir_of_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/heir-of/{owner_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Death
+         * @description Belirlenmiş alıcı vefatı belgeyle bildirir; admin inceler. Onay bile Miras'ı hemen
+         *     açmaz: sahibe 14 günlük uyarı süreci başlar.
+         */
+        post: operations["report_death_legacy_heir_of__owner_id__report_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/shared/{access_id}/delete/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Shared Delete
+         * @description Vefat sonrası Miras'ı silmek: arayüzdeki 3 onaydan sonra e-postaya kod gider.
+         */
+        post: operations["start_shared_delete_legacy_shared__access_id__delete_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/shared/{access_id}/delete/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Shared Delete */
+        post: operations["verify_shared_delete_legacy_shared__access_id__delete_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/conversations": {
         parameters: {
             query?: never;
@@ -1087,6 +1184,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/legacy/death-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Legacy Death Reports */
+        get: operations["legacy_death_reports_admin_legacy_death_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/legacy/death-reports/{report_id}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Legacy Death Report Document
+         * @description Belgeyi açar; her açılış denetim kaydına yazılır.
+         */
+        get: operations["legacy_death_report_document_admin_legacy_death_reports__report_id__document_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/legacy/death-reports/{report_id}/{decision}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Legacy Death Report Decide
+         * @description Onay Miras'ı hemen açmaz: sahibe 14 günlük uyarı süreci başlar.
+         */
+        post: operations["legacy_death_report_decide_admin_legacy_death_reports__report_id___decision__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/legacy/access/{access_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Legacy Restore Access
+         * @description Destek: alıcının sildiği vefat sonrası Miras'ı geri getirir.
+         */
+        post: operations["legacy_restore_access_admin_legacy_access__access_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1380,6 +1554,45 @@ export interface components {
              */
             updated_at: string;
         };
+        /** DeathReportOut */
+        DeathReportOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Owner Name */
+            owner_name: string;
+            /** Reporter Name */
+            reporter_name: string;
+            /** Media Type */
+            media_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** DeleteStartedOut */
+        DeleteStartedOut: {
+            /**
+             * Flow Id
+             * Format: uuid
+             */
+            flow_id: string;
+            /** Email Hint */
+            email_hint: string;
+        };
+        /** DeleteVerifyIn */
+        DeleteVerifyIn: {
+            /**
+             * Flow Id
+             * Format: uuid
+             */
+            flow_id: string;
+            /** Code */
+            code: string;
+        };
         /** DevLoginRequest */
         DevLoginRequest: {
             /** Handle */
@@ -1483,6 +1696,21 @@ export interface components {
             env: string;
             /** Version */
             version: string;
+        };
+        /**
+         * HeirOfOut
+         * @description Seni vefat sonrası alıcı olarak belirlemiş biri (vefatını bildirebilirsin).
+         */
+        HeirOfOut: {
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Owner Name */
+            owner_name: string;
+            /** Open Report */
+            open_report: boolean;
         };
         /**
          * LatencyReportOut
@@ -1977,6 +2205,49 @@ export interface components {
             /** Slug */
             slug: string | null;
         };
+        /** PosthumousConfigureIn */
+        PosthumousConfigureIn: {
+            /** Emails */
+            emails: string[];
+            /**
+             * Consent Accepted
+             * @constant
+             */
+            consent_accepted: true;
+            /** Consent Text Version */
+            consent_text_version: string;
+        };
+        /** PosthumousHeirOut */
+        PosthumousHeirOut: {
+            /** Email */
+            email: string;
+            /** Sent */
+            sent: boolean;
+        };
+        /** PosthumousSetupOut */
+        PosthumousSetupOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "off" | "armed" | "warning" | "activated";
+            /** Heirs */
+            heirs: components["schemas"]["PosthumousHeirOut"][];
+            /** Trigger */
+            trigger: ("inactivity" | "death_report") | null;
+            /** Warning Started At */
+            warning_started_at: string | null;
+            /** Warnings Sent */
+            warnings_sent: number;
+            /** Inactivity Days */
+            inactivity_days: number;
+            /** Warning Days */
+            warning_days: number;
+            /** Consent Version */
+            consent_version: string;
+            /** Consent Text */
+            consent_text: string;
+        };
         /** PreviewRequest */
         PreviewRequest: {
             /** Sentence */
@@ -2073,6 +2344,11 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "revoked" | "archived";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "living" | "posthumous";
             /**
              * Since
              * Format: date-time
@@ -3420,6 +3696,229 @@ export interface operations {
             };
         };
     };
+    get_posthumous_legacy_posthumous_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PosthumousSetupOut"];
+                };
+            };
+        };
+    };
+    configure_posthumous_legacy_posthumous_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PosthumousConfigureIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PosthumousSetupOut"];
+                };
+            };
+            /** @description step_up_required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not ready */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    turn_off_posthumous_legacy_posthumous_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PosthumousSetupOut"];
+                };
+            };
+            /** @description step_up_required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    heir_of_legacy_heir_of_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeirOfOut"][];
+                };
+            };
+        };
+    };
+    report_death_legacy_heir_of__owner_id__report_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/pdf": string;
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_shared_delete_legacy_shared__access_id__delete_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteStartedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_shared_delete_legacy_shared__access_id__delete_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteVerifyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_or_expired */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_conversations_chat_conversations_get: {
         parameters: {
             query?: never;
@@ -4446,6 +4945,116 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AdminEnrollmentOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    legacy_death_reports_admin_legacy_death_reports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeathReportOut"][];
+                };
+            };
+        };
+    };
+    legacy_death_report_document_admin_legacy_death_reports__report_id__document_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    legacy_death_report_decide_admin_legacy_death_reports__report_id___decision__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+                decision: "approve" | "reject";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    legacy_restore_access_admin_legacy_access__access_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

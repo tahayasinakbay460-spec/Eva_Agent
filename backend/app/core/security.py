@@ -79,7 +79,12 @@ async def get_current_user(
         raise _unauthorized()
     request.state.session_token = credentials.credentials
     request.state.auth_session_id = session.id
-    return session.user
+    user = session.user
+    # Vefat sonrası Miras'ın hareketsizlik saati (ADR 0011); uyarı sürecini de durdurur.
+    from app.services.legacy_posthumous_service import touch_activity
+
+    await touch_activity(db, user)
+    return user
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]

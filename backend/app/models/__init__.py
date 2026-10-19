@@ -12,7 +12,15 @@ from app.models.biometric import (
 from app.models.call import CallSession, TurnLatency
 from app.models.conversation import Conversation, Message
 from app.models.job import Job
-from app.models.legacy import LegacyAccess, LegacyGrant, LegacyRedeemFailure, PersonaVersion
+from app.models.legacy import (
+    LegacyAccess,
+    LegacyDeathReport,
+    LegacyGrant,
+    LegacyHeir,
+    LegacyPosthumous,
+    LegacyRedeemFailure,
+    PersonaVersion,
+)
 from app.models.media import MediaPreference
 from app.models.memory import Memory, MemoryEmbedding
 from app.models.persona import Persona
@@ -33,7 +41,10 @@ __all__ = [
     "EnrollmentSample",
     "Job",
     "LegacyAccess",
+    "LegacyDeathReport",
     "LegacyGrant",
+    "LegacyHeir",
+    "LegacyPosthumous",
     "LegacyRedeemFailure",
     "MediaPreference",
     "Memory",

@@ -10,3 +10,5 @@ BIOMETRIC_CREATE_ASSET = "biometric_create_asset"
 BIOMETRIC_PURGE = "biometric_purge"
 # Miras: sahibin anılarından ve mesajlarından kişilik taslağı (Faz 5).
 LEGACY_SYNTHESIZE = "legacy_synthesize"
+# Miras: vefat sonrası tarama (hareketsizlik, uyarılar, etkinleşme); saatlik, kendini yeniler.
+LEGACY_POSTHUMOUS_SWEEP = "legacy_posthumous_sweep"

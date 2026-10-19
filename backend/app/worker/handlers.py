@@ -3,23 +3,33 @@ işçi çökerse aynı iş ikinci kez gelebilir.
 """
 
 import uuid
+from datetime import timedelta
 from typing import Any, cast
 
 from sqlalchemy import delete, select
 
+from app.core.ratelimit import MemoryRateLimiter
 from app.database import utcnow
+from app.legacy.keys import pepper_from_settings
 from app.models.biometric import OPEN_STATUSES, BiometricEnrollment, EnrollmentSample, ProviderAsset
 from app.models.memory import Memory, MemoryEmbedding
 from app.providers.base import AvatarEnrollmentProvider, ProviderError, VoiceEnrollmentProvider
 from app.providers.base import EnrollmentSample as ProviderSample
 from app.providers.registry import create_adapter
-from app.services import audit, legacy_service, memory_extraction
+from app.services import (
+    audit,
+    legacy_posthumous_service,
+    legacy_service,
+    memory_extraction,
+    password_auth_service,
+)
 from app.worker import queue
 from app.worker.jobs import (
     BIOMETRIC_CREATE_ASSET,
     BIOMETRIC_PURGE,
     EMBED_MEMORY,
     EXTRACT_MEMORIES,
+    LEGACY_POSTHUMOUS_SWEEP,
     LEGACY_SYNTHESIZE,
 )
 from app.worker.runner import WorkerContext, handler
@@ -69,6 +79,26 @@ async def legacy_synthesize(ctx: WorkerContext, payload: dict[str, Any]) -> None
     persona_id = uuid.UUID(str(payload["persona_id"]))
     async with ctx.session_factory() as db:
         await legacy_service.run_synthesis(db, ctx.registry, persona_id)
+
+
+@handler(LEGACY_POSTHUMOUS_SWEEP)
+async def legacy_posthumous_sweep(ctx: WorkerContext, payload: dict[str, Any]) -> None:
+    """Vefat sonrası Miras taraması; bitince bir sonrakini sıraya koyar (ADR 0011)."""
+    deps = password_auth_service.Deps(
+        messaging=ctx.registry.messaging(), limiter=MemoryRateLimiter()
+    )
+    async with ctx.session_factory() as db:
+        await legacy_posthumous_service.sweep(
+            db, ctx.settings, deps, pepper_from_settings(ctx.settings)
+        )
+        await queue.enqueue(
+            db,
+            LEGACY_POSTHUMOUS_SWEEP,
+            {},
+            run_at=utcnow() + timedelta(seconds=ctx.settings.legacy_sweep_interval_s),
+            dedupe_key=LEGACY_POSTHUMOUS_SWEEP,
+        )
+        await db.commit()
 
 
 # --- biyometrik kayıt (Faz 3) ---------------------------------------------------------

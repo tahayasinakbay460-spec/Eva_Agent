@@ -31,3 +31,6 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     role: Mapped[str] = mapped_column(
         String(16), nullable=False, default="user", server_default="user"
     )
+    # Son kimlik doğrulamalı istek (saatte en çok bir kez yazılır). Vefat sonrası Miras'ın
+    # hareketsizlik tetikleyicisi buna bakar (ADR 0011).
+    last_active_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
