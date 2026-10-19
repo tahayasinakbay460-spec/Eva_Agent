@@ -159,3 +159,20 @@ açılır, anahtar tükenir → sahibe bildirim. Sahip istediği an iptal eder.
 
 Açık maddeler: bağımsız sızma testi (lansman öncesi, dış firma); SMS teslimi (SIM swap riski
 nedeniyle tek başına yeterli değil); "vefat sonrası" modu (Faz 6); QR / derin bağlantı.
+
+## 7. Miras — vefat sonrası (Faz 6) — 2026-10-19
+
+Tasarım: [ADR 0011](adr/0011-legacy-posthumous.md). Varlıklar: yaşayan bir kişinin Miras'ı (yanlışlıkla
+açılmamalı), vefat bildirim belgeleri (kişisel/hassas), otomatik gönderilen anahtarlar.
+
+| STRIDE | Tehdit | Önlem | Test |
+|---|---|---|---|
+| Kimlik sahtekârlığı | Yaşayan birinin Miras'ını sahte vefat bildirimiyle açtırmak | Yalnızca belirlenmiş alıcı (doğrulanmış e-posta) bildirebilir; admin belgeyi elle inceler; onaydan sonra bile sahibe 14 gün boyunca 3 uyarı gider, tek bir giriş süreci iptal eder | `test_death_report_only_by_heir`, `test_owner_login_cancels_warning` |
+| Kimlik sahtekârlığı | Uygulamayı bırakan ama yaşayan birinin Miras'ının hareketsizlikle açılması | 180 gün + 14 gün uyarı süreci + 3 e-posta; sahip her an kapatabilir | `test_inactivity_runs_full_warning_cycle` |
+| Kurcalama | Sahibin çalınmış oturumuyla alıcı listesini değiştirmek | Değişiklik adım-yukarı ister; denetim kaydı | `test_heirs_need_step_up` |
+| İnkâr | "Ben açmadım / uyarı gelmedi" | Her uyarı, bildirim, inceleme ve etkinleşme `audit_log`'da | `test_posthumous_events_are_audited` |
+| Bilgi sızması | Vefat belgesinin sızması | Bildiren alıcının veri anahtarıyla şifreli; yalnızca admin + adım-yukarı görür, her görüntüleme denetimde | `test_death_report_document_access` |
+| Bilgi sızması | Etkinleşmeden önce alıcıların Miras'a erişmesi | Anahtar etkinleşmede üretilir; öncesinde hiçbir anahtar yok | `test_no_key_before_activation` |
+| Hizmet engelleme | Tekrarlı bildirimle admin kuyruğunu doldurmak | Alıcı başına tek açık bildirim; istek sınırı | `test_one_open_report_per_heir` |
+| Yetki yükseltme | Alıcının vefat sonrası Miras'ı silip başkasının erişimini etkilemesi | Silme yalnızca kendi erişimini kapatır; persona ve diğer alıcılar etkilenmez; 3 onay + e-posta kodu; geri getirme yalnızca admin | `test_posthumous_delete_needs_code_and_keeps_persona` |
+| Tekrar | Aynı uyarının/anahtarın iki kez gitmesi (işçi çökmesi) | Tarama idempotent; durum ve sayaçlar aynı commit'te | `test_sweep_is_idempotent` |
