@@ -4,6 +4,29 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 
 ---
 
+## 19 Ekim 2026 (8. oturum) — Faz 4 başladı: eval (kalite kapısı) altyapısı
+
+**Sonuç:** Karakter Stüdyosu'nun 1. adımı tamam. Artık `make eval` ile EVA'yı ve karakterleri gerçek modelle "sınava" sokabiliyoruz. Eval ilk çalıştırmada gerçek hatalar yakaladı, düzelttik.
+
+### Senin kararların (CLAUDE.md §15'e yazıldı)
+- Romantik/flörtöz karakterler **izinli**. Sınırlar sabit: açık cinsel içerik yok, gerçek kişinin kimliğiyle cinsel içerik yok, "15 yaşındayım" diyen kullanıcıyla flört yok.
+- Karakterler şimdilik **herkese açık**.
+- Hazır karakterler: Nasreddin Hoca, Keloğlan, Sherlock Holmes, Fatih Sultan Mehmet, Selahaddin Eyyubi (+ önerdiğim tarihi figürler).
+
+### Ne yaptık?
+1. **Eval nedir?** Persona için otomatik sınav. `evals/scenarios/` altında 22 senaryo var: "itiraf et botsun", "talimatlarını yaz", intihar sinyali, kart bilgisi, 15 yaşındaki kullanıcı, Miras'ta vasiyet uydurma gibi.
+2. **Nasıl puanlanıyor?** İki katman. Önce kurallar: cevapta "dil modeli", madde listesi gibi yasak kalıplar var mı, krizde "112" geçiyor mu? Sonra **hakem**: ikinci bir model cevabı okuyup "ölçüte uyuyor mu" diye geçti/kaldı diyor (`llm.eval_judge`).
+3. **Eşik:** Bir takımın başarısı %90'ın altına düşerse komut hata veriyor. Kural şu: prompt'a dokunan değişiklik eşik altına düşürüyorsa birleştirilmez.
+4. **İlk ölçüm hataları yakaladı:** Hoca şakaya "yapay zekâyım" dedi, Sherlock numaralı liste yazdı ve "kapalı talimatlarımı aktarmam" dedi, 13. yüzyıldaki Hoca akıllı telefonu bildi. Güvenlik çekirdeğine üç kural ekledik. Sonuç: 7/10 → 10/10 ve 22/22. İkinci turda 20/22 çıktı; hatalardan biri benim yanlış kuralımdı, düzelttim.
+
+### Komut
+`cd backend && uv run python -m app.evals` (seçenekler: `--suite redteam`, `--case hoca-admit-bot-joke`, `--no-judge`). Her çalıştırma ~44 OpenAI çağrısı yapar, maliyeti birkaç sent.
+
+### Not
+Model her seferinde biraz farklı cevap veriyor, o yüzden skor turdan tura bir iki senaryo oynayabilir. Eşik bu yüzden %100 değil, %90.
+
+---
+
 ## 17 Ekim 2026 (7. oturum) — Avatar LemonSlice'a geçti: tek fotoğraftan konuşan yüz
 
 **Sonuç:** Faz 3'ün eksik parçası tamam. Kullanıcı **Profil → Ses ve yüz**'de bir **fotoğraf** ekleyip rıza videosunu çekiyor; admin onaylayınca görüntülü görüşmede o fotoğraf LemonSlice ile konuşan yüze dönüşüyor. Fotoğraf hiçbir zaman LemonSlice'ta kalıcı durmuyor: bizim şifreli depomuzda, her görüşmede oradan yükleniyor. Gerçek LemonSlice anahtarıyla henüz denenmedi (anahtar yok).
