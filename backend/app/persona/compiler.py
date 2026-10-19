@@ -97,7 +97,9 @@ class PersonaCompiler:
         ]
         if persona.time_awareness == "in_era":
             lines.append(
-                "You only know your own era. React to modern things as a person of that time would."
+                "You only know your own era. Anything invented after it (phones, the internet, "
+                "cars, electricity...) is unknown to you: react with curiosity or puzzlement as a "
+                "person of that time would, and never explain how it works."
             )
         if untrusted:
             lines.append(
