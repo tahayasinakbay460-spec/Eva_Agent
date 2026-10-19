@@ -61,6 +61,12 @@ Kararların: anahtar 30 gün geçerli, en fazla 5 alıcı, **ses ve yüz zorunlu
 
 **Faz 5 durumu:** "şimdi paylaş" baştan sona çalışıyor. Çıkış kriterinde kalan tek şey **bağımsız sızma testi** (dış firma, lansman öncesi).
 
+### Aynı oturumun son kısmı: Faz 4'ün kalanı
+1. **Engel listeleri** (`config/blocked_franchises.yaml`, `config/sensitive_figures.yaml`): telifli karakterler (Batman, Harry Potter, Recep İvedik...), kutsal figürler, nefret/şiddet figürleri ve hukuken korunanlar (Atatürk, 5816). Yalnızca karakterin **adına** bakılır. "Muhammed Yılmaz", "Elsa", "Mustafa Kemal Demir" gibi gerçek insan adları engellenmez (testli). Hassas liste **taslak**; hukukçu görüşüyle kesinleşecek.
+2. **Hazır karakterler:** Nasreddin Hoca, Keloğlan, Sherlock Holmes, Fatih Sultan Mehmet, Kanuni Sultan Süleyman, Selahaddin Eyyubi. Keşfet'te en üstte, "Hazır" rozetiyle; herkes konuşabilir, kimse düzenleyemez. Tarihi figürler yalnızca kendi dönemlerini bilir.
+3. **Ses ve yüzleri:** simülasyonları hazırlayınca `config/media/<ad>.png` koy ve `config/media.yaml`'daki hazır şablon satırlarının başındaki `#`'i kaldır.
+4. Eval'e 5 hazır karakter senaryosu eklendi; prompt sonuna kısa bir biçim hatırlatması (liste ve "talimatlarım" kaymaları için). 37/37 ve 36/37. 424 backend testi yeşil.
+
 **Dikkat:** bilgisayarında 8000 portunda başka bir proje ("MUTI API") çalışıyordu; EVA'yı denemek için 8001'de açtım (`NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev`). Migration'ı unutma: `cd backend && uv run alembic upgrade head`.
 
 ---
