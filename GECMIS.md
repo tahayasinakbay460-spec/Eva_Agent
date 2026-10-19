@@ -34,6 +34,18 @@ Model her seferinde biraz farklı cevap veriyor, o yüzden skor turdan tura bir 
 5. **Denendi:** 351 backend testi (9'u yeni: başkasının gizli karakterine erişememe, sadece sahibin düzenlemesi, beyansız yüklemenin reddi, konum bilgisinin silinmesi, görüşmede karakter yüzü). Gerçek modelle: Mehmet, Ayşe'nin "Fatih Sultan Mehmet" karakterine İstanbul'un fethini sordu, cevap verdi; akıllı telefonu sorunca "Avuç içine sığan bir haberleşme aleti mi?" dedi. Ekranlar tarayıcıda kontrol edildi.
 6. **Lansmandan önce bakılacak** (ADR 0009): başka birinin fotoğrafı için rıza / bildir-kaldır, herkese açık karakterlerde bildir/engelle, reşit olmayan yüzüne karşı kontrol, engel listeleri.
 
+### Aynı oturumun üçüncü kısmı: Faz 5 — Miras başladı (adım 1–5)
+Kararların: anahtar 30 gün geçerli, en fazla 5 alıcı, **ses ve yüz zorunlu** (onaylı klon sesi ve yüzü olmayan Miras gönderemez). Tasarım: ADR 0010; saldırılar ve önlemler: tehdit modeli §6.
+1. **Anahtar:** `EVA-XXXX-…-C`, 160 bit rastgele. Son karakter kontrol karakteri; yazım hataları hemen yakalanır. Veritabanında yalnızca gizli "biber"le alınmış özeti durur.
+2. **Kişilik taslağı:** işçi, Miras'a dahil anılarından ve EVA'ya kendi yazdığın mesajlardan "kim, nasıl biri, nasıl konuşur" metnini ve örnek konuşmaları çıkarır; sen düzeltirsin.
+3. **Kapsam:** her anı Miras'a dahil/hariç işaretlenebilir. Hassaslar (sağlık, para, sırlar) başta hariç; istersen eklersin.
+4. **Önizleme:** kendi Miras personanla yazışıp sesli/görüntülü konuşabilirsin; ses ve yüz her zaman senin.
+5. **Yayın:** kimlik doğrulama + taslak + onaylı ses + yüz gerekir; alıcıların konuşacağı sürüm dondurulur (sürüm 1, 2…).
+
+**Gerçek modelle denendi (sentetik "Ahmet amca"):** taslak onun lafını yakaladı ("evlat", "valla", "hehe", "önce anla, sonra ezberle"). Önizlemede yorgun evladına çay ve teselli önerdi; anılarında olmayan bisiklet gününü uydurmadı; banka şifresi sorusuna "hatırlamıyorum, bankadan hallet" dedi. 371 backend + 12 ajan testi yeşil.
+
+**Sıradaki (adım 6–11):** anahtarı üretip e-postayla göndermek, alıcının anahtar + e-posta koduyla açması, alıcı deneyimi (yazışma + görüntülü), iptal + bildirim, Miras eval'leri, web arayüzü.
+
 **Dikkat:** bilgisayarında 8000 portunda başka bir proje ("MUTI API") çalışıyordu; EVA'yı denemek için 8001'de açtım (`NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev`). Migration'ı unutma: `cd backend && uv run alembic upgrade head`.
 
 ---
