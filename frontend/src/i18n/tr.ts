@@ -195,6 +195,9 @@ export const tr = {
     ownFace: "Kendi fotoğrafım",
     addOwnVoice: "Kendi sesini eklemek ister misin? Ses ve yüz kaydına git",
     addOwnFace: "Kendi fotoğrafını eklemek ister misin? Ses ve yüz kaydına git",
+    ownFaceVoiceHint:
+      "Kendi sesini de seçersen daha gerçekçi olur. İstersen böyle de devam edebilirsin.",
+    ownFaceVoiceAdd: "Kendi sesini de eklersen daha gerçekçi olur. İstersen ses kaydına git",
     noFaces: "Görüntülü görüşme için henüz hazır bir yüz yok.",
     loadFailed: "Ses ve yüz seçenekleri yüklenemedi.",
     previewFailed: "Ses dinletilemedi. Tekrar dene.",

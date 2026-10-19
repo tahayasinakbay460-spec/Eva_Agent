@@ -197,6 +197,10 @@ export const en: Messages = {
     ownFace: "My photo",
     addOwnVoice: "Want to add your own voice? Go to voice & face enrollment",
     addOwnFace: "Want to add your own photo? Go to voice & face enrollment",
+    ownFaceVoiceHint:
+      "Choosing your own voice too makes it more lifelike. You can also keep going like this.",
+    ownFaceVoiceAdd:
+      "Adding your own voice too makes it more lifelike. Go to voice enrollment if you like",
     noFaces: "No face is ready for video calls yet.",
     loadFailed: "Could not load voice and face options.",
     previewFailed: "Could not play the voice. Try again.",

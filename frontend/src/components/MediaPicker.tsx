@@ -159,6 +159,16 @@ export function MediaPicker({ mode }: { mode: CallMode }) {
               {t.addOwnFace}
             </Link>
           )}
+          {/* Kendi yüzü seçilip ses başka kaldıysa yalnızca öneri; seçim kullanıcıda kalır. */}
+          {selected.avatar === OWN_MEDIA &&
+            selected.voice !== OWN_MEDIA &&
+            (options.own_voice ? (
+              <p className="text-xs text-muted">{t.ownFaceVoiceHint}</p>
+            ) : (
+              <Link href="/profil/ses-yuz" className="block text-xs text-muted underline">
+                {t.ownFaceVoiceAdd}
+              </Link>
+            ))}
         </section>
       )}
       {error && <p className="text-xs text-red-300">{error}</p>}
