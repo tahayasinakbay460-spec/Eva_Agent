@@ -1152,6 +1152,103 @@
         }
       }
     },
+    "/legacy/persona": {
+      "get": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Get Persona",
+        "operationId": "get_persona_legacy_persona_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyPersonaOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Update Persona",
+        "operationId": "update_persona_legacy_persona_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegacyDraftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyPersonaOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/legacy/persona/synthesize": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Synthesize",
+        "description": "Taslağı (yeniden) yazdırır. Sonuç işçide hazırlanır; durum ``GET /legacy/persona``'da.",
+        "operationId": "synthesize_legacy_persona_synthesize_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyPersonaOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/chat/conversations": {
       "get": {
         "tags": [
@@ -3720,6 +3817,103 @@
         ],
         "title": "LatencyReportOut",
         "description": "Gecikme panosu (§4.4): son turların aşama süreleri ve p50/p95 özetleri."
+      },
+      "LegacyDraftIn": {
+        "properties": {
+          "identity": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Identity"
+          },
+          "personality": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Personality"
+          },
+          "speaking_style": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Speaking Style"
+          },
+          "example_dialogs": {
+            "items": {
+              "$ref": "#/components/schemas/ExampleDialog"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Example Dialogs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "identity",
+          "personality",
+          "speaking_style"
+        ],
+        "title": "LegacyDraftIn"
+      },
+      "LegacyPersonaOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "none",
+              "pending",
+              "ready",
+              "failed",
+              "not_enough_data"
+            ],
+            "title": "Status"
+          },
+          "has_draft": {
+            "type": "boolean",
+            "title": "Has Draft"
+          },
+          "identity": {
+            "type": "string",
+            "title": "Identity"
+          },
+          "personality": {
+            "type": "string",
+            "title": "Personality"
+          },
+          "speaking_style": {
+            "type": "string",
+            "title": "Speaking Style"
+          },
+          "example_dialogs": {
+            "items": {
+              "$ref": "#/components/schemas/ExampleDialog"
+            },
+            "type": "array",
+            "title": "Example Dialogs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "has_draft",
+          "identity",
+          "personality",
+          "speaking_style",
+          "example_dialogs"
+        ],
+        "title": "LegacyPersonaOut",
+        "description": "Sahibin Miras personası. ``has_draft=False`` iken metin alanları henüz boştur."
       },
       "MediaChoiceOut": {
         "properties": {

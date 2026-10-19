@@ -27,6 +27,7 @@ from app.routers import (
     characters,
     chat,
     health,
+    legacy,
     media,
     memories,
     personas,
@@ -133,6 +134,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(personas.router)
     app.include_router(characters.router)
+    app.include_router(legacy.router)
     app.include_router(chat.router)
     app.include_router(memories.router)
     app.include_router(voice.router)

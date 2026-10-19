@@ -13,13 +13,14 @@ from app.models.memory import Memory, MemoryEmbedding
 from app.providers.base import AvatarEnrollmentProvider, ProviderError, VoiceEnrollmentProvider
 from app.providers.base import EnrollmentSample as ProviderSample
 from app.providers.registry import create_adapter
-from app.services import audit, memory_extraction
+from app.services import audit, legacy_service, memory_extraction
 from app.worker import queue
 from app.worker.jobs import (
     BIOMETRIC_CREATE_ASSET,
     BIOMETRIC_PURGE,
     EMBED_MEMORY,
     EXTRACT_MEMORIES,
+    LEGACY_SYNTHESIZE,
 )
 from app.worker.runner import WorkerContext, handler
 
@@ -60,6 +61,14 @@ async def extract_memories(ctx: WorkerContext, payload: dict[str, Any]) -> None:
     conversation_id = uuid.UUID(str(payload["conversation_id"]))
     async with ctx.session_factory() as db:
         await memory_extraction.extract(db, ctx.registry, conversation_id)
+
+
+@handler(LEGACY_SYNTHESIZE)
+async def legacy_synthesize(ctx: WorkerContext, payload: dict[str, Any]) -> None:
+    """Miras kişilik taslağı (bkz. services/legacy_service.py)."""
+    persona_id = uuid.UUID(str(payload["persona_id"]))
+    async with ctx.session_factory() as db:
+        await legacy_service.run_synthesis(db, ctx.registry, persona_id)
 
 
 # --- biyometrik kayıt (Faz 3) ---------------------------------------------------------

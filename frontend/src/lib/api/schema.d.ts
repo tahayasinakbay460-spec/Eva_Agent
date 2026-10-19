@@ -403,6 +403,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/legacy/persona": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Persona */
+        get: operations["get_persona_legacy_persona_get"];
+        /** Update Persona */
+        put: operations["update_persona_legacy_persona_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/persona/synthesize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Synthesize
+         * @description Taslağı (yeniden) yazdırır. Sonuç işçide hazırlanır; durum ``GET /legacy/persona``'da.
+         */
+        post: operations["synthesize_legacy_persona_synthesize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/conversations": {
         parameters: {
             query?: never;
@@ -1283,6 +1321,45 @@ export interface components {
                     [key: string]: number;
                 };
             };
+        };
+        /** LegacyDraftIn */
+        LegacyDraftIn: {
+            /** Identity */
+            identity: string;
+            /** Personality */
+            personality: string;
+            /** Speaking Style */
+            speaking_style: string;
+            /** Example Dialogs */
+            example_dialogs?: components["schemas"]["ExampleDialog"][];
+        };
+        /**
+         * LegacyPersonaOut
+         * @description Sahibin Miras personası. ``has_draft=False`` iken metin alanları henüz boştur.
+         */
+        LegacyPersonaOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "pending" | "ready" | "failed" | "not_enough_data";
+            /** Has Draft */
+            has_draft: boolean;
+            /** Identity */
+            identity: string;
+            /** Personality */
+            personality: string;
+            /** Speaking Style */
+            speaking_style: string;
+            /** Example Dialogs */
+            example_dialogs: components["schemas"]["ExampleDialog"][];
         };
         /** MediaChoiceOut */
         MediaChoiceOut: {
@@ -2575,6 +2652,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_persona_legacy_persona_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyPersonaOut"];
+                };
+            };
+        };
+    };
+    update_persona_legacy_persona_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegacyDraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyPersonaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    synthesize_legacy_persona_synthesize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyPersonaOut"];
                 };
             };
         };

@@ -8,3 +8,5 @@ EXTRACT_MEMORIES = "extract_memories"
 BIOMETRIC_CREATE_ASSET = "biometric_create_asset"
 # Geri alınan / reddedilen kaydın klonunu sağlayıcıdan sil, dosyalarını imha et.
 BIOMETRIC_PURGE = "biometric_purge"
+# Miras: sahibin anılarından ve mesajlarından kişilik taslağı (Faz 5).
+LEGACY_SYNTHESIZE = "legacy_synthesize"
