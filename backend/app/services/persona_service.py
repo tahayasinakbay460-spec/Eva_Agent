@@ -1,5 +1,5 @@
 """Persona bulma ve varsayılan personayı oluşturma. Yetki kontrolü burada: kullanıcı
-sistem personalarını (sahibi NULL) ve kendi personalarını görür."""
+sistem personalarını (sahibi NULL), kendi personalarını ve herkese açık karakterleri görür."""
 
 import uuid
 
@@ -42,7 +42,11 @@ async def get_default_eva(db: AsyncSession) -> Persona:
 
 
 def _visible_to(user: User):  # type: ignore[no-untyped-def]  # SQLAlchemy ifadesi
-    return or_(Persona.owner_id.is_(None), Persona.owner_id == user.id)
+    return or_(
+        Persona.owner_id.is_(None),
+        Persona.owner_id == user.id,
+        Persona.visibility == "public",
+    )
 
 
 async def get_persona_for_user(db: AsyncSession, user: User, persona_id: uuid.UUID) -> Persona:

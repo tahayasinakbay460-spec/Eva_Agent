@@ -37,6 +37,7 @@ from app.models.user import User
 from app.persona.media import (
     FILE_PREFIX,
     OWN,
+    PERSONA_FACE,
     MediaNotConfiguredError,
     load_catalog,
     media_image,
@@ -45,6 +46,7 @@ from app.providers.base import EnrollmentSample, LLMRequest
 from app.providers.registry import ProviderRegistry
 from app.services import (
     biometric_service,
+    character_service,
     media_service,
     memory_extraction,
     memory_retrieval,
@@ -396,6 +398,21 @@ class CallTurns:
                 voice_id=voice_id,
                 avatar_id=avatar_asset.asset_id,
                 avatar_image=EnrollmentSample(photo.data, photo.media_type),
+            )
+
+        if avatar_key == PERSONA_FACE:
+            # Karakterin kendi yüz görseli (ADR 0009): yalnızca görselden çalışan sağlayıcıda.
+            if not avatar_accepts_image:
+                raise MediaNotReadyError("persona_media_not_configured")
+            if store is None:
+                raise ValueError("store is required for image avatars")
+            face = await character_service.face(db, store, persona)
+            if face is None:
+                raise MediaNotReadyError("no_persona_face")
+            return CallMedia(
+                voice_id=voice_id,
+                avatar_id=f"persona:{persona.id}",
+                avatar_image=EnrollmentSample(face.data, face.media_type),
             )
 
         try:

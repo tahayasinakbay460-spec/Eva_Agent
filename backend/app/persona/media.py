@@ -22,6 +22,8 @@ from app.providers.base import EnrollmentSample
 MediaKind = Literal["voice", "avatar"]
 # Katalog anahtarı yerine "kullanıcının kendi rızalı klonu / fotoğrafı".
 OWN = "own"
+# Katalog anahtarı yerine "karakterin kendi yüz görseli" (Karakter Stüdyosu, ADR 0009).
+PERSONA_FACE = "persona"
 FILE_PREFIX = "file:"
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 _IMAGE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
@@ -76,7 +78,7 @@ def _options(raw: Any, section: str) -> dict[str, MediaOption]:
         raise ValueError(f"media.yaml: {section} must be a mapping")
     out: dict[str, MediaOption] = {}
     for key, value in raw.items():
-        if not isinstance(key, str) or not KEY_PATTERN.match(key) or key == OWN:
+        if not isinstance(key, str) or not KEY_PATTERN.match(key) or key in (OWN, PERSONA_FACE):
             raise ValueError(f"media.yaml: bad {section} key {key!r}")
         if not isinstance(value, dict) or not isinstance(value.get("name"), str):
             raise ValueError(f"media.yaml: {section}.{key} needs a name")

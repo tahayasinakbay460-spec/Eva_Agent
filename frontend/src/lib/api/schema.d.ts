@@ -347,6 +347,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/characters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Characters */
+        get: operations["list_characters_characters_get"];
+        put?: never;
+        /** Create Character */
+        post: operations["create_character_characters_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{character_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Character */
+        get: operations["get_character_characters__character_id__get"];
+        /** Update Character */
+        put: operations["update_character_characters__character_id__put"];
+        post?: never;
+        /** Delete Character */
+        delete: operations["delete_character_characters__character_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{character_id}/face": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Face */
+        get: operations["get_face_characters__character_id__face_get"];
+        /** Upload Face */
+        put: operations["upload_face_characters__character_id__face_put"];
+        post?: never;
+        /** Delete Face */
+        delete: operations["delete_face_characters__character_id__face_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/conversations": {
         parameters: {
             query?: never;
@@ -966,6 +1022,73 @@ export interface components {
             end_reason: string | null;
         };
         /**
+         * CharacterIn
+         * @description Kullanıcının yazdığı karakter tanımı. Prompt'a güvenilmez veri olarak girer (§9.3).
+         */
+        CharacterIn: {
+            /** Name */
+            name: string;
+            /** Identity */
+            identity: string;
+            /** Personality */
+            personality: string;
+            /**
+             * Speaking Style
+             * @default
+             */
+            speaking_style: string;
+            /** Example Dialogs */
+            example_dialogs?: components["schemas"]["ExampleDialog"][];
+            /**
+             * Time Awareness
+             * @default aware_of_present
+             * @enum {string}
+             */
+            time_awareness: "in_era" | "aware_of_present";
+            /**
+             * Visibility
+             * @default public
+             * @enum {string}
+             */
+            visibility: "private" | "public";
+            /** Voice Key */
+            voice_key?: string | null;
+        };
+        /** CharacterOut */
+        CharacterOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Identity */
+            identity: string;
+            /** Personality */
+            personality: string;
+            /** Speaking Style */
+            speaking_style: string;
+            /** Example Dialogs */
+            example_dialogs: components["schemas"]["ExampleDialog"][];
+            /**
+             * Time Awareness
+             * @enum {string}
+             */
+            time_awareness: "in_era" | "aware_of_present";
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "private" | "public";
+            /** Voice Key */
+            voice_key: string | null;
+            /** Has Face */
+            has_face: boolean;
+            /** Is Mine */
+            is_mine: boolean;
+        };
+        /**
          * CodeFlowOut
          * @description Kod gönderildi (kayıtlı olmayan e-postalarda ise gönderilmiş *gibi* görünür; böylece
          *     hangi e-postanın kayıtlı olduğu dışarıdan anlaşılmaz).
@@ -1122,6 +1245,13 @@ export interface components {
             /** Reject Reason */
             reject_reason: string | null;
         };
+        /** ExampleDialog */
+        ExampleDialog: {
+            /** User */
+            user: string;
+            /** Persona */
+            persona: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1187,6 +1317,11 @@ export interface components {
             own_voice: boolean;
             /** Own Avatar */
             own_avatar: boolean;
+            /**
+             * Persona Avatar
+             * @default false
+             */
+            persona_avatar: boolean;
             selected: components["schemas"]["MediaChoiceOut"];
             defaults: components["schemas"]["MediaChoiceOut"];
         };
@@ -2178,6 +2313,268 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PersonaOut"][];
+                };
+            };
+        };
+    };
+    list_characters_characters_get: {
+        parameters: {
+            query?: {
+                scope?: "public" | "mine";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_character_characters_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CharacterIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_character_characters__character_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_character_characters__character_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CharacterIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_character_characters__character_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_face_characters__character_id__face_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_face_characters__character_id__face_put: {
+        parameters: {
+            query?: {
+                rights_confirmed?: boolean;
+            };
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_face_characters__character_id__face_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

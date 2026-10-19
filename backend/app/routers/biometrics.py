@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ratelimit import rate_limited
 from app.core.security import CurrentUser, SteppedUpUser
+from app.core.uploads import read_body_limited
 from app.database import get_db
 from app.models.biometric import BiometricEnrollment
 from app.models.user import User
@@ -126,19 +127,6 @@ async def get_enrollment(enrollment_id: uuid.UUID, user: CurrentUser, db: DB) ->
     return await enrollment_out(db, await _owned(db, user, enrollment_id), user)
 
 
-async def _read_body(request: Request, limit: int) -> bytes:
-    """İstek gövdesini okur; sınır aşılırsa hemen keser (dosyanın tamamını belleğe almadan)."""
-    declared = request.headers.get("content-length")
-    if declared is not None and declared.isdigit() and int(declared) > limit:
-        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "file_too_large")
-    data = bytearray()
-    async for chunk in request.stream():
-        data.extend(chunk)
-        if len(data) > limit:
-            raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "file_too_large")
-    return bytes(data)
-
-
 @router.post(
     "/enrollments/{enrollment_id}/files",
     response_model=EnrollmentFileOut,
@@ -173,7 +161,7 @@ async def upload_file(
 ) -> EnrollmentFileOut:
     enrollment = await _owned(db, user, enrollment_id)
     kind: biometric_service.Kind = "face" if enrollment.kind == "face" else "voice"
-    data = await _read_body(request, biometric_service.SIZE_LIMITS[(kind, role)])
+    data = await read_body_limited(request, biometric_service.SIZE_LIMITS[(kind, role)])
     try:
         sample = await biometric_service.add_file(
             db,

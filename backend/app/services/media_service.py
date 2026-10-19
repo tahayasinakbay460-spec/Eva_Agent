@@ -21,6 +21,7 @@ from app.models.user import User
 from app.persona.media import (
     FILE_PREFIX,
     OWN,
+    PERSONA_FACE,
     MediaCatalog,
     MediaKind,
     MediaNotConfiguredError,
@@ -66,6 +67,8 @@ class MediaOptions:
     avatars: list[OptionView]
     own_voice: bool
     own_avatar: bool
+    # Karakterin kendi yüzü var ve avatar sağlayıcısı görselden çalışıyor (ADR 0009).
+    persona_avatar: bool
     selected: Choice
     defaults: Choice
 
@@ -120,12 +123,27 @@ async def _preference(db: AsyncSession, user: User, persona: Persona) -> MediaPr
     )
 
 
-def _defaults(cat: MediaCatalog, persona: Persona) -> Choice:
+def _persona_face_usable(persona: Persona, providers: _Providers) -> bool:
+    return persona.face_blob_key is not None and providers.avatar_accepts_image
+
+
+def voice_key_valid(settings: Settings, registry: ProviderRegistry, key: str) -> bool:
+    """Karakterin varsayılan sesi olarak seçilebilir bir hazır ses mi?"""
+    return key in _available_keys(catalog(settings), _providers(registry), "voice")
+
+
+def _defaults(cat: MediaCatalog, persona: Persona, providers: _Providers) -> Choice:
     slug = persona.slug or "eva"
     try:
-        return Choice(voice=cat.default(slug, "voice"), avatar=cat.default(slug, "avatar"))
+        base = Choice(voice=cat.default(slug, "voice"), avatar=cat.default(slug, "avatar"))
     except MediaNotConfiguredError:
-        return Choice(voice=cat.default("eva", "voice"), avatar=cat.default("eva", "avatar"))
+        base = Choice(voice=cat.default("eva", "voice"), avatar=cat.default("eva", "avatar"))
+    # Karakter: kendi sesi ve yüzü varsa varsayılan onlardır.
+    voice = base.voice
+    if persona.voice_key and persona.voice_key in _available_keys(cat, providers, "voice"):
+        voice = persona.voice_key
+    avatar = PERSONA_FACE if _persona_face_usable(persona, providers) else base.avatar
+    return Choice(voice=voice, avatar=avatar)
 
 
 async def chosen(
@@ -139,11 +157,13 @@ async def chosen(
     varsayılana döner; "own" olduğu gibi kalır (kullanılamıyorsa görüşme açıkça hata verir)."""
     cat = catalog(settings)
     providers = _providers(registry)
-    defaults = _defaults(cat, persona)
+    defaults = _defaults(cat, persona, providers)
     pref = await _preference(db, user, persona)
 
     def pick(value: str | None, kind: MediaKind, default: str) -> str:
         if value == OWN or (value and value in _available_keys(cat, providers, kind)):
+            return value
+        if kind == "avatar" and value == PERSONA_FACE and _persona_face_usable(persona, providers):
             return value
         return default
 
@@ -175,8 +195,9 @@ async def options(
         ],
         own_voice=await _own(db, user, providers, "voice"),
         own_avatar=await _own(db, user, providers, "avatar"),
+        persona_avatar=_persona_face_usable(persona, providers),
         selected=await chosen(db, settings, registry, user, persona),
-        defaults=_defaults(cat, persona),
+        defaults=_defaults(cat, persona, providers),
     )
 
 
@@ -200,6 +221,9 @@ async def set_preference(
         if value == OWN:
             if not await _own(db, user, providers, kind):
                 raise MediaChoiceError("no_active_voice" if kind == "voice" else "no_active_avatar")
+        elif kind == "avatar" and value == PERSONA_FACE:
+            if not _persona_face_usable(persona, providers):
+                raise MediaChoiceError("no_persona_face")
         elif value not in _available_keys(cat, providers, kind):
             raise MediaChoiceError(f"unknown_{kind}", status=422)
 

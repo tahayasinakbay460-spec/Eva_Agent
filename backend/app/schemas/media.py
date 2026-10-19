@@ -25,6 +25,8 @@ class MediaOptionsOut(BaseModel):
     avatars: list[MediaOptionOut]
     own_voice: bool
     own_avatar: bool
+    # "persona" seçilebilir mi: karakterin kendi yüz görseli (ADR 0009).
+    persona_avatar: bool = False
     selected: MediaChoiceOut
     defaults: MediaChoiceOut
 

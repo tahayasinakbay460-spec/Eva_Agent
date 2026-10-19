@@ -25,3 +25,12 @@ class Persona(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     definition: Mapped[dict[str, Any]] = mapped_column(JSONDict, nullable=False)
     policy: Mapped[dict[str, Any]] = mapped_column(JSONDict, nullable=False, default=dict)
+    # Karakter Stüdyosu (ADR 0009). private: yalnızca sahibi · public: herkes kullanabilir.
+    visibility: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="private", server_default="private", index=True
+    )
+    # Karakterin yüz görseli: sahibinin veri anahtarıyla şifreli, "media" kovasında.
+    face_blob_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    face_media_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Karakterin varsayılan sesi (config/media.yaml anahtarı); boş = EVA'nın varsayılanı.
+    voice_key: Mapped[str | None] = mapped_column(String(32), nullable=True)

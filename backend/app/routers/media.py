@@ -39,6 +39,7 @@ async def _options_out(
         avatars=[MediaOptionOut(key=a.key, name=a.name, has_image=a.has_image) for a in o.avatars],
         own_voice=o.own_voice,
         own_avatar=o.own_avatar,
+        persona_avatar=o.persona_avatar,
         selected=MediaChoiceOut(voice=o.selected.voice, avatar=o.selected.avatar),
         defaults=MediaChoiceOut(voice=o.defaults.voice, avatar=o.defaults.avatar),
     )
