@@ -44,7 +44,10 @@ Kararların: anahtar 30 gün geçerli, en fazla 5 alıcı, **ses ve yüz zorunlu
 
 **Gerçek modelle denendi (sentetik "Ahmet amca"):** taslak onun lafını yakaladı ("evlat", "valla", "hehe", "önce anla, sonra ezberle"). Önizlemede yorgun evladına çay ve teselli önerdi; anılarında olmayan bisiklet gününü uydurmadı; banka şifresi sorusuna "hatırlamıyorum, bankadan hallet" dedi. 371 backend + 12 ajan testi yeşil.
 
-**Sıradaki (adım 6–11):** anahtarı üretip e-postayla göndermek, alıcının anahtar + e-posta koduyla açması, alıcı deneyimi (yazışma + görüntülü), iptal + bildirim, Miras eval'leri, web arayüzü.
+6. **Anahtar gönderme:** kimlik doğrulama + Miras rıza metni + yayınlanmış sürüm + onaylı ses ve yüz gerekir. Anahtar sana **bir kez** gösterilir ve alıcıya e-postayla gider; veritabanında, loglarda ve kod tablolarında anahtarın kendisi yok (testle aranıyor). En fazla 5 açık anahtar, 30 gün geçerli.
+7. **Anahtarı kullanma:** alıcı kendi hesabıyla anahtarı yazar (küçük harf/boşluk sorun değil) → anahtarın gittiği e-postaya kod gelir → kodu girince Miras açılır, anahtar tükenir, sana "anahtarın kullanıldı" e-postası gelir. Yanlış/süresi dolmuş/iptal edilmiş/kendi anahtarın: hepsi aynı cevap. Art arda 5 hatada o hesap 24 saat kilitlenir; dakikada en fazla 5 deneme. Kodu başka bir hesap kullanamaz. 386 test yeşil, push edildi.
+
+**Sıradaki (adım 8–11):** alıcı deneyimi (Miras'la yazışma ve görüntülü görüşme), iptal, Miras eval'leri, web arayüzü.
 
 **Dikkat:** bilgisayarında 8000 portunda başka bir proje ("MUTI API") çalışıyordu; EVA'yı denemek için 8001'de açtım (`NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev`). Migration'ı unutma: `cd backend && uv run alembic upgrade head`.
 
