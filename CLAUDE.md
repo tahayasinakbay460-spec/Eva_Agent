@@ -117,7 +117,8 @@ eva/
 ├── mobile/                  # (§15 kararı sonrası) Expo
 ├── config/                  # providers.yaml, media.yaml (ses/yüz kataloğu + persona varsayılanları), sensitive_figures.yaml,
 │                            # blocked_franchises.yaml
-├── evals/                   # persona kalitesi, karakter bütünlüğü, red-team
+├── evals/                   # suites.yaml (eşik + ortak yasaklar), personas.yaml (test personaları),
+│                            # scenarios/{integrity,redteam}.yaml; çalıştırıcı backend/app/evals
 ├── infra/                   # docker-compose.yml (postgres+pgvector, redis, minio)
 ├── docs/adr/                # mimari karar kayıtları
 └── archive/learning-phase/  # eski öğrenme kodu; hiçbir yerden import edilmez
@@ -147,7 +148,8 @@ make format       # ruff format + ruff --fix  ·  prettier --write
 make migrate      # cd backend && uv run alembic upgrade head
 make migration m="..."   # cd backend && uv run alembic revision --autogenerate -m "..."
 make gen-client   # backend/scripts/export_openapi.py → frontend/src/lib/api/openapi.json → npm run gen-client
-make eval         # (henüz yok) karakter bütünlüğü + red-team
+make eval         # cd backend && uv run python -m app.evals  (karakter bütünlüğü + red-team; gerçek model,
+                  #   hakem llm.eval_judge; --suite, --case, --no-judge; eşik altı -> çıkış 1)
 ```
 
 Lokal geliştirmede veritabanı varsayılan olarak SQLite'tır (`backend/eva_dev.db`); Docker kurulunca
@@ -505,7 +507,8 @@ Kullanıcıya sorulacak; karar verilene kadar ilgili özellik kapalı kalır.
 - [ ] Miras "vefat sonrası" etkinleştirme yöntemi: belge doğrulama, hareketsizlik, ikisi birden
 - [ ] Vefat etmiş sahibin Miras personası için silme talebini kim yapabilir?
 - [ ] Rızası alınamayan (ör. vefat etmiş) bir yakının yalnızca metin tabanlı, kişiye özel karakterine izin var mı? (Varsayılan: kapalı)
-- [ ] Romantik/flörtöz karakterlere izin var mı? (Varsayılan: kapalı; açık cinsel içerik her durumda yok)
+- [x] Romantik/flörtöz karakterler → izinli (sahibin kararı, 2026-10-19); açık cinsel içerik her durumda yok, gerçek kişinin kimliğiyle cinsel içerik yok, reşit olmadığını söyleyen kullanıcıyla flört yok
+- [x] Karakterlerin görünürlüğü → şimdilik herkese açık (sahibin kararı, 2026-10-19; ileride değişebilir)
 - [ ] Gelir modeli ve plan kotaları (avatar dakikası maliyeti nedeniyle)
 - [ ] Hassas figürler listesinin son hali (hukukçu görüşüyle)
 - [x] LLM sağlayıcısı → OpenAI GPT (ADR 0004, 2026-10-16)

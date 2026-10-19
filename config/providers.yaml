@@ -23,6 +23,11 @@ llm:
     model: gpt-6.1-sol
     max_tokens: 4096
     effort: medium
+  eval_judge:                # `make eval` hakemi: persona cevabını ölçüte göre puanlar (ürün yolunda yok)
+    provider: openai
+    model: gpt-6.1-sol
+    max_tokens: 1024
+    effort: low
 
 # Ses. Gerçek adaptörler yazıldı ama anahtar gelene kadar mock seçili. Anahtar gelince:
 #   stt.realtime  -> { provider: openai, model: gpt-live-transcribe }     (OPENAI_API_KEY)

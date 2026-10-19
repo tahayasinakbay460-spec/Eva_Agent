@@ -45,5 +45,5 @@ gen-client:       ## OpenAPI şemasından frontend/src/lib/api/schema.d.ts tiple
 	cd backend && uv run python scripts/export_openapi.py
 	cd frontend && npm run gen-client
 
-eval:             ## persona / red-team (saldırı senaryosu) testleri (Faz 1+)
-	@echo "evals/ not implemented yet"
+eval:             ## karakter bütünlüğü + red-team; gerçek modelle çalışır (OPENAI_API_KEY, para harcar)
+	cd backend && uv run python -m app.evals
