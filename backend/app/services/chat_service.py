@@ -90,6 +90,15 @@ class ChatService:
         await db.commit()
         return conversation
 
+    async def ensure_can_continue(
+        self, db: AsyncSession, user: User, conversation: Conversation
+    ) -> None:
+        """Akış başlamadan: bu personayla hâlâ konuşulabilir mi (Miras erişimi iptal edilmiş
+        olabilir)? Hata ``legacy_service.LegacyNotReadyError``."""
+        persona = await db.get(Persona, conversation.persona_id)
+        if persona is not None:
+            await legacy_service.ensure_can_talk(db, persona, user)
+
     async def list_conversations(self, db: AsyncSession, user: User) -> list[Conversation]:
         result = await db.execute(
             select(Conversation)

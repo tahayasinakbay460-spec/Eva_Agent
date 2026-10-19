@@ -1,9 +1,10 @@
 """Miras uçları (Faz 5, ADR 0010): sahibin kişilik taslağı, önizleme durumu ve yayın. Anahtar
 ve alıcı uçları sonraki adımlarda eklenir."""
 
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ratelimit import rate_limited
@@ -24,6 +25,7 @@ from app.schemas.legacy import (
     LegacyRedeemIn,
     LegacyRedeemStartedOut,
     LegacyRedeemVerifyIn,
+    SharedLegacyOut,
 )
 from app.services import legacy_grant_service, legacy_service, password_auth_service
 
@@ -225,3 +227,67 @@ async def redeem_verify(
     return LegacyRedeemedOut(
         persona_id=access.persona_id, owner_name=persona.name if persona else ""
     )
+
+
+# --- iptal (adım 9) ----------------------------------------------------------------------
+
+
+@router.post(
+    "/grants/{grant_id}/revoke",
+    response_model=LegacyGrantOut,
+    dependencies=[default_limit],
+    responses={403: {"description": "step_up_required"}},
+)
+async def revoke_grant(grant_id: uuid.UUID, user: SteppedUpUser, db: DB) -> LegacyGrantOut:
+    """Anahtarı ya da açılmış erişimi anında kapatır (§8.2 "istediği an iptal")."""
+    try:
+        grant = await legacy_grant_service.revoke_grant(db, user, grant_id)
+    except legacy_grant_service.GrantNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
+    return _grant_out(grant)
+
+
+# --- alıcı deneyimi (adım 8) ---------------------------------------------------------------
+
+
+def _shared_out(item: legacy_grant_service.SharedLegacy) -> SharedLegacyOut:
+    a = item.access
+    return SharedLegacyOut(
+        access_id=a.id,
+        persona_id=a.persona_id,
+        owner_name=item.owner_name,
+        status=a.status if a.status in ("active", "revoked", "archived") else "revoked",
+        since=a.created_at,
+        ended_at=a.ended_at,
+    )
+
+
+@router.get("/shared", response_model=list[SharedLegacyOut], dependencies=[default_limit])
+async def shared_with_me(user: CurrentUser, db: DB) -> list[SharedLegacyOut]:
+    """Bu hesabın anahtarla açtığı Miras'lar."""
+    return [_shared_out(i) for i in await legacy_grant_service.shared_with_me(db, user)]
+
+
+@router.post(
+    "/shared/{access_id}/archive", response_model=SharedLegacyOut, dependencies=[default_limit]
+)
+async def archive_shared(access_id: uuid.UUID, user: CurrentUser, db: DB) -> SharedLegacyOut:
+    """Veda: konuşma kapanır, geçmiş kalır."""
+    try:
+        await legacy_grant_service.archive_access(db, user, access_id)
+    except legacy_grant_service.GrantNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
+    items = await legacy_grant_service.shared_with_me(db, user)
+    return _shared_out(next(i for i in items if i.access.id == access_id))
+
+
+@router.delete(
+    "/shared/{access_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[default_limit]
+)
+async def delete_shared(access_id: uuid.UUID, user: CurrentUser, db: DB) -> Response:
+    """Alıcı kendi tarafından siler: kendi konuşmaları ve anıları da gider."""
+    try:
+        await legacy_grant_service.delete_access(db, user, access_id)
+    except legacy_grant_service.GrantNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

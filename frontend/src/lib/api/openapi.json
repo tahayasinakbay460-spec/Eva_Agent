@@ -1494,6 +1494,180 @@
         ]
       }
     },
+    "/legacy/grants/{grant_id}/revoke": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Revoke Grant",
+        "description": "Anahtarı ya da açılmış erişimi anında kapatır (§8.2 \"istediği an iptal\").",
+        "operationId": "revoke_grant_legacy_grants__grant_id__revoke_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Grant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyGrantOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "step_up_required"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/legacy/shared": {
+      "get": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Shared With Me",
+        "description": "Bu hesabın anahtarla açtığı Miras'lar.",
+        "operationId": "shared_with_me_legacy_shared_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SharedLegacyOut"
+                  },
+                  "type": "array",
+                  "title": "Response Shared With Me Legacy Shared Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/legacy/shared/{access_id}/archive": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Archive Shared",
+        "description": "Veda: konuşma kapanır, geçmiş kalır.",
+        "operationId": "archive_shared_legacy_shared__access_id__archive_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "access_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Access Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedLegacyOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/legacy/shared/{access_id}": {
+      "delete": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Delete Shared",
+        "description": "Alıcı kendi tarafından siler: kendi konuşmaları ve anıları da gider.",
+        "operationId": "delete_shared_legacy_shared__access_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "access_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Access Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/chat/conversations": {
       "get": {
         "tags": [
@@ -5361,6 +5535,61 @@
           "idempotency_key"
         ],
         "title": "SendMessageRequest"
+      },
+      "SharedLegacyOut": {
+        "properties": {
+          "access_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Access Id"
+          },
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id"
+          },
+          "owner_name": {
+            "type": "string",
+            "title": "Owner Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "revoked",
+              "archived"
+            ],
+            "title": "Status"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Since"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_id",
+          "persona_id",
+          "owner_name",
+          "status",
+          "since",
+          "ended_at"
+        ],
+        "title": "SharedLegacyOut",
+        "description": "Alıcının açtığı bir Miras. ``status=active`` iken konuşulabilir."
       },
       "StageSummaryOut": {
         "properties": {

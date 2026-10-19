@@ -45,7 +45,7 @@ görüşme); Miras rızası yeni video çekmeden, adım-yukarı doğrulama + aç
 
 1. Tehdit modeli (§6) ✔ · 2. veri modeli + anahtar modülü ✔ · 3. kişilik taslağı ✔ · 4. kapsam ✔ ·
 5. önizleme + yayın ✔ · 6. anahtar üretimi/teslimi ✔ · 7. kullanma (iki faktör) ✔ · 8. alıcı deneyimi (yazışma +
-sesli/görüntülü) · 9. iptal + bildirim · 10. Miras eval'leri · 11. web arayüzü.
+sesli/görüntülü) ✔ · 9. iptal + bildirim ✔ · 10. Miras eval'leri · 11. web arayüzü.
 
 ## Uygulama notları (adım 2–5)
 
@@ -54,6 +54,13 @@ sesli/görüntülü) · 9. iptal + bildirim · 10. Miras eval'leri · 11. web ar
 - Yayın: `POST /legacy/persona/publish` (adım-yukarı) taslak + onaylı ses + yüz ister; tanımı ve
   kanon anıları `persona_versions`'a dondurur (sürüm 1, 2, ...). Sonraki düzenlemeler yeni yayına kadar
   alıcıya gitmez.
+- Alıcı: erişimi aktifken persona görünür; her turda erişim + yayınlanmış sürüm + sahibin onaylı
+  ses ve yüzü kontrol edilir (yoksa durur). Alıcı yayınlanmış son sürümle konuşur; kendi anıları
+  `recipient_added`, sahibin Miras'a eklediği `owner_legacy`. Prompt'ta "yeni tanıştık" yerine
+  Miras ilişki notu. `GET /legacy/shared`, `POST /legacy/shared/{id}/archive`, `DELETE
+  /legacy/shared/{id}` (alıcının kendi konuşmaları ve anıları silinir).
+- İptal: `POST /legacy/grants/{id}/revoke` (adım-yukarı) anahtarı ya da erişimi kapatır, açık
+  görüşmeleri bitirir (`legacy_revoked`).
 - Kapsam: `PATCH /memories/{id}` `legacy_scope` (`included` | `excluded`); sahibin açık seçimi
   hassasiyet varsayılanını ezer.
 

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import utcnow
 from app.legacy import synthesis
-from app.models.legacy import PersonaVersion
+from app.models.legacy import LegacyAccess, PersonaVersion
 from app.models.memory import Memory
 from app.models.persona import Persona
 from app.models.user import User
@@ -221,24 +221,49 @@ async def latest_version(db: AsyncSession, persona_id: uuid.UUID) -> PersonaVers
     )
 
 
+async def active_access(db: AsyncSession, user: User, persona: Persona) -> LegacyAccess | None:
+    return await db.scalar(
+        select(LegacyAccess).where(
+            LegacyAccess.recipient_id == user.id,
+            LegacyAccess.persona_id == persona.id,
+            LegacyAccess.status == "active",
+        )
+    )
+
+
 async def ensure_can_talk(db: AsyncSession, persona: Persona, user: User) -> None:
-    """Miras personasıyla konuşmadan önce: sahibi için taslak hazır mı (önizleme)?
-    Alıcılar için erişim kontrolü 8. adımda buraya eklenir."""
+    """Miras personasıyla her konuşmadan (ve her turdan) önce.
+
+    Sahip: taslak hazır olmalı (önizleme). Alıcı: aktif erişimi, yayınlanmış bir sürüm ve
+    sahibin hâlâ onaylı ses ve yüzü olmalı; sahip erişimi kapatır ya da ses/yüz rızasını geri
+    alırsa konuşma o an durur (ADR 0010)."""
     if persona.type != "legacy":
         return
     if persona.owner_id == user.id:
         if not view(persona).has_draft:
             raise LegacyNotReadyError("legacy_draft_missing")
         return
-    raise LegacyNotReadyError("legacy_not_found", status=404)
+    if persona.owner_id is None or await active_access(db, user, persona) is None:
+        raise LegacyNotReadyError("legacy_not_found", status=404)
+    if await latest_version(db, persona.id) is None:
+        raise LegacyNotReadyError("legacy_not_published")
+    media = await media_readiness(db, persona.owner_id)
+    if not (media.voice and media.face):
+        raise LegacyNotReadyError("legacy_media_unavailable")
 
 
 async def prompt_definition(db: AsyncSession, persona: Persona, user: User) -> PersonaDefinition:
-    """Prompt'a girecek tanım. Miras'ta sahibi canlı taslakla (önizleme) konuşur."""
+    """Prompt'a girecek tanım. Sahip canlı taslakla (önizleme), alıcı yayınlanmış son sürümle
+    konuşur; alıcının konuşmaları bu sürümü hiçbir zaman değiştirmez."""
     if persona.type != "legacy":
         return persona_service.definition_of(persona)
     await ensure_can_talk(db, persona, user)
-    return await preview_definition(db, persona)
+    if persona.owner_id == user.id:
+        return await preview_definition(db, persona)
+    version = await latest_version(db, persona.id)
+    if version is None:  # pragma: no cover - ensure_can_talk bunu yakalar
+        raise LegacyNotReadyError("legacy_not_published")
+    return PersonaDefinition.model_validate(version.definition)
 
 
 def media_owner_id(persona: Persona, user: User) -> uuid.UUID:

@@ -86,3 +86,14 @@ class LegacyRedeemVerifyIn(BaseModel):
 class LegacyRedeemedOut(BaseModel):
     persona_id: uuid.UUID
     owner_name: str
+
+
+class SharedLegacyOut(BaseModel):
+    """Alıcının açtığı bir Miras. ``status=active`` iken konuşulabilir."""
+
+    access_id: uuid.UUID
+    persona_id: uuid.UUID
+    owner_name: str
+    status: Literal["active", "revoked", "archived"]
+    since: datetime
+    ended_at: datetime | None

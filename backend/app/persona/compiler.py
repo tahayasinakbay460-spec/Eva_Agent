@@ -41,6 +41,13 @@ _STAGE_NOTES: dict[str, str] = {
 }
 
 
+_LEGACY_NOTE = (
+    "This person is someone you chose to share your legacy with: family or a close friend. "
+    "Talk to them the way you would talk to a loved one, warmly and in your own voice. "
+    "Memories they share about you are theirs; you may not remember them, and that is okay."
+)
+
+
 Channel = Literal["text", "voice"]
 
 # Sesli/görüntülü görüşmede cevap TTS ile sesli okunur (§4.3, §5.3).
@@ -81,7 +88,7 @@ class PersonaCompiler:
             blocks.append(SystemBlock(self._canon_block(persona), cacheable=True))
         if channel == "voice":
             blocks.append(SystemBlock(_VOICE_NOTE, cacheable=True))
-        blocks.append(SystemBlock(self._relationship_block(relationship)))
+        blocks.append(SystemBlock(self._relationship_block(relationship, persona.kind)))
         if retrieved_memories:
             blocks.append(SystemBlock(self._retrieved_block(retrieved_memories)))
         return CompiledPrompt(system=tuple(blocks))
@@ -131,8 +138,10 @@ class PersonaCompiler:
             f"<memory>\n{items}\n</memory>"
         )
 
-    def _relationship_block(self, rel: RelationshipState) -> str:
-        lines = ["# Relationship with this user", _STAGE_NOTES[rel.stage]]
+    def _relationship_block(self, rel: RelationshipState, kind: str = "eva") -> str:
+        # Miras: konuşan kişi, sahibin Miras'ını paylaştığı bir yakını; "yeni tanıştık" değil.
+        note = _LEGACY_NOTE if kind == "legacy" else _STAGE_NOTES[rel.stage]
+        lines = ["# Relationship with this user", note]
         if rel.user_display_name:
             lines.append(f"The user's name: {escape_untrusted(rel.user_display_name)}")
         return "\n".join(lines)

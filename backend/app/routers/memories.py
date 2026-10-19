@@ -66,7 +66,9 @@ async def add_memory(body: MemoryCreate, user: CurrentUser, db: DB) -> MemoryOut
         sensitivity=body.sensitivity,
     )
     try:
-        memory = await memory_service.add_memory(db, user, persona, data, source="user_added")
+        memory = await memory_service.add_memory(
+            db, user, persona, data, source=memory_service.source_for(persona, user)
+        )
     except memory_service.MemoryLimitError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Memory limit reached"

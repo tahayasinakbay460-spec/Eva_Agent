@@ -1,11 +1,13 @@
 """Persona bulma ve varsayılan personayı oluşturma. Yetki kontrolü burada: kullanıcı
-sistem personalarını (sahibi NULL), kendi personalarını ve herkese açık karakterleri görür."""
+sistem personalarını (sahibi NULL), kendi personalarını, herkese açık karakterleri ve anahtarla
+erişimi açılmış Miras personalarını görür."""
 
 import uuid
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.legacy import LegacyAccess
 from app.models.persona import Persona
 from app.models.user import User
 from app.persona.eva import EVA_DEFINITION, EVA_SLUG
@@ -46,6 +48,11 @@ def _visible_to(user: User):  # type: ignore[no-untyped-def]  # SQLAlchemy ifade
         Persona.owner_id.is_(None),
         Persona.owner_id == user.id,
         Persona.visibility == "public",
+        Persona.id.in_(
+            select(LegacyAccess.persona_id).where(
+                LegacyAccess.recipient_id == user.id, LegacyAccess.status == "active"
+            )
+        ),
     )
 
 

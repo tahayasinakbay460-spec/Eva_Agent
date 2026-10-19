@@ -15,13 +15,16 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Literal
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.database import utcnow
 from app.legacy import keys
+from app.models.call import CallSession
+from app.models.conversation import Conversation
 from app.models.legacy import LegacyAccess, LegacyGrant, LegacyRedeemFailure
+from app.models.memory import Memory
 from app.models.persona import Persona
 from app.models.user import User
 from app.services import audit, legacy_service, password_auth_service
@@ -327,11 +330,123 @@ async def finish_redeem(
     return access
 
 
-async def active_access(db: AsyncSession, user: User, persona: Persona) -> LegacyAccess | None:
-    return await db.scalar(
-        select(LegacyAccess).where(
-            LegacyAccess.recipient_id == user.id,
-            LegacyAccess.persona_id == persona.id,
-            LegacyAccess.status == "active",
+# --- iptal (adım 9) ve alıcının kendi listesi (adım 8) ---------------------------------
+
+
+class GrantNotFoundError(LookupError):
+    pass
+
+
+async def _end_calls(
+    db: AsyncSession, user_id: uuid.UUID, persona_id: uuid.UUID, reason: str
+) -> None:
+    conversations = select(Conversation.id).where(
+        Conversation.user_id == user_id, Conversation.persona_id == persona_id
+    )
+    await db.execute(
+        update(CallSession)
+        .where(
+            CallSession.user_id == user_id,
+            CallSession.conversation_id.in_(conversations),
+            CallSession.status != "ended",
+        )
+        .values(status="ended", ended_at=utcnow(), end_reason=reason)
+        .execution_options(synchronize_session=False)
+    )
+
+
+async def revoke_grant(db: AsyncSession, owner: User, grant_id: uuid.UUID) -> LegacyGrant:
+    """Sahip anahtarı ya da açılmış erişimi kapatır. Etkisi anında: anahtar artık kullanılamaz,
+    alıcının sohbeti ve görüşmesi bir sonraki turda durur, açık görüşmeleri burada biter."""
+    grant = await db.get(LegacyGrant, grant_id)
+    if grant is None or grant.owner_id != owner.id:
+        raise GrantNotFoundError(str(grant_id))
+    if grant.status == "revoked":
+        return grant
+    now = utcnow()
+    grant.status = "revoked"
+    grant.revoked_at = now
+    access = await db.scalar(select(LegacyAccess).where(LegacyAccess.grant_id == grant.id))
+    if access is not None and access.status == "active":
+        access.status = "revoked"
+        access.ended_at = now
+        await _end_calls(db, access.recipient_id, access.persona_id, "legacy_revoked")
+    audit.record(
+        db,
+        action="legacy.revoked",
+        target_type="legacy_grant",
+        target_id=grant.id,
+        user_id=owner.id,
+        actor_id=owner.id,
+        meta={"had_access": access is not None},
+    )
+    await db.commit()
+    return grant
+
+
+@dataclass(frozen=True, slots=True)
+class SharedLegacy:
+    access: LegacyAccess
+    owner_name: str
+
+
+async def shared_with_me(db: AsyncSession, user: User) -> list[SharedLegacy]:
+    rows = await db.execute(
+        select(LegacyAccess, Persona.name)
+        .join(Persona, Persona.id == LegacyAccess.persona_id)
+        .where(LegacyAccess.recipient_id == user.id, LegacyAccess.status != "deleted")
+        .order_by(LegacyAccess.created_at.desc())
+    )
+    return [SharedLegacy(access=a, owner_name=name) for a, name in rows.all()]
+
+
+async def _own_access(db: AsyncSession, user: User, access_id: uuid.UUID) -> LegacyAccess:
+    access = await db.get(LegacyAccess, access_id)
+    if access is None or access.recipient_id != user.id or access.status == "deleted":
+        raise GrantNotFoundError(str(access_id))
+    return access
+
+
+async def archive_access(db: AsyncSession, user: User, access_id: uuid.UUID) -> LegacyAccess:
+    """Alıcı Miras'ı arşivler (veda): konuşma kapanır, geçmişi silinmez."""
+    access = await _own_access(db, user, access_id)
+    if access.status == "active":
+        access.status = "archived"
+        access.ended_at = utcnow()
+        await _end_calls(db, user.id, access.persona_id, "legacy_archived")
+        audit.record(
+            db,
+            action="legacy.archived",
+            target_type="legacy_access",
+            target_id=access.id,
+            user_id=user.id,
+            actor_id=user.id,
+        )
+        await db.commit()
+    return access
+
+
+async def delete_access(db: AsyncSession, user: User, access_id: uuid.UUID) -> None:
+    """Alıcı Miras'ı kendi tarafından siler: kendi konuşmaları ve kendi anıları da gider.
+    Sahibin personası ve diğer alıcılar etkilenmez."""
+    access = await _own_access(db, user, access_id)
+    await _end_calls(db, user.id, access.persona_id, "legacy_deleted")
+    await db.execute(
+        delete(Memory).where(Memory.user_id == user.id, Memory.persona_id == access.persona_id)
+    )
+    await db.execute(
+        delete(Conversation).where(
+            Conversation.user_id == user.id, Conversation.persona_id == access.persona_id
         )
     )
+    access.status = "deleted"
+    access.ended_at = access.ended_at or utcnow()
+    audit.record(
+        db,
+        action="legacy.deleted_by_recipient",
+        target_type="legacy_access",
+        target_id=access.id,
+        user_id=user.id,
+        actor_id=user.id,
+    )
+    await db.commit()

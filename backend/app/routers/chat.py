@@ -136,9 +136,12 @@ async def send_message(
     # Sahipliği akış başlamadan kontrol et; böylece 404 gerçek bir HTTP 404 olarak döner
     # (akış başladıktan sonra durum kodu artık değiştirilemez).
     try:
-        await service.get_conversation(db, user, conversation_id)
+        conversation = await service.get_conversation(db, user, conversation_id)
+        await service.ensure_can_continue(db, user, conversation)
     except ConversationNotFoundError as exc:
         raise _not_found() from exc
+    except legacy_service.LegacyNotReadyError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.code) from exc
 
     async def event_stream() -> AsyncIterator[str]:
         try:

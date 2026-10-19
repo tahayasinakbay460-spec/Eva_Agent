@@ -66,6 +66,14 @@ def _as_utc(value: datetime | None) -> datetime | None:
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
+def source_for(persona: Persona, user: User) -> str:
+    """Elle eklenen anının kaynağı: Miras'ta alıcı "recipient_added" (sahibin anılarından ayrı
+    tutulur, §8.4), sahip "owner_legacy"; diğer her yerde "user_added"."""
+    if persona.type == "legacy":
+        return "owner_legacy" if persona.owner_id == user.id else "recipient_added"
+    return "user_added"
+
+
 def legacy_scope_for(sensitivity: str) -> str:
     # Hassas anılar Miras'a varsayılan olarak girmez; sahibi isterse tek tek ekler (§8.1).
     return "excluded" if sensitivity == "sensitive" else "included"
@@ -117,7 +125,7 @@ async def add_memory(
         occurred_on=data.occurred_on,
         people=data.people,
         emotion=data.emotion,
-        importance=USER_ADDED_IMPORTANCE if source == "user_added" else 0.5,
+        importance=0.5 if source == "auto" else USER_ADDED_IMPORTANCE,
         source=source,
         sensitivity=data.sensitivity,
         legacy_scope=legacy_scope_for(data.sensitivity),

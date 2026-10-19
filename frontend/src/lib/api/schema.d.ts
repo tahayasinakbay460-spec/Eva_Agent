@@ -537,6 +537,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/legacy/grants/{grant_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Grant
+         * @description Anahtarı ya da açılmış erişimi anında kapatır (§8.2 "istediği an iptal").
+         */
+        post: operations["revoke_grant_legacy_grants__grant_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/shared": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Shared With Me
+         * @description Bu hesabın anahtarla açtığı Miras'lar.
+         */
+        get: operations["shared_with_me_legacy_shared_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/shared/{access_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Shared
+         * @description Veda: konuşma kapanır, geçmiş kalır.
+         */
+        post: operations["archive_shared_legacy_shared__access_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/shared/{access_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Shared
+         * @description Alıcı kendi tarafından siler: kendi konuşmaları ve anıları da gider.
+         */
+        delete: operations["delete_shared_legacy_shared__access_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/conversations": {
         parameters: {
             query?: never;
@@ -1957,6 +2037,36 @@ export interface components {
             /** Idempotency Key */
             idempotency_key: string;
         };
+        /**
+         * SharedLegacyOut
+         * @description Alıcının açtığı bir Miras. ``status=active`` iken konuşulabilir.
+         */
+        SharedLegacyOut: {
+            /**
+             * Access Id
+             * Format: uuid
+             */
+            access_id: string;
+            /**
+             * Persona Id
+             * Format: uuid
+             */
+            persona_id: string;
+            /** Owner Name */
+            owner_name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "revoked" | "archived";
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /** Ended At */
+            ended_at: string | null;
+        };
         /** StageSummaryOut */
         StageSummaryOut: {
             /** P50 */
@@ -3175,6 +3285,124 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    revoke_grant_legacy_grants__grant_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyGrantOut"];
+                };
+            };
+            /** @description step_up_required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    shared_with_me_legacy_shared_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedLegacyOut"][];
+                };
+            };
+        };
+    };
+    archive_shared_legacy_shared__access_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedLegacyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_shared_legacy_shared__access_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
