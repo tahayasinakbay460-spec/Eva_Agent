@@ -368,6 +368,7 @@ MessageTemplate = Literal[
     "password_changed",
     "step_up_code",
     "legacy_key_delivery",
+    "legacy_redeem_code",
     "legacy_key_used",
 ]
 

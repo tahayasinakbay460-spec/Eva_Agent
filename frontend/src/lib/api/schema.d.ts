@@ -462,6 +462,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/legacy/consent-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consent Text */
+        get: operations["consent_text_legacy_consent_text_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Grants */
+        get: operations["list_grants_legacy_grants_get"];
+        put?: never;
+        /**
+         * Create Grant
+         * @description Anahtarı üretir ve alıcıya e-postayla gönderir. Anahtar bu cevapta bir kez görünür.
+         */
+        post: operations["create_grant_legacy_grants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeem
+         * @description Anahtar doğruysa anahtarın gönderildiği e-postaya kod gider. Her hata aynı görünür.
+         */
+        post: operations["redeem_legacy_redeem_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legacy/redeem/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Redeem Verify */
+        post: operations["redeem_verify_legacy_redeem_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/conversations": {
         parameters: {
             query?: never;
@@ -1343,6 +1418,13 @@ export interface components {
                 };
             };
         };
+        /** LegacyConsentTextOut */
+        LegacyConsentTextOut: {
+            /** Version */
+            version: string;
+            /** Text */
+            text: string;
+        };
         /** LegacyDraftIn */
         LegacyDraftIn: {
             /** Identity */
@@ -1353,6 +1435,80 @@ export interface components {
             speaking_style: string;
             /** Example Dialogs */
             example_dialogs?: components["schemas"]["ExampleDialog"][];
+        };
+        /** LegacyGrantCreate */
+        LegacyGrantCreate: {
+            /**
+             * Recipient Email
+             * Format: email
+             */
+            recipient_email: string;
+            /**
+             * Consent Accepted
+             * @constant
+             */
+            consent_accepted: true;
+            /** Consent Text Version */
+            consent_text_version: string;
+        };
+        /**
+         * LegacyGrantCreatedOut
+         * @description Anahtar yalnızca bu cevapta, bir kez gösterilir; hiçbir yerde saklanmaz.
+         */
+        LegacyGrantCreatedOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Recipient Email */
+            recipient_email: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "redeemed" | "revoked" | "expired";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Redeemed At */
+            redeemed_at: string | null;
+            /** Key */
+            key: string;
+        };
+        /** LegacyGrantOut */
+        LegacyGrantOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Recipient Email */
+            recipient_email: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "redeemed" | "revoked" | "expired";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Redeemed At */
+            redeemed_at: string | null;
         };
         /**
          * LegacyPersonaOut
@@ -1396,6 +1552,41 @@ export interface components {
             version: number;
             /** Memories */
             memories: number;
+        };
+        /** LegacyRedeemIn */
+        LegacyRedeemIn: {
+            /** Key */
+            key: string;
+        };
+        /** LegacyRedeemStartedOut */
+        LegacyRedeemStartedOut: {
+            /**
+             * Flow Id
+             * Format: uuid
+             */
+            flow_id: string;
+            /** Email Hint */
+            email_hint: string;
+        };
+        /** LegacyRedeemVerifyIn */
+        LegacyRedeemVerifyIn: {
+            /**
+             * Flow Id
+             * Format: uuid
+             */
+            flow_id: string;
+            /** Code */
+            code: string;
+        };
+        /** LegacyRedeemedOut */
+        LegacyRedeemedOut: {
+            /**
+             * Persona Id
+             * Format: uuid
+             */
+            persona_id: string;
+            /** Owner Name */
+            owner_name: string;
         };
         /** MediaChoiceOut */
         MediaChoiceOut: {
@@ -2799,6 +2990,187 @@ export interface operations {
             };
             /** @description not ready */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    consent_text_legacy_consent_text_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyConsentTextOut"];
+                };
+            };
+        };
+    };
+    list_grants_legacy_grants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyGrantOut"][];
+                };
+            };
+        };
+    };
+    create_grant_legacy_grants_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegacyGrantCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyGrantCreatedOut"];
+                };
+            };
+            /** @description step_up_required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not ready */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redeem_legacy_redeem_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegacyRedeemIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyRedeemStartedOut"];
+                };
+            };
+            /** @description invalid_or_expired */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description too_many_attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    redeem_verify_legacy_redeem_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegacyRedeemVerifyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyRedeemedOut"];
+                };
+            };
+            /** @description invalid_or_expired */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description too_many_attempts */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

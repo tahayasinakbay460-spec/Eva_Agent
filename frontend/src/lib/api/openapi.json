@@ -1282,6 +1282,218 @@
         ]
       }
     },
+    "/legacy/consent-text": {
+      "get": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Consent Text",
+        "operationId": "consent_text_legacy_consent_text_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyConsentTextOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/legacy/grants": {
+      "get": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "List Grants",
+        "operationId": "list_grants_legacy_grants_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LegacyGrantOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Grants Legacy Grants Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Create Grant",
+        "description": "Anahtarı üretir ve alıcıya e-postayla gönderir. Anahtar bu cevapta bir kez görünür.",
+        "operationId": "create_grant_legacy_grants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegacyGrantCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyGrantCreatedOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "step_up_required"
+          },
+          "409": {
+            "description": "not ready"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/legacy/redeem": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Redeem",
+        "description": "Anahtar doğruysa anahtarın gönderildiği e-postaya kod gider. Her hata aynı görünür.",
+        "operationId": "redeem_legacy_redeem_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegacyRedeemIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyRedeemStartedOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_or_expired"
+          },
+          "429": {
+            "description": "too_many_attempts"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/legacy/redeem/verify": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "summary": "Redeem Verify",
+        "operationId": "redeem_verify_legacy_redeem_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegacyRedeemVerifyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyRedeemedOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_or_expired"
+          },
+          "429": {
+            "description": "too_many_attempts"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/chat/conversations": {
       "get": {
         "tags": [
@@ -3851,6 +4063,24 @@
         "title": "LatencyReportOut",
         "description": "Gecikme panosu (§4.4): son turların aşama süreleri ve p50/p95 özetleri."
       },
+      "LegacyConsentTextOut": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "text"
+        ],
+        "title": "LegacyConsentTextOut"
+      },
       "LegacyDraftIn": {
         "properties": {
           "identity": {
@@ -3887,6 +4117,149 @@
           "speaking_style"
         ],
         "title": "LegacyDraftIn"
+      },
+      "LegacyGrantCreate": {
+        "properties": {
+          "recipient_email": {
+            "type": "string",
+            "format": "email",
+            "title": "Recipient Email"
+          },
+          "consent_accepted": {
+            "type": "boolean",
+            "const": true,
+            "title": "Consent Accepted"
+          },
+          "consent_text_version": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Consent Text Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipient_email",
+          "consent_accepted",
+          "consent_text_version"
+        ],
+        "title": "LegacyGrantCreate"
+      },
+      "LegacyGrantCreatedOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "recipient_email": {
+            "type": "string",
+            "title": "Recipient Email"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "redeemed",
+              "revoked",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "redeemed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redeemed At"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "recipient_email",
+          "status",
+          "created_at",
+          "expires_at",
+          "redeemed_at",
+          "key"
+        ],
+        "title": "LegacyGrantCreatedOut",
+        "description": "Anahtar yalnızca bu cevapta, bir kez gösterilir; hiçbir yerde saklanmaz."
+      },
+      "LegacyGrantOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "recipient_email": {
+            "type": "string",
+            "title": "Recipient Email"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "redeemed",
+              "revoked",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "redeemed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redeemed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "recipient_email",
+          "status",
+          "created_at",
+          "expires_at",
+          "redeemed_at"
+        ],
+        "title": "LegacyGrantOut"
       },
       "LegacyPersonaOut": {
         "properties": {
@@ -3992,6 +4365,79 @@
           "memories"
         ],
         "title": "LegacyPublishOut"
+      },
+      "LegacyRedeemIn": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 10,
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "LegacyRedeemIn"
+      },
+      "LegacyRedeemStartedOut": {
+        "properties": {
+          "flow_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Flow Id"
+          },
+          "email_hint": {
+            "type": "string",
+            "title": "Email Hint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flow_id",
+          "email_hint"
+        ],
+        "title": "LegacyRedeemStartedOut"
+      },
+      "LegacyRedeemVerifyIn": {
+        "properties": {
+          "flow_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Flow Id"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flow_id",
+          "code"
+        ],
+        "title": "LegacyRedeemVerifyIn"
+      },
+      "LegacyRedeemedOut": {
+        "properties": {
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id"
+          },
+          "owner_name": {
+            "type": "string",
+            "title": "Owner Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_id",
+          "owner_name"
+        ],
+        "title": "LegacyRedeemedOut"
       },
       "MediaChoiceOut": {
         "properties": {

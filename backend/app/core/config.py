@@ -96,6 +96,8 @@ class Settings(BaseSettings):
     legacy_key_pepper: SecretStr | None = None
     dev_legacy_pepper_file: Path = _BACKEND_ROOT / ".dev_legacy_pepper"
     legacy_key_ttl_days: int = 30
+    # E-postalardaki bağlantılar yalnızca kendi alan adımıza gider (§8.3).
+    web_url: str = "http://localhost:3000"
     legacy_max_grants: int = 5
     legacy_redeem_max_failures: int = 5
     legacy_redeem_lockout_s: int = 24 * 3600

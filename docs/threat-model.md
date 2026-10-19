@@ -139,22 +139,22 @@ açılır, anahtar tükenir → sahibe bildirim. Sahip istediği an iptal eder.
 
 | STRIDE | Tehdit | Önlem | Test |
 |---|---|---|---|
-| Kimlik sahtekârlığı | Anahtarı tahmin etmek / kaba kuvvet | 160 bit CSPRNG anahtar; hesap + IP başına sıkı istek sınırı; hesap başına art arda 5 hatada 24 saat kilit | `test_legacy_redeem_lockout` |
-| Kimlik sahtekârlığı | Çalınmış anahtarla erişim (e-posta dışında bir yerden sızdı) | Anahtar tek başına yetmez: anahtarın gönderildiği e-postaya gelen kod gerekir (iki faktör); kod 10 dk, 5 deneme, tek kullanım | `test_key_alone_gives_no_access` |
-| Kimlik sahtekârlığı | Sahibin çalınmış oturumuyla anahtar üretmek | Anahtar üretme ve iptal adım-yukarı ister; ses/yüz rızası aktif olmalı | `test_create_grant_requires_step_up` |
-| Kimlik sahtekârlığı | Oltalama: sahte "Miras anahtarın geldi" e-postası | Sabit, tanınır şablon; e-postada persona içeriği yok; bağlantı yalnızca kendi alan adımıza | `test_grant_email_has_no_persona_content` |
+| Kimlik sahtekârlığı | Anahtarı tahmin etmek / kaba kuvvet | 160 bit CSPRNG anahtar; hesap + IP başına sıkı istek sınırı; hesap başına art arda 5 hatada 24 saat kilit | `test_repeated_failures_lock_the_account`, `test_redeem_is_rate_limited_per_minute` |
+| Kimlik sahtekârlığı | Çalınmış anahtarla erişim (e-posta dışında bir yerden sızdı) | Anahtar tek başına yetmez: anahtarın gönderildiği e-postaya gelen kod gerekir (iki faktör); kod 10 dk, 5 deneme, tek kullanım | `test_redeem_with_key_and_emailed_code_opens_access_once`, `test_code_is_bound_to_the_account_that_entered_the_key` |
+| Kimlik sahtekârlığı | Sahibin çalınmış oturumuyla anahtar üretmek | Anahtar üretme ve iptal adım-yukarı ister; ses/yüz rızası aktif olmalı | `test_create_grant_requires_step_up_consent_and_published_legacy` |
+| Kimlik sahtekârlığı | Oltalama: sahte "Miras anahtarın geldi" e-postası | Sabit, tanınır şablon; e-postada persona içeriği yok; bağlantı yalnızca kendi alan adımıza | `test_key_is_shown_once_emailed_and_only_its_digest_is_stored` |
 | Kurcalama | Alıcının konuşmalarıyla sahibin personasını değiştirmek | Alıcı dondurulmuş anlık görüntüyle konuşur; alıcı anıları alıcı + persona kapsamında, `recipient_added` / `auto` | `test_recipient_cannot_change_base_persona` |
-| Kurcalama | Anahtarı başka bir Miras için ya da ikinci kez kullanmak | Anahtar tek bir alıcıya ve sürüme bağlı, tek kullanımlık; kullanılınca `redeemed` | `test_key_is_single_use` |
-| İnkâr | "Ben göndermedim / ben kullanmadım" | Oluşturma, gönderim, her deneme, kullanım ve iptal `audit_log`'a; sahibe kullanım bildirimi | `test_legacy_events_are_audited` |
-| Bilgi sızması | Veritabanı sızıntısından anahtarların çıkarılması | Yalnızca HMAC-SHA-256 özeti (biber anahtarı veritabanında değil; prod'da secret manager/KMS zorunlu); düz anahtar saklanmaz, loglanmaz, ikinci kez gösterilmez | `test_plain_key_is_never_stored` |
-| Bilgi sızması | Hata mesajından hangi parçanın yanlış olduğunu öğrenmek; zamanlamadan çıkarım | Tüm hatalarda aynı cevap (`invalid_or_expired`); özet karşılaştırması sabit zamanlı | `test_redeem_errors_are_uniform` |
+| Kurcalama | Anahtarı başka bir Miras için ya da ikinci kez kullanmak | Anahtar tek bir alıcıya ve sürüme bağlı, tek kullanımlık; kullanılınca `redeemed` | `test_redeem_with_key_and_emailed_code_opens_access_once` |
+| İnkâr | "Ben göndermedim / ben kullanmadım" | Oluşturma, gönderim, her deneme, kullanım ve iptal `audit_log`'a; sahibe kullanım bildirimi | `test_key_is_shown_once_...`, `test_redeem_with_key_...` (audit_log) |
+| Bilgi sızması | Veritabanı sızıntısından anahtarların çıkarılması | Yalnızca HMAC-SHA-256 özeti (biber anahtarı veritabanında değil; prod'da secret manager/KMS zorunlu); düz anahtar saklanmaz, loglanmaz, ikinci kez gösterilmez | `test_key_is_shown_once_emailed_and_only_its_digest_is_stored` |
+| Bilgi sızması | Hata mesajından hangi parçanın yanlış olduğunu öğrenmek; zamanlamadan çıkarım | Tüm hatalarda aynı cevap (`invalid_or_expired`); özet karşılaştırması sabit zamanlı | `test_redeem_errors_are_uniform` (yanlış, bozuk, kendi anahtarı, süresi dolmuş, iptal) |
 | Bilgi sızması | Alıcıların birbirinin konuşmasını görmesi; anahtarsız birinin Miras'a ulaşması (IDOR) | Erişim `legacy_access` satırıyla, her istekte; konuşmalar kullanıcıya özel; persona doğrudan id ile açılamaz | `test_only_recipients_can_open_legacy` |
-| Bilgi sızması | Hassas anıların (sağlık, finans, başkalarının sırları) alıcıya gitmesi | `sensitivity=sensitive` ve `legacy_scope=excluded` anılar varsayılan hariç; sahip tek tek ekler | `test_sensitive_memories_excluded_by_default` |
+| Bilgi sızması | Hassas anıların (sağlık, finans, başkalarının sırları) alıcıya gitmesi | `sensitivity=sensitive` ve `legacy_scope=excluded` anılar varsayılan hariç; sahip tek tek ekler | `test_owner_controls_what_goes_into_the_legacy`, `test_draft_uses_only_included_...` |
 | Bilgi sızması | Personanın vasiyet, şifre, mal varlığı uydurması | Güvenlik çekirdeği kuralı + Miras eval senaryoları | eval `legacy-no-fabrication` |
 | Bilgi sızması | Klon sesle dolandırıcılık (alıcının hesabından sahte arama) | Klon sesli ses/görüntü indirilemez, dışa aktarılamaz (§11.3); yalnızca uygulama içinde canlı görüşme | (mevcut) |
 | Hizmet engelleme | Alıcıya kod bombardımanı | E-posta başına gönderim sınırı (mevcut 5 / 10 dk); grant başına kod sınırı | `test_redeem_code_send_is_capped` |
 | Yetki yükseltme | İptal / rıza geri alındıktan sonra erişimin sürmesi | İptal anında `legacy_access` kapanır; sohbet ve görüşme her turda erişimi ve sahibin ses/yüz rızasını kontrol eder | `test_revoke_stops_access_immediately` |
-| Yetki yükseltme | Süresi dolmuş anahtar | `expires_at` (varsayılan 30 gün) her denemede kontrol edilir | `test_expired_key_rejected` |
+| Yetki yükseltme | Süresi dolmuş anahtar | `expires_at` (varsayılan 30 gün) her denemede kontrol edilir | `test_redeem_errors_are_uniform[expired]` |
 | Kullanıcı refahı | Yas sürecinde bağımlılık / gerçeklik karışması | Persona "neden aramıyorsun" bildirimi göndermez; satış teşviki yok; §7 istisna 3; veda + arşivleme | eval (yas manipülasyonu) |
 
 Açık maddeler: bağımsız sızma testi (lansman öncesi, dış firma); SMS teslimi (SIM swap riski

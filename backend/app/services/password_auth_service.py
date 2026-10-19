@@ -33,7 +33,7 @@ from app.models.user import User
 from app.providers.base import MessageTemplate, MessagingProvider, OutboundMessage
 from app.services.auth_service import AuthFailedError
 
-Purpose = Literal["signup", "login", "reset", "step_up"]
+Purpose = Literal["signup", "login", "reset", "step_up", "legacy"]
 
 CODE_TTL = timedelta(minutes=10)
 MAX_ATTEMPTS = 5
@@ -367,3 +367,9 @@ async def finish_step_up(db: AsyncSession, user: User, flow_id: uuid.UUID, code:
     if row is None or row.user_id != user.id:
         raise AuthFailedError("flow belongs to another user")
     await _check(db, flow_id, "step_up", code)
+
+
+# Miras anahtarını kullanırken (§8.3) aynı kod altyapısı kullanılır.
+issue_code = _issue
+check_code = _check
+send_message = _send

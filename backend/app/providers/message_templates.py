@@ -51,6 +51,28 @@ _TEXTS: dict[str, dict[MessageTemplate, tuple[str, str]]] = {
             "EVA şifren az önce değiştirildi ve tüm cihazlardaki oturumların kapatıldı.\n\n"
             "Bunu sen yapmadıysan hemen 'Şifremi unuttum' ile şifreni yeniden belirle.",
         ),
+        "legacy_key_delivery": (
+            "{owner_name} seninle EVA'da bir Miras paylaştı",
+            "{owner_name}, EVA'daki dijital Miras'ını seninle paylaştı.\n\n"
+            "Miras anahtarın: {key}\n\n"
+            "Açmak için EVA'ya kendi hesabınla gir ve anahtarı şu sayfada yaz: {link}\n"
+            "Ardından bu e-posta adresine bir doğrulama kodu gelecek.\n\n"
+            "Anahtar tek kullanımlık ve {expires_on} tarihine kadar geçerli. Kimseyle paylaşma. "
+            "EVA senden asla şifre, kart bilgisi ya da para istemez.\n\n"
+            "Bu e-postayı beklemiyorsan yok say.",
+        ),
+        "legacy_redeem_code": (
+            "EVA Miras doğrulama kodun: {code}",
+            "Miras'ı açmak için bu kodu gir: {code}\n\n"
+            "Kod 10 dakika geçerli. Bunu sen yapmadıysan kodu kimseyle paylaşma ve bu "
+            "e-postayı yok say.",
+        ),
+        "legacy_key_used": (
+            "Miras anahtarın kullanıldı",
+            "{recipient_email} adresine gönderdiğin Miras anahtarı az önce kullanıldı; "
+            "bu kişi artık Miras'ınla konuşabiliyor.\n\n"
+            "Bunu beklemiyorsan EVA'da Miras ekranından erişimi hemen kapatabilirsin.",
+        ),
     },
     "en": {
         "signup_code": (
@@ -85,6 +107,29 @@ _TEXTS: dict[str, dict[MessageTemplate, tuple[str, str]]] = {
             "Your EVA password was changed",
             "Your EVA password was just changed and you were signed out everywhere.\n\n"
             "If this wasn't you, reset your password now with 'Forgot password'.",
+        ),
+        "legacy_key_delivery": (
+            "{owner_name} shared an EVA Legacy with you",
+            "{owner_name} shared their digital Legacy on EVA with you.\n\n"
+            "Your Legacy key: {key}\n\n"
+            "To open it, sign in to EVA with your own account and enter the key here: {link}\n"
+            "We will then send a verification code to this email address.\n\n"
+            "The key works once and is valid until {expires_on}. Don't share it with anyone. "
+            "EVA never asks you for passwords, card details or money.\n\n"
+            "If you weren't expecting this email, ignore it.",
+        ),
+        "legacy_redeem_code": (
+            "Your EVA Legacy verification code: {code}",
+            "Enter this code to open the Legacy: {code}\n\n"
+            "The code is valid for 10 minutes. If this wasn't you, don't share the code and "
+            "ignore this email.",
+        ),
+        "legacy_key_used": (
+            "Your Legacy key was used",
+            "The Legacy key you sent to {recipient_email} was just used; this person can now "
+            "talk to your Legacy.\n\n"
+            "If you didn't expect this, you can close their access right away from the Legacy "
+            "screen in EVA.",
         ),
     },
 }
