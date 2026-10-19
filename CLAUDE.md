@@ -509,6 +509,7 @@ Kullanıcıya sorulacak; karar verilene kadar ilgili özellik kapalı kalır.
 - [ ] Rızası alınamayan (ör. vefat etmiş) bir yakının yalnızca metin tabanlı, kişiye özel karakterine izin var mı? (Varsayılan: kapalı)
 - [x] Romantik/flörtöz karakterler → izinli (sahibin kararı, 2026-10-19); açık cinsel içerik her durumda yok, gerçek kişinin kimliğiyle cinsel içerik yok, reşit olmadığını söyleyen kullanıcıyla flört yok
 - [x] Karakterlerin görünürlüğü → şimdilik herkese açık (sahibin kararı, 2026-10-19; ileride değişebilir)
+- [x] Karakterin yüzü/sesi → katalog, kullanıcının kendi onaylı yüzü/sesi ya da yüklenen çizim/çizgi film görseli (ADR 0009, 2026-10-19)
 - [ ] Gelir modeli ve plan kotaları (avatar dakikası maliyeti nedeniyle)
 - [ ] Hassas figürler listesinin son hali (hukukçu görüşüyle)
 - [x] LLM sağlayıcısı → OpenAI GPT (ADR 0004, 2026-10-16)
