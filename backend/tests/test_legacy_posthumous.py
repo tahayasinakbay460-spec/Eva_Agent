@@ -201,6 +201,8 @@ async def test_inactivity_runs_full_warning_cycle_then_sends_keys_once(
         assert all(g.expires_at - g.created_at == timedelta(days=365) for g in grants)
         assert all(h.grant_id for h in (await db.scalars(select(LegacyHeir))).all())
 
+    owner_grants = (await client.get("/legacy/grants", headers=owner)).json()
+    assert {g["mode"] for g in owner_grants} == {"posthumous"}
     # Tekrar taramak aynı kişilere ikinci anahtar göndermez.
     await _sweep(app, t0 + timedelta(days=15))
     assert len(_sent(app, "legacy_posthumous_delivery")) == len(HEIRS)

@@ -109,7 +109,8 @@ eva/
 │   └── src/
 │       ├── app/             # sayfalar: / (ana sayfa), /chat, /anilar, /gorusme (sesli/görüntülü),
 │       │                    # /profil, /profil/ses-yuz (rızalı kayıt), /yonetim (admin inceleme), /analiz,
-│       │                    # /kesfet (karakterler), /kesfet/yeni, /miras (sahip), /miras/anahtar (alıcı);
+│       │                    # /kesfet (karakterler; Karakterlerim'de 'Seninle paylaşılanlar'), /kesfet/yeni,
+│       │                    # /miras (sahip: temel + 'Yaşarken paylaş' + 'Vefat sonrası'), /miras/anahtar (alıcı);
 │       │                    # /chat ve /gorusme ?karakter=<id> ya da ?miras=<id> alır (hooks/usePersonaParam)
 │       ├── components/      # auth/, memories/, StepUpSheet (adım-yukarı penceresi), ui.tsx, BottomNav, icons
 │       ├── hooks/           # useSession, useRecorder (mikrofon/kamera kaydı)
@@ -507,8 +508,8 @@ Kullanıcıya sorulacak; karar verilene kadar ilgili özellik kapalı kalır.
 - [ ] Embedding, moderasyon, e-posta ve SMS sağlayıcıları (Türkiye'de teslim oranı yüksek olan)
 - [x] Kimlik doğrulama çözümü → kendi backend'imizde passkey (py_webauthn) + e-posta/şifre (Argon2id) ve e-postaya gelen kod (ADR 0002 ve eki, 2026-10-16)
 - [ ] Barındırma bölgesi: AB/Frankfurt mı, Türkiye mi (KVKK yurt dışı aktarım etkisi)
-- [ ] Miras "vefat sonrası" etkinleştirme yöntemi: belge doğrulama, hareketsizlik, ikisi birden
-- [ ] Vefat etmiş sahibin Miras personası için silme talebini kim yapabilir?
+- [x] Miras "vefat sonrası" etkinleştirme → ikisi birden: 180 gün hareketsizlik ya da alıcının belgesi + admin onayı; her ikisinde de sahibe 14 gün / 3 uyarı, giriş süreci durdurur; sonra anahtarlar otomatik (ADR 0011, 2026-10-19)
+- [ ] Vefat etmiş sahibin Miras personası için kalıcı silme talebini kim yapabilir? (Şimdilik: alıcı yalnızca kendi erişimini siler, karakter sistemde kalır; geri getirme destekle — ADR 0011)
 - [ ] Rızası alınamayan (ör. vefat etmiş) bir yakının yalnızca metin tabanlı, kişiye özel karakterine izin var mı? (Varsayılan: kapalı)
 - [x] Romantik/flörtöz karakterler → izinli (sahibin kararı, 2026-10-19); açık cinsel içerik her durumda yok, gerçek kişinin kimliğiyle cinsel içerik yok, reşit olmadığını söyleyen kullanıcıyla flört yok
 - [x] Karakterlerin görünürlüğü → şimdilik herkese açık (sahibin kararı, 2026-10-19; ileride değişebilir)

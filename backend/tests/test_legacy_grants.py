@@ -127,6 +127,7 @@ async def test_key_is_shown_once_emailed_and_only_its_digest_is_stored(
 
     listed = (await client.get("/legacy/grants", headers=owner)).json()
     assert [g["status"] for g in listed] == ["pending"] and "key" not in listed[0]
+    assert listed[0]["mode"] == "living"
 
     async with app.state.session_factory() as db:
         normalized = key.replace("-", "").removeprefix("EVA")

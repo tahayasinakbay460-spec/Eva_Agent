@@ -155,6 +155,7 @@ def _grant_out(grant: LegacyGrant) -> LegacyGrantOut:
         id=grant.id,
         recipient_email=grant.recipient_email,
         status=legacy_grant_service.effective_status(grant),
+        mode="posthumous" if grant.mode == "posthumous" else "living",
         created_at=grant.created_at,
         expires_at=grant.expires_at,
         redeemed_at=grant.redeemed_at,

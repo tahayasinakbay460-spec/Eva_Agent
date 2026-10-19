@@ -310,6 +310,15 @@ export const tr = {
     },
   },
   review: {
+    deathReportsTitle: "Vefat bildirimleri (Miras)",
+    deathReportsHint:
+      "Belgeyi açıp kontrol et. Onay Miras'ı hemen açmaz: sahibe 14 gün uyarı gider, giriş yaparsa süreç durur.",
+    deathReportBy: "bildiren:",
+    deathReportOpen: "Belgeyi aç",
+    deathReportApprove: "Onayla",
+    deathReportReject: "Reddet",
+    deathReportApproved: "Onaylandı; sahibe uyarı süreci başladı.",
+    deathReportError: "İşlem yapılamadı. Tekrar dene.",
     title: "Kayıt incelemeleri",
     subtitle:
       "Her dosya açılışı denetim kaydına yazılır. Şüphedeysen reddet: reşit olmayan birinin sesi/yüzü asla kabul edilmez.",
@@ -384,6 +393,46 @@ export const tr = {
     back: "Geri",
   },
   legacy: {
+    foundationTitle: "Önce temel",
+    foundationHint:
+      "Her iki paylaşım biçimi de aynı temele dayanır: EVA'nın seni tanıması, kişiliğin, anıların, sesin ve yüzün.",
+    livingTitle: "Yaşarken paylaş",
+    livingHint:
+      "Seçtiğin kişinin Karakterler bölümünde görünürsün; seninle yazışır, seni görüntülü arar. İstediğin an kapatabilirsin, o da kaldırabilir; sonra yeniden anahtar gönderebilirsin.",
+    posthumousTitle: "Vefat sonrası",
+    posthumousHint:
+      "Alıcılarını şimdi belirle; anahtarlar şimdi gitmez. {days} gün giriş yapmazsan ya da bir alıcın vefatını belgeyle bildirir ve onaylanırsa, sana {warn} gün boyunca uyarı gönderilir. Giriş yapmazsan anahtarlar otomatik gider.",
+    posthumousState: {
+      off: "Kapalı",
+      armed: "Kurulu, bekliyor",
+      warning: "Uyarı süreci başladı",
+      activated: "Anahtarlar gönderildi",
+    },
+    posthumousWarningBanner:
+      "Miras'ın açılmak üzereydi; şu an giriş yaptığın için süreç durduruldu.",
+    heirsLabel: "Vefat sonrası alıcılar (en fazla 5 e-posta)",
+    addHeir: "+ Alıcı ekle",
+    saveHeirs: "Kaydet",
+    turnOff: "Vefat sonrası Miras'ı kapat",
+    turnOffConfirm: "Kapatmak için tekrar bas",
+    heirSent: "anahtar gönderildi",
+    heirWaiting: "bekliyor",
+    reportTitle: "Bir yakının seni alıcı olarak belirledi",
+    reportHint:
+      "Vefatını bildirmek istersen ölüm belgesini (PDF ya da fotoğraf) yükle. Ekibimiz inceler; onaylanırsa yine de sahibine 14 gün uyarı gider.",
+    reportUpload: "Belge yükle ve bildir",
+    reportSent: "Bildirimin alındı; ekibimiz inceleyecek.",
+    reportOpen: "İncelemede",
+    modeLiving: "Yaşarken paylaşıldı",
+    modePosthumous: "Vefat sonrası",
+    deleteAsk1: "Bu Miras'ı listenden silmek istediğine emin misin?",
+    deleteAsk2: "Gerçekten emin misin? Bu kişiyle bir daha konuşamayacaksın.",
+    deleteAsk3: "Son kez soruyoruz: silinsin mi? Onay için e-postana kod göndereceğiz.",
+    deleteYes: "Evet",
+    deleteCancel: "Vazgeç",
+    deleteCodeSent: "Silme onay kodunu {email} adresine gönderdik.",
+    deleteConfirm: "Silmeyi onayla",
+    deleted: "Silindi. Geri getirmek istersen bizimle iletişime geç.",
     familiarityTitle: "EVA seni ne kadar tanıyor?",
     familiarityHint:
       "Kendini paylaşabilmen için EVA'nın seni yeterince tanıması gerekiyor. Konuştukça dolar.",
@@ -459,6 +508,11 @@ export const tr = {
     noGrants: "Henüz kimseye anahtar göndermedin.",
     errors: {
       legacy_not_enough_data: "EVA seni henüz yeterince tanımıyor; biraz daha konuşun.",
+      legacy_email_required:
+        "Uyarılar e-postayla gittiği için doğrulanmış bir e-posta adresin olmalı.",
+      legacy_already_activated: "Vefat sonrası Miras zaten etkinleşti.",
+      legacy_heirs_required: "En az bir alıcı ekle.",
+      legacy_heir_limit: "En fazla 5 alıcı.",
       legacy_draft_missing: "Önce kişilik taslağını kaydet.",
       legacy_voice_missing: "Miras için onaylı klon sesin gerekli.",
       legacy_face_missing: "Miras için onaylı yüz fotoğrafın gerekli.",

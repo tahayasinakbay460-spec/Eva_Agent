@@ -8,7 +8,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
-import { ArrowLeft, MicIcon, SendIcon } from "@/components/icons";
+import { ArrowLeft, HeartIcon, InfinityIcon, MicIcon, SendIcon } from "@/components/icons";
+import { Posthumous } from "@/components/legacy/Posthumous";
 import { DraftEditor } from "@/components/legacy/DraftEditor";
 import { Recipients, legacyError } from "@/components/legacy/Recipients";
 import { ScopeList } from "@/components/legacy/ScopeList";
@@ -18,6 +19,7 @@ import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
 import {
   getLegacyPersona,
+  getPosthumous,
   legacyConsentText,
   listLegacyGrants,
   listMemories,
@@ -27,6 +29,7 @@ import {
   type LegacyGrant,
   type LegacyPersona,
   type Memory,
+  type PosthumousSetup,
 } from "@/lib/api/client";
 
 const t = messages().legacy;
@@ -44,19 +47,22 @@ function Legacy() {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [grants, setGrants] = useState<LegacyGrant[]>([]);
   const [consent, setConsent] = useState<LegacyConsentText | null>(null);
+  const [posthumous, setPosthumous] = useState<PosthumousSetup | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { ensure, sheet } = useStepUp();
 
   const reload = useCallback(async () => {
-    const [p, m, g, c] = await Promise.all([
+    const [p, m, g, c, ph] = await Promise.all([
       getLegacyPersona(),
       listMemories(),
       listLegacyGrants(),
       legacyConsentText(),
+      getPosthumous(),
     ]);
     setPersona(p);
+    setPosthumous(ph);
     // Kapsam ekranı yalnızca EVA'yla oluşan anıları gösterir (Miras'ın ham maddesi).
     setMemories(m.filter((x) => x.persona_id !== p.id));
     setGrants(g);
@@ -65,10 +71,17 @@ function Legacy() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getLegacyPersona(), listMemories(), listLegacyGrants(), legacyConsentText()])
-      .then(([p, m, g, c]) => {
+    Promise.all([
+      getLegacyPersona(),
+      listMemories(),
+      listLegacyGrants(),
+      legacyConsentText(),
+      getPosthumous(),
+    ])
+      .then(([p, m, g, c, ph]) => {
         if (cancelled) return;
         setPersona(p);
+        setPosthumous(ph);
         setMemories(m.filter((x) => x.persona_id !== p.id));
         setGrants(g);
         setConsent(c);
@@ -129,12 +142,19 @@ function Legacy() {
 
   const mediaReady = persona.voice_ready && persona.face_ready;
   const published = persona.published_version !== null;
+  // İki biçim de aynı temeli ister: yayın + ses/yüz + EVA'nın seni yeterince tanıması.
+  const ready = published && mediaReady && persona.knows_you_enough;
 
   return (
     <Shell>
       <p className="text-sm text-muted">{t.subtitle}</p>
       {error && <ErrorText>{error}</ErrorText>}
       {notice && <p className="text-sm text-mint">{notice}</p>}
+
+      <div className="rounded-2xl bg-white/5 p-3">
+        <h2 className="text-lg font-semibold">{t.foundationTitle}</h2>
+        <p className="text-xs text-muted">{t.foundationHint}</p>
+      </div>
 
       <Section title={t.familiarityTitle} hint={t.familiarityHint}>
         <Progress
@@ -242,15 +262,34 @@ function Legacy() {
         </PrimaryButton>
       </Section>
 
-      <Section title={t.recipientsTitle} hint={t.recipientsHint}>
+      {/* İki paylaşım biçimi bilerek ayrı kartlarda ve ayrı renklerde (sahibin isteği). */}
+      <ModeCard tone="living" title={t.livingTitle} hint={t.livingHint}>
+        <p className="text-xs text-muted">{t.recipientsHint}</p>
         <Recipients
-          grants={grants}
+          grants={grants.filter((g) => g.mode !== "posthumous")}
           consent={consent}
-          canSend={published && mediaReady && persona.knows_you_enough}
+          canSend={ready}
           ensure={ensure}
           onChanged={() => void reload().catch(() => setError(t.errors.generic))}
         />
-      </Section>
+      </ModeCard>
+
+      {posthumous && (
+        <ModeCard
+          tone="posthumous"
+          title={t.posthumousTitle}
+          hint={t.posthumousHint
+            .replace("{days}", String(posthumous.inactivity_days))
+            .replace("{warn}", String(posthumous.warning_days))}
+        >
+          <Posthumous
+            setup={posthumous}
+            canSetUp={ready}
+            ensure={ensure}
+            onChanged={setPosthumous}
+          />
+        </ModeCard>
+      )}
       {sheet}
     </Shell>
   );
@@ -271,6 +310,32 @@ function Shell({ children }: { children: ReactNode }) {
       </header>
       <main className="mx-auto max-w-md space-y-5 px-4 py-5">{children}</main>
     </div>
+  );
+}
+
+function ModeCard({
+  tone,
+  title,
+  hint,
+  children,
+}: {
+  tone: "living" | "posthumous";
+  title: string;
+  hint: string;
+  children: ReactNode;
+}) {
+  const style = tone === "living" ? "border-accent/40 bg-accent/10" : "border-amber/40 bg-amber/5";
+  return (
+    <section className={`space-y-3 rounded-3xl border p-4 ${style}`}>
+      <div className="flex items-center gap-2">
+        <span className={tone === "living" ? "text-accent" : "text-amber"}>
+          {tone === "living" ? <HeartIcon /> : <InfinityIcon />}
+        </span>
+        <h2 className="text-lg font-semibold">{title}</h2>
+      </div>
+      <p className="text-xs text-muted">{hint}</p>
+      {children}
+    </section>
   );
 }
 

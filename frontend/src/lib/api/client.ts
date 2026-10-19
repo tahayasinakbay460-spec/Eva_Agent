@@ -337,6 +337,56 @@ export const deleteSharedLegacy = (accessId: string) =>
 export const setMemoryLegacyScope = (id: string, scope: Memory["legacy_scope"]) =>
   updateMemory(id, { legacy_scope: scope });
 
+/* Miras — vefat sonrası (ADR 0011). */
+
+export type PosthumousSetup = Schemas["PosthumousSetupOut"];
+export type HeirOf = Schemas["HeirOfOut"];
+export type DeathReport = Schemas["DeathReportOut"];
+
+export const getPosthumous = () => request<PosthumousSetup>("/legacy/posthumous");
+export const configurePosthumous = (emails: string[], consentVersion: string) =>
+  request<PosthumousSetup>("/legacy/posthumous", {
+    method: "PUT",
+    body: JSON.stringify({
+      emails,
+      consent_accepted: true,
+      consent_text_version: consentVersion,
+    }),
+  });
+export const turnOffPosthumous = () =>
+  request<PosthumousSetup>("/legacy/posthumous", { method: "DELETE" });
+export const listHeirOf = () => request<HeirOf[]>("/legacy/heir-of");
+
+/** Vefat belgesini ham gövde olarak yükler (PDF ya da fotoğraf). */
+export async function reportDeath(ownerId: string, file: Blob): Promise<void> {
+  const headers = new Headers({ "Content-Type": file.type || "application/octet-stream" });
+  const token = tokenStore.get();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${API_URL}/legacy/heir-of/${encodeURIComponent(ownerId)}/report`, {
+    method: "POST",
+    headers,
+    body: file,
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+}
+
+export const startSharedDelete = (accessId: string) =>
+  post<Schemas["DeleteStartedOut"]>(
+    `/legacy/shared/${encodeURIComponent(accessId)}/delete/start`,
+    {},
+  );
+export const verifySharedDelete = (accessId: string, flowId: string, code: string) =>
+  post<void>(`/legacy/shared/${encodeURIComponent(accessId)}/delete/verify`, {
+    flow_id: flowId,
+    code,
+  });
+
+export const listDeathReports = () => request<DeathReport[]>("/admin/legacy/death-reports");
+export const deathReportDocumentUrl = (id: string) =>
+  blobUrl(`/admin/legacy/death-reports/${encodeURIComponent(id)}/document`);
+export const decideDeathReport = (id: string, decision: "approve" | "reject") =>
+  post<void>(`/admin/legacy/death-reports/${encodeURIComponent(id)}/${decision}`, {});
+
 /** Backend hatasındaki kısa kod (ör. `{"detail": "step_up_required"}` -> "step_up_required"). */
 export function errorCode(err: unknown): string | null {
   if (!(err instanceof ApiError)) return null;

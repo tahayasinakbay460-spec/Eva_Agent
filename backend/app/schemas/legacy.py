@@ -63,6 +63,7 @@ class LegacyGrantOut(BaseModel):
     id: uuid.UUID
     recipient_email: str
     status: Literal["pending", "redeemed", "revoked", "expired"]
+    mode: Literal["living", "posthumous"]
     created_at: datetime
     expires_at: datetime
     redeemed_at: datetime | None

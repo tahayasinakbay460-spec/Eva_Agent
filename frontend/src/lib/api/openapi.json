@@ -4942,6 +4942,14 @@
             ],
             "title": "Status"
           },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "living",
+              "posthumous"
+            ],
+            "title": "Mode"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -4974,6 +4982,7 @@
           "id",
           "recipient_email",
           "status",
+          "mode",
           "created_at",
           "expires_at",
           "redeemed_at",
@@ -5003,6 +5012,14 @@
             ],
             "title": "Status"
           },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "living",
+              "posthumous"
+            ],
+            "title": "Mode"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -5031,6 +5048,7 @@
           "id",
           "recipient_email",
           "status",
+          "mode",
           "created_at",
           "expires_at",
           "redeemed_at"

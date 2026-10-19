@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { ArrowLeft } from "@/components/icons";
+import { DeathReportsReview } from "@/components/legacy/DeathReportsReview";
 import { StepUpCancelled, useStepUp } from "@/components/StepUpSheet";
 import { Checkbox, ErrorText } from "@/components/ui";
 import { useSession } from "@/hooks/useSession";
@@ -82,6 +83,7 @@ function Review({ myId }: { myId: string }) {
           </p>
         )}
         {error && <ErrorText>{error}</ErrorText>}
+        <DeathReportsReview ensure={ensure} />
         {items?.length === 0 && <p className="text-sm text-muted">{t.review.empty}</p>}
         {items?.map((item) => (
           <ReviewCard

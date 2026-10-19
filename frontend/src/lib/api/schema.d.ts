@@ -1781,6 +1781,11 @@ export interface components {
              */
             status: "pending" | "redeemed" | "revoked" | "expired";
             /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "living" | "posthumous";
+            /**
              * Created At
              * Format: date-time
              */
@@ -1809,6 +1814,11 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "redeemed" | "revoked" | "expired";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "living" | "posthumous";
             /**
              * Created At
              * Format: date-time

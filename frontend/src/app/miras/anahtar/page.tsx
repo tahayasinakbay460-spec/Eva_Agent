@@ -10,6 +10,8 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { ArrowLeft, MicIcon, SendIcon } from "@/components/icons";
+import { HeirReports } from "@/components/legacy/HeirReports";
+import { PosthumousDelete } from "@/components/legacy/PosthumousDelete";
 import { ErrorText, PrimaryButton, TextField } from "@/components/ui";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
@@ -46,6 +48,8 @@ function Redeem() {
   const [shared, setShared] = useState<SharedLegacy[]>([]);
   // Silme iki dokunuşla: ilki onay ister.
   const [confirming, setConfirming] = useState<string | null>(null);
+  // Vefat sonrası Miras silme penceresi (3 onay + e-posta kodu).
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +110,11 @@ function Redeem() {
     }
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, mode: SharedLegacy["mode"]) {
+    if (mode === "posthumous") {
+      setDeleting(id);
+      return;
+    }
     if (confirming !== id) {
       setConfirming(id);
       return;
@@ -169,6 +177,8 @@ function Redeem() {
         {error && <ErrorText>{error}</ErrorText>}
         {notice && <p className="text-sm text-mint">{notice}</p>}
 
+        <HeirReports />
+
         {shared.length > 0 && (
           <section className="space-y-3">
             <h2 className="font-semibold">{t.sharedTitle}</h2>
@@ -176,7 +186,14 @@ function Redeem() {
               {shared.map((s) => (
                 <li key={s.access_id} className="space-y-2 rounded-2xl bg-white/5 p-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold">{s.owner_name}</span>
+                    <span className="font-semibold">
+                      {s.owner_name}
+                      <span
+                        className={`ml-2 rounded-full px-1.5 text-[10px] ${s.mode === "posthumous" ? "bg-amber/15 text-amber" : "bg-accent/15 text-accent"}`}
+                      >
+                        {s.mode === "posthumous" ? t.modePosthumous : t.modeLiving}
+                      </span>
+                    </span>
                     {s.status !== "active" && (
                       <span className="text-xs text-muted">
                         {s.status === "archived" ? t.archived : t.revokedByOwner}
@@ -213,7 +230,7 @@ function Redeem() {
                     )}
                     <button
                       type="button"
-                      onClick={() => void remove(s.access_id)}
+                      onClick={() => void remove(s.access_id, s.mode)}
                       className={confirming === s.access_id ? "text-red-300" : "underline"}
                     >
                       {confirming === s.access_id ? t.removeConfirm : t.remove}
@@ -223,6 +240,17 @@ function Redeem() {
               ))}
             </ul>
           </section>
+        )}
+        {deleting && (
+          <PosthumousDelete
+            accessId={deleting}
+            onClose={() => setDeleting(null)}
+            onDeleted={() => {
+              setDeleting(null);
+              setNotice(t.deleted);
+              void refresh();
+            }}
+          />
         )}
       </main>
     </div>

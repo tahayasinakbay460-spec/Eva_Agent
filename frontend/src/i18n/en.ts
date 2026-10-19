@@ -313,6 +313,15 @@ export const en: Messages = {
     },
   },
   review: {
+    deathReportsTitle: "Death reports (Legacy)",
+    deathReportsHint:
+      "Open and check the document. Approval doesn't open the Legacy right away: the owner is warned for 14 days and signing in stops it.",
+    deathReportBy: "reported by:",
+    deathReportOpen: "Open document",
+    deathReportApprove: "Approve",
+    deathReportReject: "Reject",
+    deathReportApproved: "Approved; the owner's warning period started.",
+    deathReportError: "Couldn't complete that. Try again.",
     title: "Enrollment reviews",
     subtitle:
       "Every file you open is written to the audit log. When in doubt, reject: a minor's voice or face is never accepted.",
@@ -387,6 +396,46 @@ export const en: Messages = {
     back: "Back",
   },
   legacy: {
+    foundationTitle: "The foundation",
+    foundationHint:
+      "Both ways of sharing rest on the same foundation: EVA knowing you, your personality, memories, voice and face.",
+    livingTitle: "Share while alive",
+    livingHint:
+      "You appear in the chosen person's Characters; they can chat with you and video call you. You can close it any time, they can remove it; you can send a new key later.",
+    posthumousTitle: "After death",
+    posthumousHint:
+      "Choose your recipients now; no keys are sent now. If you don't sign in for {days} days, or a recipient reports your death with a document and it is approved, you will be warned for {warn} days. If you don't sign in, the keys are sent automatically.",
+    posthumousState: {
+      off: "Off",
+      armed: "Set up, waiting",
+      warning: "Warning period started",
+      activated: "Keys sent",
+    },
+    posthumousWarningBanner:
+      "Your Legacy was about to open; because you signed in now, the process was stopped.",
+    heirsLabel: "After-death recipients (up to 5 emails)",
+    addHeir: "+ Add recipient",
+    saveHeirs: "Save",
+    turnOff: "Turn off after-death Legacy",
+    turnOffConfirm: "Tap again to turn off",
+    heirSent: "key sent",
+    heirWaiting: "waiting",
+    reportTitle: "Someone close chose you as a recipient",
+    reportHint:
+      "If you want to report their death, upload the death certificate (PDF or photo). Our team reviews it; even if approved, the owner is warned for 14 days.",
+    reportUpload: "Upload document and report",
+    reportSent: "Your report was received; our team will review it.",
+    reportOpen: "Under review",
+    modeLiving: "Shared while alive",
+    modePosthumous: "After death",
+    deleteAsk1: "Are you sure you want to remove this Legacy from your list?",
+    deleteAsk2: "Really sure? You won't be able to talk to this person again.",
+    deleteAsk3: "Last time: remove it? We'll email you a code to confirm.",
+    deleteYes: "Yes",
+    deleteCancel: "Cancel",
+    deleteCodeSent: "We sent a deletion code to {email}.",
+    deleteConfirm: "Confirm deletion",
+    deleted: "Removed. Contact us if you want it back.",
     familiarityTitle: "How well does EVA know you?",
     familiarityHint:
       "EVA needs to know you well enough before you can share yourself. It fills up as you talk.",
@@ -463,6 +512,10 @@ export const en: Messages = {
     noGrants: "You haven't sent a key to anyone yet.",
     errors: {
       legacy_not_enough_data: "EVA doesn't know you well enough yet; keep talking.",
+      legacy_email_required: "You need a verified email, because warnings are sent by email.",
+      legacy_already_activated: "The after-death Legacy has already been activated.",
+      legacy_heirs_required: "Add at least one recipient.",
+      legacy_heir_limit: "At most 5 recipients.",
       legacy_draft_missing: "Save your personality draft first.",
       legacy_voice_missing: "Your Legacy needs your approved voice clone.",
       legacy_face_missing: "Your Legacy needs your approved face photo.",
