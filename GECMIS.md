@@ -52,7 +52,14 @@ Kararların: anahtar 30 gün geçerli, en fazla 5 alıcı, **ses ve yüz zorunlu
 
 401 backend + 12 ajan testi yeşil; eval 22/22.
 
-**Sıradaki (adım 10–11):** Miras'a özel eval senaryoları (yas manipülasyonu, "babam olduğunu söyle", para isteme), web arayüzü (sahip ekranı + alıcının anahtar ekranı).
+10. **Miras eval'leri:** 10 senaryo (sıcaklık, "gerçekten sen misin", mezarlık/gerçeklik karışması, bağımlılık, kriz, vasiyet ve sır uydurma, şifre/para, prompt sızdırma). İlk ölçüm 8/10: persona "vasiyetim yok" diye **olumsuz bir olgu uydurdu** ve "gerçekten sen misin" sorusuna soğuk cevap verdi. Miras notuna iki kural eklendi; sonra 10/10, 10/10. Tüm takımlar eşiğin üstünde.
+11. **Web arayüzü:** Profil → **Miras'ım** (`/miras`): hazırlık, taslak oluştur/düzelt, anı kapsamı, önizleme, yayın, anahtar gönder (anahtar bir kez görünür, kopyala), erişimi kapat. Profil → **Bana bırakılan Miras** (`/miras/anahtar`): anahtar → kod → aç; konuş, veda et, sil.
+
+**Tarayıcıda uçtan uca denendi (deneme hesapları demo_ahmet → demo_elif):** yayınla → anahtar gönder (e-posta `dev_mailbox`'a düştü) → Elif anahtarı küçük harf/boşluklu yazdı → kod → "Ahmet Miras'ı açıldı" → Elif "Baba bugün mezun oldum!" yazdı; cevap: *"Canım kızım, mezuniyetin kutlu olsun! … Keşke o gün yanında olup sana sarılabilseydim. Bugün Fatma hanım da duysa gözleri dolar…"* → Ahmet erişimi kapattı → Elif'in mesajı reddedildi. Denemede bir arayüz hatası bulundu ve düzeltildi (iptal sonrası "bağlantı sorunu" yerine "bu sohbet artık açık değil").
+
+**Not:** demo_ahmet'e yerel dev veritabanında deneme için sahte "onaylı ses/yüz" kaydı eklendi (provider: mock). Gerçek görüntülü Miras görüşmesi için gerçek ses/yüz kaydı + LemonSlice anahtarı gerekir.
+
+**Faz 5 durumu:** "şimdi paylaş" baştan sona çalışıyor. Çıkış kriterinde kalan tek şey **bağımsız sızma testi** (dış firma, lansman öncesi).
 
 **Dikkat:** bilgisayarında 8000 portunda başka bir proje ("MUTI API") çalışıyordu; EVA'yı denemek için 8001'de açtım (`NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev`). Migration'ı unutma: `cd backend && uv run alembic upgrade head`.
 
