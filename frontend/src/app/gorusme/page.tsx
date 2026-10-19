@@ -20,22 +20,20 @@ import {
   type Participant,
   type RemoteTrack,
 } from "livekit-client";
-import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { MediaPicker } from "@/components/MediaPicker";
 import { ArrowLeft, MicIcon, MicOffIcon, PhoneOffIcon, VideoIcon } from "@/components/icons";
+import { usePersonaParam } from "@/hooks/usePersonaParam";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
 import {
   ApiError,
   endCall,
   errorCode,
-  getCharacter,
   latencyReport,
   startCall,
   type Call,
-  type Character,
   type CallMode,
   type LatencyReport,
 } from "@/lib/api/client";
@@ -57,11 +55,10 @@ export default function CallPage() {
   );
 }
 
-/** ``?karakter=<id>`` verilirse o karakterle, yoksa EVA ile görüşme. */
+/** ``?karakter=<id>`` / ``?miras=<id>`` verilirse o personayla, yoksa EVA ile görüşme.
+ * Miras'ta ses ve yüz her zaman sahibinindir; seçici gösterilmez, varsayılan görüntülü. */
 function VoiceCall() {
-  const personaId = useSearchParams().get("karakter");
-  const [character, setCharacter] = useState<Character | null>(null);
-  const name = personaId ? (character?.name ?? "") : "EVA";
+  const { personaId, kind, name, character } = usePersonaParam();
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [mode, setMode] = useState<CallMode>("voice");
@@ -79,23 +76,13 @@ function VoiceCall() {
   const audioHost = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!personaId) return;
-    let cancelled = false;
-    getCharacter(personaId)
-      .then((c) => {
-        if (cancelled) return;
-        setCharacter(c);
-        // Yüzü olan karakterle görüntülü görüşme daha doğal: varsayılan o olsun.
-        if (c.has_face) setMode("video");
-      })
-      .catch(() => {
-        if (!cancelled) setError(t.call.failed);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [personaId]);
+  // Yüzü olan karakterle ve Miras'la görüntülü görüşme daha doğal: varsayılan o olsun.
+  const prefersVideo = kind === "legacy" || Boolean(character?.has_face);
+  const [videoDefaulted, setVideoDefaulted] = useState(false);
+  if (prefersVideo && !videoDefaulted) {
+    setVideoDefaulted(true);
+    setMode("video");
+  }
 
   const loadReport = useCallback(async () => {
     try {
@@ -178,6 +165,8 @@ function VoiceCall() {
       else if (code === "no_active_voice") setError(t.call.noActiveVoice);
       else if (code === "no_active_avatar") setError(t.call.noActiveAvatar);
       else if (code === "persona_media_not_configured") setError(t.call.mediaNotConfigured);
+      else if (code === "legacy_media_unavailable") setError(t.call.legacyMediaUnavailable);
+      else if (err instanceof ApiError && err.status === 404) setError(t.call.notAvailable);
       else setError(t.call.failed);
       return;
     }
@@ -345,11 +334,13 @@ function VoiceCall() {
                 </button>
               ))}
             </div>
-            <MediaPicker
-              mode={mode}
-              personaId={personaId ?? undefined}
-              personaName={character?.name}
-            />
+            {kind !== "legacy" && (
+              <MediaPicker
+                mode={mode}
+                personaId={personaId ?? undefined}
+                personaName={character?.name}
+              />
+            )}
             <button
               type="button"
               onClick={start}
@@ -361,7 +352,11 @@ function VoiceCall() {
             <p className="text-center text-xs text-muted">{t.call.startHint}</p>
             {phase === "ended" && (
               <Link
-                href={personaId ? `/chat?karakter=${personaId}` : "/chat"}
+                href={
+                  personaId
+                    ? `/chat?${kind === "legacy" ? "miras" : "karakter"}=${personaId}`
+                    : "/chat"
+                }
                 className="block text-center text-sm text-muted underline"
               >
                 {t.call.backToChat}

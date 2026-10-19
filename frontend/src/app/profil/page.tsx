@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { BottomNav } from "@/components/BottomNav";
-import { ChevronRight, LockIcon, MicIcon, UserIcon } from "@/components/icons";
+import {
+  ChevronRight,
+  HeartIcon,
+  InfinityIcon,
+  LockIcon,
+  MicIcon,
+  UserIcon,
+} from "@/components/icons";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
 
@@ -23,6 +30,18 @@ export default function Page() {
       Icon: UserIcon,
     },
     { href: "/gorusme", title: t.profile.callTitle, body: t.profile.callBody, Icon: MicIcon },
+    {
+      href: "/miras",
+      title: t.legacy.profileOwner,
+      body: t.legacy.profileOwnerBody,
+      Icon: InfinityIcon,
+    },
+    {
+      href: "/miras/anahtar",
+      title: t.legacy.profileRecipient,
+      body: t.legacy.profileRecipientBody,
+      Icon: HeartIcon,
+    },
     ...(user.role === "admin"
       ? [
           {

@@ -108,7 +108,8 @@ eva/
 │   └── src/
 │       ├── app/             # sayfalar: / (ana sayfa), /chat, /anilar, /gorusme (sesli/görüntülü),
 │       │                    # /profil, /profil/ses-yuz (rızalı kayıt), /yonetim (admin inceleme), /analiz,
-│       │                    # /kesfet (karakterler), /kesfet/yeni; /chat ve /gorusme ?karakter=<id> alır
+│       │                    # /kesfet (karakterler), /kesfet/yeni, /miras (sahip), /miras/anahtar (alıcı);
+│       │                    # /chat ve /gorusme ?karakter=<id> ya da ?miras=<id> alır (hooks/usePersonaParam)
 │       ├── components/      # auth/, memories/, StepUpSheet (adım-yukarı penceresi), ui.tsx, BottomNav, icons
 │       ├── hooks/           # useSession, useRecorder (mikrofon/kamera kaydı)
 │       ├── i18n/            # tr.ts (varsayılan), en.ts – UI metinleri koda gömülmez

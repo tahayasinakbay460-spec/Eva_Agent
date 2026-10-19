@@ -1,23 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { CharacterFace } from "@/components/characters/CharacterFace";
 import { ArrowLeft, HeartIcon, MicIcon, SendIcon } from "@/components/icons";
 import { SaveMemorySheet } from "@/components/memories/SaveMemorySheet";
+import { usePersonaParam } from "@/hooks/usePersonaParam";
 import { useSession } from "@/hooks/useSession";
 import { messages } from "@/i18n";
 import {
+  ApiError,
   createConversation,
-  getCharacter,
+  errorCode,
   listConversations,
   listMessages,
   listPersonas,
   newIdempotencyKey,
   sendMessage,
-  type Character,
   type Message,
 } from "@/lib/api/client";
 
@@ -37,12 +37,11 @@ export default function ChatPage() {
   );
 }
 
-/** ``?karakter=<id>`` verilirse o karakterle, yoksa EVA ile sohbet. */
+/** ``?karakter=<id>`` / ``?miras=<id>`` verilirse o personayla, yoksa EVA ile sohbet. */
 function Chat() {
-  const personaId = useSearchParams().get("karakter");
+  const { personaId, kind, name, character, failed } = usePersonaParam();
   // Her personanın son sohbeti ayrı hatırlanır.
   const storageKey = personaId ? `${CONVERSATION_KEY}.${personaId}` : CONVERSATION_KEY;
-  const [character, setCharacter] = useState<Character | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [draft, setDraft] = useState("");
@@ -53,21 +52,6 @@ function Chat() {
   const [savedNotice, setSavedNotice] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!personaId) return;
-    let cancelled = false;
-    getCharacter(personaId)
-      .then((c) => {
-        if (!cancelled) setCharacter(c);
-      })
-      .catch(() => {
-        if (!cancelled) setError(t.chat.errorFatal);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [personaId]);
 
   // Kayıtlı sohbete devam et; yoksa bu personayla en son sohbeti aç; o da yoksa yenisini oluştur.
   useEffect(() => {
@@ -169,9 +153,17 @@ function Chat() {
         }
       } catch (err) {
         if (!controller.signal.aborted) {
-          setError(t.chat.errorRetryable);
+          // Beklenen durumlar (ör. Miras erişimi kapatıldı) açık bir mesajla gösterilir.
+          const code = errorCode(err);
+          if (code === "legacy_not_found" || (err instanceof ApiError && err.status === 404)) {
+            setError(t.chat.notAvailable);
+          } else if (code === "legacy_media_unavailable") {
+            setError(t.call.legacyMediaUnavailable);
+          } else {
+            setError(t.chat.errorRetryable);
+            console.error(err);
+          }
           setBubbles((b) => b.filter((m) => !(m.id === assistantId && m.content === "")));
-          console.error(err);
         }
       } finally {
         setStreaming(false);
@@ -199,7 +191,9 @@ function Chat() {
     setError(null);
   }
 
-  const title = personaId ? (character?.name ?? "") : "EVA";
+  const title = name || (kind === "legacy" ? t.legacy.genericName : "");
+  const callHref =
+    kind === "legacy" ? `/gorusme?miras=${personaId}` : `/gorusme?karakter=${personaId}`;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -232,7 +226,7 @@ function Chat() {
         </span>
         {personaId && (
           <Link
-            href={`/gorusme?karakter=${personaId}`}
+            href={callHref}
             aria-label={t.characters.call}
             className="rounded-full p-1 text-muted hover:text-white"
           >
@@ -258,7 +252,9 @@ function Chat() {
         {bubbles.map((m) => (
           <BubbleView key={m.id} bubble={m} onSaveAsMemory={setSaving} />
         ))}
-        {error && <p className="text-center text-xs text-red-300">{error}</p>}
+        {(error ?? (failed ? t.chat.errorFatal : null)) && (
+          <p className="text-center text-xs text-red-300">{error ?? t.chat.errorFatal}</p>
+        )}
         {savedNotice && (
           <p role="status" className="text-center text-xs text-mint">
             {t.chat.savedAsMemory}{" "}

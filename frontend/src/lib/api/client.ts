@@ -301,6 +301,42 @@ export async function uploadCharacterFace(id: string, file: Blob): Promise<Chara
   return (await res.json()) as Character;
 }
 
+/* Miras (Faz 5, ADR 0010): sahibin kişilik taslağı, yayın, anahtarlar; alıcının anahtar ekranı. */
+
+export type LegacyPersona = Schemas["LegacyPersonaOut"];
+export type LegacyDraft = Schemas["LegacyDraftIn"];
+export type LegacyGrant = Schemas["LegacyGrantOut"];
+export type LegacyGrantCreated = Schemas["LegacyGrantCreatedOut"];
+export type SharedLegacy = Schemas["SharedLegacyOut"];
+export type LegacyConsentText = Schemas["LegacyConsentTextOut"];
+
+export const getLegacyPersona = () => request<LegacyPersona>("/legacy/persona");
+export const synthesizeLegacy = () => post<LegacyPersona>("/legacy/persona/synthesize", {});
+export const updateLegacyDraft = (body: LegacyDraft) =>
+  request<LegacyPersona>("/legacy/persona", { method: "PUT", body: JSON.stringify(body) });
+export const publishLegacy = () => post<Schemas["LegacyPublishOut"]>("/legacy/persona/publish", {});
+export const legacyConsentText = () => request<LegacyConsentText>("/legacy/consent-text");
+export const listLegacyGrants = () => request<LegacyGrant[]>("/legacy/grants");
+export const createLegacyGrant = (recipientEmail: string, consentVersion: string) =>
+  post<LegacyGrantCreated>("/legacy/grants", {
+    recipient_email: recipientEmail,
+    consent_accepted: true,
+    consent_text_version: consentVersion,
+  });
+export const revokeLegacyGrant = (id: string) =>
+  post<LegacyGrant>(`/legacy/grants/${encodeURIComponent(id)}/revoke`, {});
+export const redeemLegacy = (key: string) =>
+  post<Schemas["LegacyRedeemStartedOut"]>("/legacy/redeem", { key });
+export const verifyLegacyRedeem = (flowId: string, code: string) =>
+  post<Schemas["LegacyRedeemedOut"]>("/legacy/redeem/verify", { flow_id: flowId, code });
+export const listSharedLegacies = () => request<SharedLegacy[]>("/legacy/shared");
+export const archiveSharedLegacy = (accessId: string) =>
+  post<SharedLegacy>(`/legacy/shared/${encodeURIComponent(accessId)}/archive`, {});
+export const deleteSharedLegacy = (accessId: string) =>
+  request<void>(`/legacy/shared/${encodeURIComponent(accessId)}`, { method: "DELETE" });
+export const setMemoryLegacyScope = (id: string, scope: Memory["legacy_scope"]) =>
+  updateMemory(id, { legacy_scope: scope });
+
 /** Backend hatasındaki kısa kod (ör. `{"detail": "step_up_required"}` -> "step_up_required"). */
 export function errorCode(err: unknown): string | null {
   if (!(err instanceof ApiError)) return null;
