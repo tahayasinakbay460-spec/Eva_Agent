@@ -25,6 +25,17 @@ Ne yaptık, nerede kaldık, nasıl çalıştırılır. Her oturum sonunda günce
 ### Not
 Model her seferinde biraz farklı cevap veriyor, o yüzden skor turdan tura bir iki senaryo oynayabilir. Eşik bu yüzden %100 değil, %90.
 
+### Aynı oturumun ikinci kısmı: Karakter Stüdyosu demosu
+**Sonuç:** Artık karakter oluşturulabiliyor, herkes onlarla yazışıp görüntülü görüşebiliyor.
+1. **Karakter oluştur** (`/kesfet/yeni`): ad, kim olduğu, kişiliği, konuşma tarzı, örnek konuşma, zaman (yalnızca kendi dönemi / bugün), kimler konuşabilir (herkes / yalnızca ben), ses.
+2. **Yüz:** fotoğraf ya da çizim yüklenir (senin kararın: kendi fotoğrafın, çizgi film ya da başka birinin fotoğrafı). Yüklemeden önce "kullanma hakkım var, kişi 18 yaşından büyük, +18 içerik yok" kutusu işaretlenir. Görsel temizlenip (konum bilgisi silinir) şifreli saklanıyor.
+3. **Keşfet** (`/kesfet`): "Herkes" ve "Karakterlerim" sekmeleri; her kartta **Yaz** ve **Ara**.
+4. **Sohbet ve görüşme** artık `?karakter=` ile o karakterle. Görüntülü görüşmede karakterin yüzü (LemonSlice) ve seçtiği ses varsayılan.
+5. **Denendi:** 351 backend testi (9'u yeni: başkasının gizli karakterine erişememe, sadece sahibin düzenlemesi, beyansız yüklemenin reddi, konum bilgisinin silinmesi, görüşmede karakter yüzü). Gerçek modelle: Mehmet, Ayşe'nin "Fatih Sultan Mehmet" karakterine İstanbul'un fethini sordu, cevap verdi; akıllı telefonu sorunca "Avuç içine sığan bir haberleşme aleti mi?" dedi. Ekranlar tarayıcıda kontrol edildi.
+6. **Lansmandan önce bakılacak** (ADR 0009): başka birinin fotoğrafı için rıza / bildir-kaldır, herkese açık karakterlerde bildir/engelle, reşit olmayan yüzüne karşı kontrol, engel listeleri.
+
+**Dikkat:** bilgisayarında 8000 portunda başka bir proje ("MUTI API") çalışıyordu; EVA'yı denemek için 8001'de açtım (`NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev`). Migration'ı unutma: `cd backend && uv run alembic upgrade head`.
+
 ---
 
 ## 17 Ekim 2026 (7. oturum) — Avatar LemonSlice'a geçti: tek fotoğraftan konuşan yüz

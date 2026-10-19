@@ -85,10 +85,10 @@ eva/
 │   │   │                    # enrollment_samples, provider_assets, consents, consent_records, audit_log,
 │   │   │                    # media_preferences (kullanıcının seçtiği ses/yüz)
 │   │   ├── schemas/         # Pydantic istek/cevap şemaları (SSE payload'ları dahil)
-│   │   ├── routers/         # health, auth (passkey + şifre + adım-yukarı), personas, chat, memories,
+│   │   ├── routers/         # health, auth (passkey + şifre + adım-yukarı), personas, characters, chat, memories,
 │   │   │                    # voice (görüşme + gecikme panosu), biometrics (ses/yüz kaydı), admin (inceleme),
 │   │   │                    # media (ses/yüz kataloğu, seçim, hazır ses önizlemesi)
-│   │   ├── services/        # iş mantığı: auth, password_auth, persona, chat (akışlı tur),
+│   │   ├── services/        # iş mantığı: auth, password_auth, persona, character (Karakter Stüdyosu), chat (akışlı tur),
 │   │   │                    # memory (CRUD), memory_retrieval (sıcak yol), memory_extraction (işçi),
 │   │   │                    # voice (görüşme + CallTurns), biometric, consent_texts, audit,
 │   │   │                    # media (EVA'nın sesi/yüzü: katalog ya da kullanıcının kendi klonu)
@@ -107,7 +107,8 @@ eva/
 ├── frontend/                # Next.js (App Router, Tailwind v4) – mobil-öncelikli web
 │   └── src/
 │       ├── app/             # sayfalar: / (ana sayfa), /chat, /anilar, /gorusme (sesli/görüntülü),
-│       │                    # /profil, /profil/ses-yuz (rızalı kayıt), /yonetim (admin inceleme), /analiz, /kesfet
+│       │                    # /profil, /profil/ses-yuz (rızalı kayıt), /yonetim (admin inceleme), /analiz,
+│       │                    # /kesfet (karakterler), /kesfet/yeni; /chat ve /gorusme ?karakter=<id> alır
 │       ├── components/      # auth/, memories/, StepUpSheet (adım-yukarı penceresi), ui.tsx, BottomNav, icons
 │       ├── hooks/           # useSession, useRecorder (mikrofon/kamera kaydı)
 │       ├── i18n/            # tr.ts (varsayılan), en.ts – UI metinleri koda gömülmez
@@ -509,7 +510,8 @@ Kullanıcıya sorulacak; karar verilene kadar ilgili özellik kapalı kalır.
 - [ ] Rızası alınamayan (ör. vefat etmiş) bir yakının yalnızca metin tabanlı, kişiye özel karakterine izin var mı? (Varsayılan: kapalı)
 - [x] Romantik/flörtöz karakterler → izinli (sahibin kararı, 2026-10-19); açık cinsel içerik her durumda yok, gerçek kişinin kimliğiyle cinsel içerik yok, reşit olmadığını söyleyen kullanıcıyla flört yok
 - [x] Karakterlerin görünürlüğü → şimdilik herkese açık (sahibin kararı, 2026-10-19; ileride değişebilir)
-- [x] Karakterin yüzü/sesi → katalog, kullanıcının kendi onaylı yüzü/sesi ya da yüklenen çizim/çizgi film görseli (ADR 0009, 2026-10-19)
+- [x] Karakterin yüzü/sesi → kullanıcının yüklediği görsel (kendi fotoğrafı, çizim ya da başka birinin fotoğrafı; hak + 18+ beyanıyla) + hazır ses (sahibin kararı, demo aşaması, ADR 0009, 2026-10-19). §2 kural 2'ye bu karar istisnadır.
+- [ ] Lansmandan önce: başka gerçek kişinin fotoğrafı için rıza / bildir-kaldır, herkese açık karakterlerde bildir/engelle, reşit olmayan yüzüne karşı kontrol (ADR 0009)
 - [ ] Gelir modeli ve plan kotaları (avatar dakikası maliyeti nedeniyle)
 - [ ] Hassas figürler listesinin son hali (hukukçu görüşüyle)
 - [x] LLM sağlayıcısı → OpenAI GPT (ADR 0004, 2026-10-16)
